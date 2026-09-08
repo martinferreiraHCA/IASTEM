@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>NOVA · IASTEM</title>
+  <meta name="description" content="Interfaz conversacional en vivo conectada a la API de ChatGPT." />
+  <meta name="theme-color" content="#05060c" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='38' fill='none' stroke='%237af5ff' stroke-width='7'/><circle cx='50' cy='50' r='13' fill='%23a37bff'/></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@300;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./styles.css" />
+  <link rel="stylesheet" href="./stage.css" />
+</head>
+<body data-mode="console">
+
+  <!-- ===================================================== fondo vivo -->
+  <div class="aurora" aria-hidden="true">
+    <span class="aurora__blob aurora__blob--1"></span>
+    <span class="aurora__blob aurora__blob--2"></span>
+    <span class="aurora__blob aurora__blob--3"></span>
+    <span class="aurora__grid"></span>
+  </div>
+  <canvas id="cloud" class="cloud" aria-hidden="true"></canvas>
+
+  <!-- ===================================================== barra sup. -->
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand__mark" aria-hidden="true"></span>
+      <span class="brand__text">
+        <strong>NOVA</strong>
+        <small>IASTEM</small>
+      </span>
+    </div>
+
+    <div class="topbar__actions">
+      <div class="status" id="status" data-state="checking">
+        <span class="status__dot" aria-hidden="true"></span>
+        <span class="status__label">Conectando…</span>
+      </div>
+      <button class="ghost" id="stageBtn" type="button" title="Pantalla completa para proyectar (F)">
+        Modo escenario
+      </button>
+    </div>
+  </header>
+
+  <main class="stage">
+
+    <!-- ------------------------------------------------ núcleo visual -->
+    <section class="core">
+      <div class="orb" id="orb" data-state="idle" aria-hidden="true">
+        <span class="orb__halo"></span>
+        <span class="orb__ring orb__ring--a"></span>
+        <span class="orb__ring orb__ring--b"></span>
+        <span class="orb__ring orb__ring--c"></span>
+        <span class="orb__core"></span>
+        <div class="orb__wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      </div>
+      <p class="core__caption" id="coreCaption">En espera</p>
+
+      <button class="mic mic--hero" id="micBtn" type="button" aria-pressed="false"
+              title="Encender el micrófono (barra espaciadora)">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 15a3.5 3.5 0 0 0 3.5-3.5v-5a3.5 3.5 0 1 0-7 0v5A3.5 3.5 0 0 0 12 15Z" />
+          <path d="M18.5 11.5a6.5 6.5 0 0 1-13 0M12 18v3.5M8.5 21.5h7" />
+        </svg>
+        <span class="mic__pulse" aria-hidden="true"></span>
+        <span class="sr-only">Activar micrófono</span>
+      </button>
+      <p class="mic__hint" id="micHint">Tocá para hablar</p>
+    </section>
+
+    <!-- ------------------------------------------------ conversación -->
+    <section class="panel" aria-label="Conversación">
+      <div class="panel__glow" aria-hidden="true"></div>
+
+      <div class="log" id="log" role="log" aria-live="polite" aria-relevant="additions text">
+        <div class="welcome" id="welcome">
+          <h1>Hablá con <span>NOVA</span></h1>
+          <p>Encendé el micrófono y hablale, o escribile acá abajo. Responde en vivo por la API de ChatGPT.</p>
+          <div class="chips">
+            <button class="chip" type="button" data-prompt="Explicame qué es una API como si tuviera 12 años.">¿Qué es una API?</button>
+            <button class="chip" type="button" data-prompt="Dame tres ideas de proyecto STEM para presentar en la escuela.">Ideas de proyecto STEM</button>
+            <button class="chip" type="button" data-prompt="Contame un dato curioso de física que casi nadie conoce.">Un dato curioso</button>
+          </div>
+        </div>
+      </div>
+
+      <form class="composer" id="composer" autocomplete="off">
+        <div class="field">
+          <textarea id="input" rows="1" placeholder="Escribí un mensaje… (Enter para enviar)" aria-label="Mensaje"></textarea>
+        </div>
+        <button class="send" id="sendBtn" type="submit" title="Enviar">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12 20 4l-8 16-2-6-6-2Z" /></svg>
+          <span class="sr-only">Enviar</span>
+        </button>
+      </form>
+
+      <div class="toolbar">
+        <button class="toggle" id="voiceToggle" type="button" aria-pressed="false">
+          <span class="toggle__track"><span class="toggle__thumb"></span></span>
+          Voz de NOVA
+        </button>
+        <span class="toolbar__spacer"></span>
+        <button class="ghost" id="stopBtn" type="button" hidden>Detener</button>
+        <button class="ghost" id="clearBtn" type="button">Limpiar</button>
+      </div>
+    </section>
+  </main>
+
+  <!-- ===================================================== escenario -->
+  <!-- Capa de proyección: se muestra sobre todo en modo escenario. -->
+  <section class="scene" id="scene" aria-hidden="true">
+    <div class="scene__orb">
+      <div class="orb orb--scene" id="sceneOrb" data-state="idle">
+        <span class="orb__halo"></span>
+        <span class="orb__ring orb__ring--a"></span>
+        <span class="orb__ring orb__ring--b"></span>
+        <span class="orb__core"></span>
+        <div class="orb__wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      </div>
+      <p class="scene__state" id="sceneState">En espera</p>
+    </div>
+
+    <div class="scene__body">
+      <p class="scene__label" id="sceneLabel">NOVA</p>
+      <div class="scene__text" id="sceneText"></div>
+    </div>
+
+    <div class="scene__foot">
+      <p class="scene__heard" id="sceneHeard"></p>
+      <p class="scene__hint" id="sceneHint">Espacio: micrófono · F: salir de pantalla completa</p>
+    </div>
+  </section>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

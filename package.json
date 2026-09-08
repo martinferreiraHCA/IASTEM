@@ -1,0 +1,16 @@
+{
+  "name": "iastem-nova",
+  "version": "1.0.0",
+  "description": "Interfaz conversacional para proyectar: habla en vivo con ChatGPT, letras que se materializan y nube de palabras.",
+  "private": true,
+  "type": "commonjs",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT"
+}

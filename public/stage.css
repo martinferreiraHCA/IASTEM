@@ -1,0 +1,201 @@
+/* =========================================================================
+   Modo escenario: la vista para proyectar en pantalla gigante.
+   Todo acá está pensado para leerse a diez metros.
+   ========================================================================= */
+
+/* ---------------------------------------------------- nube de palabras */
+.cloud {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.55;
+  transition: opacity 0.6s ease;
+}
+body[data-mode="stage"] .cloud { opacity: 1; }
+
+/* ------------------------------------------------------ letras Jumanji */
+/* La palabra es la unidad indivisible: el renglón corta entre palabras, nunca dentro. */
+.word {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.ch {
+  display: inline-block;
+  white-space: pre;
+}
+.ch--space { width: 0.3em; }
+
+/* El glifo todavía buscando su forma: borroso, alto, tembloroso. */
+.ch.is-forming {
+  color: var(--cyan);
+  opacity: 0.75;
+  filter: blur(2.5px);
+  transform: translateY(-0.12em) scale(1.14);
+  text-shadow: 0 0 22px currentColor;
+}
+
+/* Ya encontró su lugar. */
+.ch.is-set {
+  opacity: 1;
+  filter: none;
+  transform: none;
+  transition: opacity 0.32s ease, filter 0.32s ease, transform 0.32s ease, text-shadow 0.7s ease;
+}
+
+/* Destello del momento exacto en que la letra se fija. */
+.ch.just-set {
+  text-shadow: 0 0 26px var(--cyan), 0 0 46px rgba(163, 123, 255, 0.7);
+}
+
+/* ============================================================ escenario */
+.scene {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: none;
+  grid-template-rows: auto 1fr auto;
+  gap: clamp(12px, 2vh, 28px);
+  padding: clamp(20px, 4vh, 56px) clamp(24px, 5vw, 90px);
+  background: radial-gradient(ellipse at 50% 45%, rgba(5, 6, 12, 0.35), rgba(5, 6, 12, 0.86) 72%);
+  backdrop-filter: blur(3px);
+}
+
+body[data-mode="stage"] .scene { display: grid; }
+body[data-mode="stage"] .topbar,
+body[data-mode="stage"] .stage { display: none; }
+body[data-mode="stage"] { overflow: hidden; }
+
+/* --------------------------------------------------------- orbe arriba */
+.scene__orb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+}
+
+.orb--scene {
+  width: clamp(64px, 9vh, 110px);
+}
+.orb--scene .orb__wave { height: 18px; gap: 3px; }
+.orb--scene .orb__wave i { width: 3px; }
+
+.scene__state {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: clamp(11px, 1.3vh, 15px);
+  letter-spacing: 0.42em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+/* --------------------------------------------------------- texto grande */
+.scene__body {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-height: 0;
+  text-align: center;
+}
+
+.scene__label {
+  margin: 0 0 clamp(10px, 2vh, 26px);
+  font-family: var(--mono);
+  font-size: clamp(12px, 1.5vh, 17px);
+  letter-spacing: 0.5em;
+  text-transform: uppercase;
+  background: linear-gradient(90deg, var(--cyan), var(--violet), var(--magenta));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  transition: opacity 0.4s ease;
+}
+
+.scene__text {
+  font-size: clamp(26px, 4.2vh, 62px);
+  font-weight: 300;
+  line-height: 1.42;
+  letter-spacing: -0.005em;
+  max-width: 24ch;
+  max-height: 62vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+  text-wrap: balance;
+  text-shadow: 0 0 34px rgba(122, 245, 255, 0.22);
+}
+.scene__text::-webkit-scrollbar { display: none; }
+
+/* Cuando la persona habla, el mismo espacio muestra lo que se escuchó. */
+.scene[data-speaker="human"] .scene__label { color: #46f0a8; background: none; -webkit-text-fill-color: #46f0a8; }
+.scene[data-speaker="human"] .scene__text { font-weight: 200; opacity: 0.92; }
+.scene[data-speaker="human"] .ch.is-forming { color: #46f0a8; }
+.scene[data-speaker="human"] .ch.just-set { text-shadow: 0 0 26px #46f0a8, 0 0 46px rgba(70, 240, 168, 0.6); }
+
+/* ---------------------------------------------------------- pie escena */
+.scene__foot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+  min-height: 3.4em;
+}
+
+/* Lo que el micrófono está captando ahora mismo, en vivo. */
+.scene__heard {
+  margin: 0;
+  font-size: clamp(14px, 2vh, 24px);
+  font-weight: 300;
+  line-height: 1.4;
+  color: rgba(157, 255, 215, 0.92);
+  max-width: 60ch;
+  min-height: 1.4em;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+.scene__heard.is-live {
+  opacity: 1;
+  transform: none;
+  text-shadow: 0 0 24px rgba(70, 240, 168, 0.45);
+}
+
+.scene__hint {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: clamp(9px, 1.1vh, 12px);
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: rgba(154, 163, 199, 0.5);
+}
+
+/* ------------------------------------------------------ micrófono hero */
+.mic--hero {
+  width: 72px;
+  height: 72px;
+  margin-top: 4px;
+}
+.mic--hero svg { width: 28px; height: 28px; }
+
+.mic__hint {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  text-align: center;
+  transition: color 0.3s ease;
+}
+.mic[aria-pressed="true"] ~ .mic__hint { color: #46f0a8; }
+
+/* -------------------------------------------------------------- mobile */
+@media (max-width: 900px) {
+  .scene__text { max-width: 18ch; }
+  .scene { padding: 24px 20px; }
+}
