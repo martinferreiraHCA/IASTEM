@@ -62,12 +62,8 @@ la computadora de la presentación y nadie puede sacarla desde el navegador.
 
 ## Publicar en GitHub Pages
 
-El repo ya trae el workflow. Una sola vez:
-
-**Settings → Pages → Source → GitHub Actions**
-
-Desde ahí, cada push a `main` publica la carpeta `public/` sola. El sitio queda
-en `https://TU-USUARIO.github.io/IASTEM/`.
+El repo ya trae el workflow que publica `public/` en cada push a `main`. El
+sitio queda en `https://TU-USUARIO.github.io/IASTEM/`.
 
 ### Leé esto antes de publicar
 
