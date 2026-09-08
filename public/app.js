@@ -1,15 +1,18 @@
 /**
  * NOVA — orquestador de la interfaz.
  *
- * Junta las cuatro piezas: la API en streaming, las letras que se
- * materializan, la nube de palabras y la voz. Maneja dos vistas de lo
- * mismo: la consola (para operar) y el escenario (para proyectar).
+ * Junta las piezas: la API en streaming, las letras que se materializan, la
+ * nube de palabras, la voz y el nivel de audio. Maneja dos vistas de lo
+ * mismo —la consola, para operar; el escenario, para proyectar— y conduce
+ * la función: de quién es el turno y qué va quedando definido.
  */
 
 import { detectMode, streamChat, settings, DEFAULT_MODEL, DEFAULT_PROMPT } from './js/api.js';
 import { Materializer } from './js/materialize.js';
 import { WordCloud } from './js/wordcloud.js';
 import { Listener, Speaker, makeSentenceSplitter, voiceSupport } from './js/voice.js';
+import { VoiceMeter } from './js/audio.js';
+import { Show } from './js/show.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -44,6 +47,24 @@ const el = {
   sceneState: $('sceneState'),
   sceneHeard: $('sceneHeard'),
   toast: $('toast'),
+
+  // función
+  showBtn: $('showBtn'),
+  show: $('show'),
+  showClose: $('showClose'),
+  altaForm: $('altaForm'),
+  altaNombre: $('altaNombre'),
+  plantel: $('plantel'),
+  acuerdosLista: $('acuerdosLista'),
+  muroBtn: $('muroBtn'),
+  borrarAcuerdos: $('borrarAcuerdos'),
+  turnos: $('turnos'),
+  turnosLista: $('turnosLista'),
+  pinBtn: $('pinBtn'),
+  sceneQuien: $('sceneQuien'),
+  sceneNombre: $('sceneNombre'),
+  muroGrilla: $('muroGrilla'),
+  muroSub: $('muroSub'),
 };
 
 /* --------------------------------------------------------------- estado */
@@ -55,6 +76,9 @@ const state = {
   pendingSpeech: [],     // frases dictadas esperando envío
   silenceTimer: null,
   mode: 'demo',          // servidor, directo o demo
+  escena: 'charla',      // portada, charla o muro
+  ultimaPregunta: '',    // para saber de qué trata el último acuerdo
+  ultimaRespuesta: '',   // lo que se fija con la tecla A
 };
 
 const SILENCE_MS = 1400;  // pausa que se toma como "terminó de hablar"
@@ -62,6 +86,8 @@ const SILENCE_MS = 1400;  // pausa que se toma como "terminó de hablar"
 const cloud = new WordCloud($('cloud'));
 const sceneWriter = new Materializer(el.sceneText, { charsPerSecond: 38 });
 const speaker = new Speaker();
+const meter = new VoiceMeter();
+const show = new Show();
 const sentences = makeSentenceSplitter((s) => speaker.say(s));
 
 const listener = new Listener({
@@ -85,6 +111,10 @@ init();
 async function init() {
   wireEvents();
   autoGrow(el.input);
+
+  show.subscribe(() => pintarFuncion());
+  conectarMedidor();
+  verEscena('charla');
 
   await refreshMode({ announce: true });
 
@@ -175,6 +205,21 @@ function writeStored(key, value) {
   } catch { /* no pasa nada si no se puede guardar */ }
 }
 
+/* ------------------------------------------------------ voz que se ve */
+
+/**
+ * Conecta el volumen real del micrófono a los visuales. Es lo que hace que
+ * el público entienda, sin explicación, que la IA escucha a esa persona.
+ */
+function conectarMedidor() {
+  meter.onLevel = (nivel) => {
+    const valor = nivel.toFixed(3);
+    el.orb.style.setProperty('--voz', valor);
+    el.sceneOrb.style.setProperty('--voz', valor);
+    cloud.setEnergy(nivel);
+  };
+}
+
 /* ----------------------------------------------------------- eventos */
 
 function wireEvents() {
@@ -198,6 +243,25 @@ function wireEvents() {
   el.settingsBtn.addEventListener('click', () => openSettings());
   el.settingsForm.addEventListener('submit', (event) => applySettings(event.submitter?.value));
 
+  el.showBtn.addEventListener('click', () => el.show.showModal());
+  el.showClose.addEventListener('click', () => el.show.close());
+  el.muroBtn.addEventListener('click', () => verEscena(state.escena === 'muro' ? 'charla' : 'muro'));
+  el.pinBtn.addEventListener('click', () => fijarAcuerdo());
+
+  el.altaForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const persona = show.addSpeaker(el.altaNombre.value);
+    el.altaNombre.value = '';
+    el.altaNombre.focus();
+    if (!persona) toast('Escribí un nombre para agregarlo.');
+  });
+
+  el.borrarAcuerdos.addEventListener('click', () => {
+    if (!show.agreements.length) return;
+    show.clearAgreements();
+    toast('Muro vacío.');
+  });
+
   el.micBtn.addEventListener('click', () => toggleMic());
   el.stageBtn.addEventListener('click', () => toggleStage());
   el.stopBtn.addEventListener('click', () => abort());
@@ -212,11 +276,38 @@ function wireEvents() {
   }
 
   document.addEventListener('keydown', (event) => {
-    const typing = event.target === el.input;
+    // Mientras se escribe en un campo, las teclas son texto y nada más.
+    const typing = event.target.matches('input, textarea');
 
     if (event.code === 'Space' && !typing) {
       event.preventDefault();
       toggleMic();
+    }
+
+    // 1 a 9: de quién es el turno.
+    if (!typing && /^[1-9]$/.test(event.key)) {
+      const persona = show.speakers[Number(event.key) - 1];
+      if (persona) {
+        event.preventDefault();
+        show.setCurrent(persona.id);
+      }
+    }
+
+    if ((event.key === 'a' || event.key === 'A') && !typing) {
+      event.preventDefault();
+      fijarAcuerdo();
+    }
+    if ((event.key === 'm' || event.key === 'M') && !typing) {
+      event.preventDefault();
+      verEscena(state.escena === 'muro' ? 'charla' : 'muro');
+    }
+    if ((event.key === 'p' || event.key === 'P') && !typing) {
+      event.preventDefault();
+      verEscena(state.escena === 'portada' ? 'charla' : 'portada');
+    }
+    if (event.key === 'Tab' && !typing && show.speakers.length) {
+      event.preventDefault();
+      show.next();
     }
     if ((event.key === 'f' || event.key === 'F') && !typing) {
       event.preventDefault();
@@ -262,6 +353,169 @@ async function applySettings(action) {
   if (action === 'save' && found.mode === 'direct') toast('Listo: NOVA ya responde con tu clave de OpenAI.');
 }
 
+/* --------------------------------------------------------- la función */
+
+/** Redibuja todo lo que depende del plantel y de los acuerdos. */
+function pintarFuncion() {
+  const actual = show.current;
+
+  // Tira de turnos en la consola.
+  el.turnos.hidden = show.speakers.length === 0;
+  el.turnosLista.innerHTML = '';
+  show.speakers.forEach((persona, i) => {
+    const boton = document.createElement('button');
+    boton.type = 'button';
+    boton.className = 'turno';
+    boton.style.setProperty('--acento', persona.color);
+    boton.setAttribute('aria-pressed', String(persona.id === show.currentId));
+    boton.innerHTML = `${escapar(persona.name)}${i < 9 ? `<span class="turno__tecla">${i + 1}</span>` : ''}`;
+    boton.addEventListener('click', () => show.setCurrent(persona.id));
+    el.turnosLista.appendChild(boton);
+  });
+
+  // Quién habla, en el escenario.
+  el.sceneQuien.classList.toggle('is-visible', Boolean(actual));
+  el.sceneNombre.textContent = actual ? actual.name : '';
+  el.scene.style.setProperty('--quien', show.currentColor);
+
+  // Plantel dentro del panel.
+  el.plantel.innerHTML = '';
+  if (!show.speakers.length) {
+    el.plantel.innerHTML = '<p class="vacio">Todavía no hay nadie. Agregá a los estudiantes que van a hablar.</p>';
+  }
+  show.speakers.forEach((persona, i) => {
+    const fila = document.createElement('li');
+    fila.style.setProperty('--acento', persona.color);
+    fila.innerHTML = `
+      <span class="plantel__nombre">${escapar(persona.name)}</span>
+      <span class="plantel__turno">${persona.id === show.currentId ? 'en turno' : `tecla ${i + 1}`}</span>`;
+    const quitar = document.createElement('button');
+    quitar.type = 'button';
+    quitar.className = 'quitar';
+    quitar.textContent = '×';
+    quitar.title = `Sacar a ${persona.name}`;
+    quitar.addEventListener('click', () => show.removeSpeaker(persona.id));
+    fila.appendChild(quitar);
+    el.plantel.appendChild(fila);
+  });
+
+  // Acuerdos dentro del panel.
+  el.acuerdosLista.innerHTML = '';
+  if (!show.agreements.length) {
+    el.acuerdosLista.innerHTML = '<p class="vacio">Nada fijado todavía. Durante la charla, la tecla A guarda la última respuesta.</p>';
+  }
+  show.agreements.forEach((acuerdo) => {
+    const fila = document.createElement('li');
+    fila.style.setProperty('--acento', acuerdo.color);
+    fila.innerHTML = `
+      <span class="acuerdo__tema">${escapar(acuerdo.tema || 'Acuerdo')}</span>
+      <span class="acuerdo__texto">${escapar(acuerdo.texto)}</span>`;
+    const pie = document.createElement('div');
+    pie.className = 'acuerdo__fila';
+    pie.innerHTML = `<span class="plantel__turno">${escapar(acuerdo.autor)}</span>`;
+    const quitar = document.createElement('button');
+    quitar.type = 'button';
+    quitar.className = 'quitar';
+    quitar.textContent = '×';
+    quitar.title = 'Sacar del muro';
+    quitar.addEventListener('click', () => show.unpin(acuerdo.id));
+    pie.appendChild(quitar);
+    fila.appendChild(pie);
+    el.acuerdosLista.appendChild(fila);
+  });
+
+  pintarMuro();
+}
+
+/** El muro que se proyecta: todo lo definido, junto. */
+function pintarMuro() {
+  el.muroGrilla.innerHTML = '';
+
+  if (!show.agreements.length) {
+    el.muroGrilla.innerHTML = '<p class="muro__vacio">Todavía no definimos nada. La noche recién empieza.</p>';
+    el.muroSub.textContent = '';
+    return;
+  }
+
+  const cuantos = show.agreements.length;
+  el.muroSub.textContent = `${cuantos} ${cuantos === 1 ? 'acuerdo' : 'acuerdos'} con NOVA`;
+
+  show.agreements.forEach((acuerdo, i) => {
+    const tarjeta = document.createElement('article');
+    tarjeta.className = 'tarjeta';
+    tarjeta.style.setProperty('--acento', acuerdo.color);
+    tarjeta.style.setProperty('--i', String(i));
+    tarjeta.innerHTML = `
+      ${acuerdo.tema ? `<p class="tarjeta__tema">${escapar(acuerdo.tema)}</p>` : ''}
+      <p class="tarjeta__texto">${escapar(acuerdo.texto)}</p>
+      <p class="tarjeta__autor">con <strong>${escapar(acuerdo.autor)}</strong></p>`;
+    el.muroGrilla.appendChild(tarjeta);
+  });
+}
+
+/** Fija la última respuesta de NOVA en el muro. */
+function fijarAcuerdo() {
+  if (!state.ultimaRespuesta.trim()) {
+    return toast('Todavía no hay ninguna respuesta para fijar.');
+  }
+  show.pin({
+    tema: recortarTema(state.ultimaPregunta),
+    texto: comoDefinicion(state.ultimaRespuesta),
+  });
+
+  // Un destello en el escenario, para que el público note que algo quedó.
+  el.scene.classList.add('acuerdo-fijado');
+  setTimeout(() => el.scene.classList.remove('acuerdo-fijado'), 900);
+  toast('Acuerdo fijado en el muro.');
+}
+
+/**
+ * Del texto completo saca lo que entra en una tarjeta proyectada.
+ * Corta en el final de una frase, no a mitad de palabra: en el muro tiene
+ * que leerse una definición, no un párrafo cortado.
+ */
+function comoDefinicion(texto) {
+  const limpio = texto.replace(/\s+/g, ' ').trim();
+  if (limpio.length <= 240) return limpio;
+
+  let corte = 0;
+  for (const fin of limpio.matchAll(/[.!?…](\s|$)/g)) {
+    if (fin.index + 1 > 240) break;
+    corte = fin.index + 1;
+  }
+  if (corte >= 80) return limpio.slice(0, corte);
+
+  // Sin un punto a mano, se corta en el último espacio antes del límite.
+  const espacio = limpio.lastIndexOf(' ', 236);
+  return `${limpio.slice(0, espacio > 80 ? espacio : 236)}…`;
+}
+
+/** De la pregunta sale el título de la tarjeta. */
+function recortarTema(pregunta) {
+  const limpio = (pregunta || '').replace(/\s+/g, ' ').trim().replace(/[¿?¡!.]+$/g, '');
+  if (!limpio) return '';
+  return limpio.length > 52 ? `${limpio.slice(0, 52).trimEnd()}…` : limpio;
+}
+
+/** Portada, charla o muro: lo que se ve proyectado. */
+function verEscena(nombre) {
+  state.escena = nombre;
+  el.body.dataset.escena = nombre;
+  if (nombre === 'muro') pintarMuro();
+  el.muroBtn.textContent = nombre === 'muro' ? 'Volver a la charla' : 'Mostrar el muro';
+}
+
+/**
+ * Escapa texto antes de meterlo en HTML. Declarada como función y no como
+ * const: pintarFuncion() corre al arrancar, antes de que este punto del
+ * archivo se haya ejecutado.
+ */
+function escapar(texto) {
+  return String(texto).replace(/[&<>"']/g, (c) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+  ));
+}
+
 /* -------------------------------------------------------------- micro */
 
 function toggleMic() {
@@ -271,7 +525,13 @@ function toggleMic() {
   if (active) {
     setMode('listening');
     el.micHint.textContent = 'Escuchando… tocá para cortar';
+    // El nivel de voz es lo que mueve los visuales. Si el navegador no deja
+    // abrir el micrófono dos veces, la página sigue andando sin reaccionar.
+    meter.start().then((ok) => {
+      if (!ok) console.info('NOVA: sin medidor de voz; los visuales no reaccionan al volumen.');
+    });
   } else {
+    meter.stop();
     clearTimeout(state.silenceTimer);
     state.pendingSpeech.length = 0;
     showHeard('', false);
@@ -315,6 +575,7 @@ async function send(text, { fromVoice = false } = {}) {
   speaker.cancel();
   sentences.reset();
   el.welcome?.remove();
+  if (state.escena !== 'charla') verEscena('charla');
 
   state.busy = true;
   el.stopBtn.hidden = false;
@@ -324,11 +585,14 @@ async function send(text, { fromVoice = false } = {}) {
   addBubble('user', text, { animate: fromVoice });
   cloud.absorb(text, 'user');
   state.messages.push({ role: 'user', content: text });
+  state.ultimaPregunta = text;
+  state.ultimaRespuesta = '';
+  el.pinBtn.disabled = true;
 
   // En el escenario primero se ve lo que dijo la persona…
   if (isStage()) {
     el.scene.dataset.speaker = 'human';
-    el.sceneLabel.textContent = fromVoice ? 'ESCUCHÉ' : 'VOS';
+    el.sceneLabel.textContent = show.current ? show.current.name.toUpperCase() : 'EL PÚBLICO';
     sceneWriter.clear();
     sceneWriter.push(text);
   }
@@ -373,6 +637,8 @@ async function send(text, { fromVoice = false } = {}) {
     if (answer.trim()) {
       state.messages.push({ role: 'assistant', content: answer });
       cloud.absorb(answer, 'ai');
+      state.ultimaRespuesta = answer.trim();
+      el.pinBtn.disabled = false;
     } else {
       bubble.textContent = '(sin respuesta)';
     }
@@ -447,8 +713,16 @@ function addBubble(who, text, { pending = false, animate = false } = {}) {
 
   const avatar = document.createElement('div');
   avatar.className = 'msg__avatar';
-  avatar.textContent = who === 'user' ? 'VOS' : '';
   avatar.setAttribute('aria-hidden', 'true');
+  if (who === 'user') {
+    // Con plantel cargado, la burbuja lleva las iniciales de quien habló.
+    const persona = show.current;
+    avatar.textContent = persona ? iniciales(persona.name) : 'VOS';
+    if (persona) {
+      avatar.style.color = persona.color;
+      avatar.style.borderColor = persona.color;
+    }
+  }
 
   const bubble = document.createElement('div');
   bubble.className = 'msg__bubble';
@@ -466,6 +740,13 @@ function addBubble(who, text, { pending = false, animate = false } = {}) {
   el.log.appendChild(row);
   scrollLog();
   return bubble;
+}
+
+/** "Ana María" queda en AM; "Tomás", en TO. */
+function iniciales(nombre) {
+  const partes = nombre.trim().split(/\s+/);
+  if (partes.length > 1) return (partes[0][0] + partes[1][0]).toUpperCase();
+  return nombre.trim().slice(0, 2).toUpperCase();
 }
 
 function scrollLog() {

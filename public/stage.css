@@ -199,3 +199,209 @@ body[data-mode="stage"] { overflow: hidden; }
   .scene__text { max-width: 18ch; }
   .scene { padding: 24px 20px; }
 }
+
+/* =========================================================================
+   La función: portada, turnos, acuerdos y muro.
+   Todo lo de acá se lee proyectado, a diez metros.
+   ========================================================================= */
+
+/* ------------------------------------------------------- quién habla ---- */
+.scene__quien {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin: 0 0 clamp(8px, 1.6vh, 20px);
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.45s ease, transform 0.45s ease;
+}
+.scene__quien.is-visible { opacity: 1; transform: none; }
+
+/* Cuando responde NOVA alcanza con su nombre: repetir el del estudiante
+   confunde sobre quién está hablando. */
+.scene[data-speaker="ai"] .scene__quien { display: none; }
+.scene[data-speaker="human"] .scene__label { display: none; }
+
+.scene__punto {
+  width: clamp(9px, 1.1vh, 14px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--quien, var(--cyan));
+  box-shadow: 0 0 18px var(--quien, var(--cyan));
+}
+
+.scene__nombre {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: clamp(13px, 1.7vh, 21px);
+  letter-spacing: 0.36em;
+  text-transform: uppercase;
+  color: var(--quien, var(--cyan));
+}
+
+/* ------------------------------------------------------------ portada --- */
+.portada {
+  position: absolute;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(10px, 2vh, 26px);
+  text-align: center;
+  padding: 6vh 5vw;
+  background: radial-gradient(ellipse at 50% 50%, rgba(8, 10, 22, 0.55), rgba(5, 6, 12, 0.9) 70%);
+  animation: portada-entra 1.1s ease both;
+}
+body[data-escena="portada"] .portada { display: flex; }
+body[data-escena="portada"] .scene__body,
+body[data-escena="portada"] .scene__foot { visibility: hidden; }
+
+@keyframes portada-entra { from { opacity: 0; } }
+
+.portada__antes,
+.portada__pie {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: clamp(11px, 1.4vh, 16px);
+  letter-spacing: 0.42em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+.portada__titulo {
+  margin: 0;
+  font-size: clamp(64px, 17vh, 220px);
+  font-weight: 200;
+  letter-spacing: 0.16em;
+  line-height: 1;
+  background: linear-gradient(100deg, var(--cyan), var(--violet) 46%, var(--magenta));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 40px rgba(163, 123, 255, 0.4));
+}
+
+.portada__bajada {
+  margin: 0;
+  max-width: 22ch;
+  font-size: clamp(16px, 2.4vh, 32px);
+  font-weight: 300;
+  line-height: 1.5;
+  color: var(--ink);
+}
+
+.portada__pie { opacity: 0.55; animation: latir 3.4s ease-in-out infinite; }
+@keyframes latir { 50% { opacity: 0.18; } }
+
+/* --------------------------------------------------------------- muro --- */
+.muro {
+  position: absolute;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  gap: clamp(14px, 2.6vh, 34px);
+  padding: clamp(24px, 5vh, 64px) clamp(24px, 5vw, 80px);
+  background: radial-gradient(ellipse at 50% 40%, rgba(6, 8, 18, 0.88), rgba(4, 5, 11, 0.97) 70%);
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.muro::-webkit-scrollbar { display: none; }
+body[data-escena="muro"] .muro { display: flex; }
+body[data-escena="muro"] .scene__body,
+body[data-escena="muro"] .scene__foot,
+body[data-escena="muro"] .scene__orb { visibility: hidden; }
+
+.muro__head { text-align: center; }
+
+.muro__titulo {
+  margin: 0 0 8px;
+  font-size: clamp(24px, 4.6vh, 58px);
+  font-weight: 200;
+  letter-spacing: -0.01em;
+  background: linear-gradient(100deg, var(--cyan), var(--violet) 55%, var(--magenta));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.muro__sub {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: clamp(10px, 1.3vh, 14px);
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+.muro__grilla {
+  flex: 1;
+  display: grid;
+  /* Columnas de ancho acotado: un renglón muy largo no se lee de lejos.
+     Con pocas tarjetas quedan centradas en vez de estirarse. */
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 330px), 460px));
+  justify-content: center;
+  align-content: center;
+  gap: clamp(12px, 1.8vw, 24px);
+}
+
+.tarjeta {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: clamp(16px, 2.2vh, 26px);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--acento, var(--cyan));
+  border-radius: 16px;
+  background: rgba(14, 18, 36, 0.72);
+  animation: tarjeta-entra 0.6s ease both;
+  animation-delay: calc(var(--i, 0) * 90ms);
+}
+@keyframes tarjeta-entra {
+  from { opacity: 0; transform: translateY(14px) scale(0.98); }
+}
+
+.tarjeta__tema {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: clamp(10px, 1.2vh, 13px);
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--acento, var(--cyan));
+}
+
+.tarjeta__texto {
+  margin: 0;
+  font-size: clamp(15px, 2vh, 25px);
+  font-weight: 300;
+  line-height: 1.5;
+  color: var(--ink);
+}
+
+.tarjeta__autor {
+  margin: 0;
+  font-size: clamp(11px, 1.3vh, 15px);
+  color: var(--ink-dim);
+}
+.tarjeta__autor strong { color: var(--acento, var(--cyan)); font-weight: 600; }
+
+.muro__vacio {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 8vh 0;
+  font-size: clamp(15px, 2vh, 22px);
+  font-weight: 300;
+  color: var(--ink-dim);
+}
+
+/* Destello cuando se fija un acuerdo nuevo, para que se note en vivo. */
+.scene.acuerdo-fijado::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 50% 50%, rgba(122, 245, 255, 0.16), transparent 60%);
+  animation: destello 0.85s ease both;
+}
+@keyframes destello { from { opacity: 1; } to { opacity: 0; } }

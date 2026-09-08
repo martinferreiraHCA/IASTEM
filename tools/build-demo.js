@@ -40,6 +40,8 @@ const modules = [
   ['public', 'js', 'materialize.js'],
   ['public', 'js', 'wordcloud.js'],
   ['public', 'js', 'voice.js'],
+  ['public', 'js', 'audio.js'],
+  ['public', 'js', 'show.js'],
   ['public', 'js', 'api.js'],
   ['public', 'app.js'],
 ];

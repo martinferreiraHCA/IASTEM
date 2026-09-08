@@ -1,10 +1,13 @@
 # NOVA · IASTEM
 
-Interfaz conversacional para proyectar en pantalla gigante. El público le habla,
-NOVA responde por la API de ChatGPT, y las letras **se materializan en el aire**
-mientras una nube de palabras va dibujando los temas de la charla.
+Sistema para una performance en vivo: los estudiantes conversan con una
+inteligencia artificial frente al público, en pantalla gigante. Las letras **se
+materializan en el aire**, la voz de quien habla mueve los visuales, y lo que el
+grupo va definiendo junto a NOVA queda en un muro que se muestra al final.
 
 ![modo escenario](docs/escenario.png)
+
+![el muro de acuerdos al cierre](docs/muro.png)
 
 ---
 
@@ -30,6 +33,9 @@ clic. Es la misma página en un solo archivo, y anda sin internet.
 | **Letras estilo Jumanji** | Cada carácter entra como un glifo extraño que muta hasta encontrar su forma. |
 | **Nube de palabras** | Las palabras importantes flotan de fondo, crecen si se repiten y se disuelven solas. |
 | **Voz en vivo** | Micrófono continuo: el público habla, NOVA escucha, piensa y contesta en voz alta. |
+| **La voz que se ve** | El volumen real de quien habla mueve el orbe y la nube: se nota que la IA lo está escuchando a él. |
+| **Turnos** | Cada estudiante tiene nombre y color; la pantalla dice quién habla. |
+| **Muro de acuerdos** | Lo que definen junto a NOVA queda fijado y se muestra todo junto al cierre. |
 | **Dos vistas** | *Consola* para operar y *Escenario* a pantalla completa para proyectar. |
 | **Modo demo** | Funciona sin API key, para mostrarla o ensayar. |
 
@@ -130,12 +136,64 @@ que ahí no hay dónde esconder una clave. Esto tiene tres consecuencias:
 | Volver | **Esc** |
 | Cortar una respuesta | Botón *Detener*, o **Esc** mientras responde |
 | Silenciar a NOVA | Interruptor *Voz de NOVA* (viene encendida) |
-| Cambiar la conexión | Botón *Conexión* |
 | Empezar de cero | Botón *Limpiar* |
 
 Con el micrófono encendido, NOVA espera **1,4 segundos de silencio** antes de
 contestar: así un grupo puede hablar en varias frases sin que la respuesta se
 dispare a mitad de la idea.
+
+## Conducir la función
+
+La página está pensada para una performance con estudiantes frente al público,
+no para que alguien la use solo. Hay tres piezas para eso.
+
+### Los turnos
+
+En **Función → Quiénes participan** cargás a los estudiantes. Cada uno recibe un
+color. Cuando le toca hablar, la pantalla grande muestra su nombre en ese color:
+los padres siguen a su hijo, no a un cursor.
+
+### Los acuerdos
+
+Lo que el grupo va definiendo junto a NOVA se fija como tarjeta, con el nombre de
+quien lo definió. Al final se muestran todos juntos en el **muro**, y eso es lo
+que la gente se lleva de la noche.
+
+De respuestas largas se guarda la primera parte, cortada al final de una frase:
+una tarjeta tiene que leerse de lejos, un párrafo entero no.
+
+### Las teclas
+
+Todo se maneja sin mouse, que en vivo es lo que importa:
+
+| Tecla | Qué hace |
+|---|---|
+| **Espacio** | Prende y apaga el micrófono |
+| **1** … **9** | De quién es el turno |
+| **Tab** | Pasa al siguiente estudiante |
+| **A** | Fija la última respuesta en el muro |
+| **M** | Muestra el muro completo, y vuelve |
+| **P** | Muestra la portada, y vuelve |
+| **F** | Entra y sale de pantalla completa |
+| **Esc** | Corta la respuesta, o sale del escenario |
+
+Una pregunta nueva vuelve sola a la charla, así que podés dejar el muro puesto
+sin miedo a quedarte trabado ahí.
+
+### La voz que se ve
+
+Mientras el micrófono está abierto, el volumen real de quien habla mueve el orbe,
+las barras y la nube de palabras. Nadie necesita que le expliquen que la IA está
+escuchando a esa persona: se ve.
+
+Si el navegador no deja abrir el micrófono dos veces a la vez, esto se apaga solo
+y todo lo demás sigue funcionando.
+
+### Todo se guarda
+
+El plantel y los acuerdos quedan en el navegador. Si la máquina se reinicia a
+mitad de la función, se recupera todo al recargar. Para empezar de cero, *Función
+→ Borrar todos*.
 
 ## Para la muestra
 
@@ -154,6 +212,12 @@ dispare a mitad de la idea.
   instante; los grandes se hacen esperar y en escenario se nota.
 - **Ensayá en modo demo.** Podés probar toda la puesta en escena sin gastar
   nada, y recién conectar la clave el día de la muestra.
+- **Cargá el plantel antes de empezar**, con los nombres como los van a
+  escuchar los padres. Escribirlos en vivo se nota.
+- **Arrancá en la portada** (tecla **P**) con la gente entrando, y cerrá con el
+  muro (tecla **M**). Entre esas dos placas pasa la función.
+- **Fijá pocos acuerdos y buenos.** Ocho tarjetas se leen; treinta no se lee
+  ninguna.
 
 ## Cómo está armado
 
@@ -168,6 +232,8 @@ public/                  El sitio. Esto es lo que se publica en Pages.
     materialize.js       El efecto Jumanji, letra por letra
     wordcloud.js         La nube de palabras en canvas
     voice.js             Micrófono y voz (Web Speech API)
+    audio.js             Mide el volumen real: la voz que mueve los visuales
+    show.js              La función: turnos de estudiantes y acuerdos
   demo/
     engine.js            Elige qué contesta NOVA en modo demo
     replies.json         El guion. Editalo, es texto plano.

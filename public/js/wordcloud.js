@@ -33,6 +33,7 @@ export class WordCloud {
     this.weights = new Map();     // palabra -> cuántas veces apareció
     this.maxWords = 46;
     this.clearZone = null;        // elipse central que las palabras esquivan
+    this.energy = 0;              // volumen de la voz, de 0 a 1
     this.running = false;
     this.lastFrame = 0;
 
@@ -47,6 +48,11 @@ export class WordCloud {
    */
   setClearZone(zone) {
     this.clearZone = zone;
+  }
+
+  /** El volumen de quien habla: las palabras brillan y se agitan con la voz. */
+  setEnergy(nivel) {
+    this.energy = Math.max(0, Math.min(1, nivel || 0));
   }
 
   /** Cuánto invade una partícula la zona despejada (0 = afuera, 1 = en el centro). */
@@ -177,8 +183,9 @@ export class WordCloud {
       p.pulse += (0 - p.pulse) * dt * 2.2;
       p.size += (p.targetSize - p.size) * Math.min(1, dt * 4);
 
-      p.x += (p.vx + Math.sin(p.phase) * 5) * dt;
-      p.y += (p.vy + Math.cos(p.phase * 0.7) * 4) * dt;
+      const agita = 1 + this.energy * 1.6;
+      p.x += (p.vx + Math.sin(p.phase) * 5 * agita) * dt;
+      p.y += (p.vy + Math.cos(p.phase * 0.7) * 4 * agita) * dt;
 
       // Frenado suave: las palabras se van quedando quietas mientras se disuelven.
       p.vx *= 1 - 0.35 * dt;
@@ -251,11 +258,12 @@ export class WordCloud {
       ctx.save();
       ctx.translate(p.x, p.y);
       ctx.rotate(p.rot * (1 - p.life));
-      ctx.globalAlpha = alpha;
+      ctx.globalAlpha = Math.min(1, alpha * (1 + this.energy * 0.45));
       ctx.fillStyle = p.color;
-      ctx.font = `${600 + Math.min(200, p.weight * 60)} ${p.size * (1 + p.pulse * 0.12)}px "Inter", system-ui, sans-serif`;
+      const respira = 1 + p.pulse * 0.12 + this.energy * 0.07;
+      ctx.font = `${600 + Math.min(200, p.weight * 60)} ${p.size * respira}px "Inter", system-ui, sans-serif`;
       ctx.shadowColor = p.color;
-      ctx.shadowBlur = 18 + p.weight * 5 + p.pulse * 22;
+      ctx.shadowBlur = 18 + p.weight * 5 + p.pulse * 22 + this.energy * 30;
       ctx.fillText(p.text, 0, 0);
       ctx.restore();
     }

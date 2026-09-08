@@ -39,6 +39,9 @@
         <span class="status__dot" aria-hidden="true"></span>
         <span class="status__label">Conectando…</span>
       </div>
+      <button class="ghost" id="showBtn" type="button" title="Participantes y acuerdos de la función">
+        Función
+      </button>
       <button class="ghost" id="settingsBtn" type="button" title="Elegir de dónde salen las respuestas">
         Conexión
       </button>
@@ -100,7 +103,16 @@
         </button>
       </form>
 
+      <div class="turnos" id="turnos" hidden>
+        <span class="turnos__rotulo">Habla</span>
+        <div class="turnos__lista" id="turnosLista"></div>
+      </div>
+
       <div class="toolbar">
+        <button class="ghost ghost--destacado" id="pinBtn" type="button" disabled
+                title="Fijar la última respuesta en el muro (A)">
+          Fijar acuerdo
+        </button>
         <button class="toggle" id="voiceToggle" type="button" aria-pressed="true">
           <span class="toggle__track"><span class="toggle__thumb"></span></span>
           Voz de NOVA
@@ -127,15 +139,76 @@
     </div>
 
     <div class="scene__body">
+      <div class="scene__quien" id="sceneQuien">
+        <span class="scene__punto" aria-hidden="true"></span>
+        <p class="scene__nombre" id="sceneNombre"></p>
+      </div>
       <p class="scene__label" id="sceneLabel">NOVA</p>
       <div class="scene__text" id="sceneText"></div>
     </div>
 
+    <!-- Placa de apertura: lo que se ve antes de que empiece la función. -->
+    <div class="portada" id="portada">
+      <p class="portada__antes">Instituto · IASTEM</p>
+      <h1 class="portada__titulo">NOVA</h1>
+      <p class="portada__bajada">Una conversación con una inteligencia artificial</p>
+      <p class="portada__pie">La función está por empezar</p>
+    </div>
+
+    <!-- Muro: todo lo que el grupo definió, junto, para el cierre. -->
+    <div class="muro" id="muro">
+      <header class="muro__head">
+        <h2 class="muro__titulo">Lo que definimos esta noche</h2>
+        <p class="muro__sub" id="muroSub"></p>
+      </header>
+      <div class="muro__grilla" id="muroGrilla"></div>
+    </div>
+
     <div class="scene__foot">
       <p class="scene__heard" id="sceneHeard"></p>
-      <p class="scene__hint" id="sceneHint">Espacio: micrófono · F: salir de pantalla completa</p>
+      <p class="scene__hint" id="sceneHint">Espacio: micrófono · A: fijar acuerdo · M: muro · F: salir</p>
     </div>
   </section>
+
+  <!-- ===================================================== función -->
+  <dialog class="sheet sheet--ancha" id="show">
+    <div class="sheet__form">
+      <header class="sheet__head">
+        <h2>Función</h2>
+        <button class="sheet__close" id="showClose" type="button" aria-label="Cerrar">×</button>
+      </header>
+
+      <section class="bloque">
+        <h3 class="bloque__titulo">Quiénes participan</h3>
+        <p class="sheet__note">
+          Cada estudiante recibe un color. Cuando le toca hablar, la pantalla
+          muestra su nombre. Con las teclas <strong>1</strong> a <strong>9</strong>
+          cambiás de turno sin tocar el mouse.
+        </p>
+        <form class="alta" id="altaForm">
+          <input type="text" id="altaNombre" placeholder="Nombre del estudiante" maxlength="24"
+                 autocomplete="off" aria-label="Nombre del estudiante" />
+          <button class="primary" type="submit">Agregar</button>
+        </form>
+        <ul class="plantel" id="plantel"></ul>
+      </section>
+
+      <section class="bloque">
+        <h3 class="bloque__titulo">Acuerdos</h3>
+        <p class="sheet__note">
+          Lo que el grupo define junto a NOVA. Con <strong>A</strong> fijás la
+          última respuesta; con <strong>M</strong> mostrás el muro completo en
+          pantalla, que es un buen cierre.
+        </p>
+        <ul class="acuerdos" id="acuerdosLista"></ul>
+        <div class="sheet__foot">
+          <button class="ghost" id="muroBtn" type="button">Mostrar el muro</button>
+          <span class="toolbar__spacer"></span>
+          <button class="ghost" id="borrarAcuerdos" type="button">Borrar todos</button>
+        </div>
+      </section>
+    </div>
+  </dialog>
 
   <!-- ===================================================== conexión -->
   <dialog class="sheet" id="settings">
