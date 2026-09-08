@@ -62,8 +62,38 @@ la computadora de la presentación y nadie puede sacarla desde el navegador.
 
 ## Publicar en GitHub Pages
 
-El repo ya trae el workflow que publica `public/` en cada push a `main`. El
-sitio queda en `https://TU-USUARIO.github.io/IASTEM/`.
+Ya está publicado y se actualiza solo: **cada push a la rama por defecto vuelve
+a publicar el sitio**, sin que haya que tocar nada.
+
+```
+https://TU-USUARIO.github.io/IASTEM/
+```
+
+Pages sirve la raíz del repositorio, y la página vive en `public/`. Por eso hay
+un `index.html` en la raíz que lleva ahí: entrás por la dirección de arriba y
+caés en la app. La dirección final incluye `/public/`, que es feo pero funciona.
+
+<details>
+<summary>Si querés la dirección corta, sin el <code>/public/</code></summary>
+
+Andá a **Settings → Pages → Source** y elegí **GitHub Actions**. Eso apaga el
+publicado automático por rama, así que hay que reponer el workflow que lo
+reemplaza: está en el historial de git.
+
+```bash
+git show HEAD~1:.github/workflows/pages.yml > .github/workflows/pages.yml
+git add .github/workflows/pages.yml && git commit -m "Publicar Pages por Actions"
+git push
+```
+
+Ese workflow publica `public/` directamente, así que el sitio queda en la raíz y
+el `index.html` de redirección deja de usarse.
+
+**No pongas los dos mecanismos a la vez.** Si Pages está en modo rama y además
+hay un workflow publicando, los dos despliegan en cada push y gana el que
+termine último: el sitio queda impredecible.
+
+</details>
 
 ### Leé esto antes de publicar
 
@@ -142,6 +172,7 @@ public/                  El sitio. Esto es lo que se publica en Pages.
     engine.js            Elige qué contesta NOVA en modo demo
     replies.json         El guion. Editalo, es texto plano.
 
+index.html               Redirección a public/, para que Pages sirva la app
 server.js                Servidor local: archivos estáticos + proxy a la API
 demo/nova-demo.html      La página entera en un archivo, para doble clic
 tools/build-demo.js      Genera ese archivo desde los de arriba
