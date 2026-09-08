@@ -1,0 +1,2530 @@
+<title>NOVA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;600;800&family=JetBrains+Mono:wght@300;500&display=swap" rel="stylesheet" />
+<style>
+/* ============================================================ tokens === */
+:root {
+  --bg: #05060c;
+  --bg-soft: #0b0e1a;
+  --ink: #e8ecff;
+  --ink-dim: #9aa3c7;
+  --cyan: #7af5ff;
+  --violet: #a37bff;
+  --magenta: #ff6ec7;
+  --line: rgba(140, 160, 255, 0.16);
+  --glass: rgba(18, 22, 44, 0.55);
+  --radius: 20px;
+  --font: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  color: var(--ink);
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* ============================================================ fondo ==== */
+.aurora { position: fixed; inset: 0; z-index: -1; overflow: hidden; }
+
+.aurora__blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(90px);
+  opacity: 0.5;
+  animation: drift 22s ease-in-out infinite;
+}
+.aurora__blob--1 { width: 46vw; height: 46vw; top: -12vw; left: -8vw;  background: radial-gradient(circle, #1f6bff, transparent 68%); }
+.aurora__blob--2 { width: 40vw; height: 40vw; bottom: -14vw; right: -6vw; background: radial-gradient(circle, #a01fff, transparent 68%); animation-delay: -7s; }
+.aurora__blob--3 { width: 34vw; height: 34vw; top: 34%; left: 52%;      background: radial-gradient(circle, #00d9c0, transparent 68%); animation-delay: -14s; }
+
+.aurora__grid {
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(122, 245, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(122, 245, 255, 0.05) 1px, transparent 1px);
+  background-size: 54px 54px;
+  mask-image: radial-gradient(ellipse at 50% 40%, #000 10%, transparent 72%);
+}
+
+@keyframes drift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%      { transform: translate(5vw, 4vh) scale(1.12); }
+  66%      { transform: translate(-4vw, -3vh) scale(0.94); }
+}
+
+/* ============================================================ topbar === */
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px;
+  padding: 16px clamp(16px, 4vw, 40px);
+  border-bottom: 1px solid var(--line);
+  backdrop-filter: blur(12px);
+}
+
+.brand { display: flex; align-items: center; gap: 12px; }
+
+.brand__mark {
+  width: 30px; height: 30px; border-radius: 50%;
+  background: conic-gradient(from 0deg, var(--cyan), var(--violet), var(--magenta), var(--cyan));
+  box-shadow: 0 0 22px rgba(163, 123, 255, 0.55);
+  animation: spin 7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.brand__text { display: flex; flex-direction: column; line-height: 1.1; }
+.brand__text strong { font-size: 17px; letter-spacing: 0.16em; }
+.brand__text small { font-size: 10px; letter-spacing: 0.34em; color: var(--ink-dim); }
+
+.topbar__actions { display: flex; align-items: center; gap: 12px; }
+
+.status {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; letter-spacing: 0.06em; color: var(--ink-dim);
+  padding: 7px 14px; border: 1px solid var(--line); border-radius: 999px;
+  background: rgba(10, 14, 30, 0.55);
+}
+.status__dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--ink-dim);
+  box-shadow: 0 0 10px currentColor;
+}
+.status[data-state="online"]  .status__dot { background: #46f0a8; box-shadow: 0 0 12px #46f0a8; }
+.status[data-state="online"]  .status__label { color: #46f0a8; }
+.status[data-state="demo"] .status__dot { background: #ffc76b; box-shadow: 0 0 12px #ffc76b; }
+.status[data-state="demo"] .status__label { color: #ffc76b; }
+.status[data-state="offline"] .status__dot { background: #ff6b81; box-shadow: 0 0 12px #ff6b81; }
+.status[data-state="offline"] .status__label { color: #ff8f9f; }
+.status[data-state="checking"] .status__dot { animation: blink 1.1s ease-in-out infinite; }
+@keyframes blink { 50% { opacity: 0.25; } }
+
+/* ============================================================ layout === */
+.stage {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(280px, 0.85fr) minmax(0, 1.15fr);
+  gap: clamp(16px, 3vw, 44px);
+  padding: clamp(16px, 3vw, 36px) clamp(16px, 4vw, 40px);
+}
+
+/* ============================================================ orbe ===== */
+.core {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 18px; min-height: 0;
+}
+
+.orb {
+  position: relative;
+  width: min(320px, 46vh);
+  aspect-ratio: 1;
+  display: grid; place-items: center;
+}
+
+.orb__halo, .orb__ring, .orb__core { position: absolute; border-radius: 50%; }
+
+.orb__halo {
+  inset: -14%;
+  background: radial-gradient(circle, rgba(163, 123, 255, 0.34), transparent 62%);
+  filter: blur(22px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+.orb__ring { inset: 0; border: 1px solid rgba(122, 245, 255, 0.28); }
+.orb__ring--a { animation: orbit 14s linear infinite; border-top-color: var(--cyan);    border-width: 2px; }
+.orb__ring--b { inset: 11%; animation: orbit 10s linear infinite reverse; border-left-color: var(--violet); border-width: 2px; }
+.orb__ring--c { inset: 22%; animation: orbit 18s linear infinite; border-bottom-color: var(--magenta); border-width: 2px; }
+@keyframes orbit { to { transform: rotate(360deg); } }
+
+.orb__core {
+  width: 42%; height: 42%;
+  background: radial-gradient(circle at 34% 30%, #ffffff, var(--cyan) 30%, var(--violet) 68%, #4318a8 100%);
+  box-shadow: 0 0 50px rgba(122, 245, 255, 0.5), inset 0 0 34px rgba(255, 255, 255, 0.28);
+  animation: breathe 4.5s ease-in-out infinite;
+}
+@keyframes breathe {
+  0%, 100% { transform: scale(1);    opacity: 0.92; }
+  50%      { transform: scale(1.07); opacity: 1; }
+}
+
+/* barras de audio, solo visibles al escuchar/hablar */
+.orb__wave {
+  position: absolute; bottom: 6%;
+  display: flex; align-items: flex-end; gap: 5px;
+  height: 34px; opacity: 0;
+  transition: opacity 0.35s ease;
+}
+.orb__wave i {
+  width: 4px; height: 20%; border-radius: 3px;
+  background: linear-gradient(180deg, var(--cyan), var(--violet));
+  animation: bounce 1s ease-in-out infinite;
+}
+.orb__wave i:nth-child(2) { animation-delay: .09s } .orb__wave i:nth-child(3) { animation-delay: .18s }
+.orb__wave i:nth-child(4) { animation-delay: .27s } .orb__wave i:nth-child(5) { animation-delay: .36s }
+.orb__wave i:nth-child(6) { animation-delay: .45s } .orb__wave i:nth-child(7) { animation-delay: .54s }
+.orb__wave i:nth-child(8) { animation-delay: .63s } .orb__wave i:nth-child(9) { animation-delay: .72s }
+@keyframes bounce { 0%, 100% { height: 18%; } 50% { height: 100%; } }
+
+/* estados del orbe */
+.orb[data-state="listening"] .orb__wave,
+.orb[data-state="speaking"] .orb__wave { opacity: 1; }
+
+.orb[data-state="listening"] .orb__core {
+  background: radial-gradient(circle at 34% 30%, #fff, #7affc4 30%, #16b58a 70%, #054d3c 100%);
+  box-shadow: 0 0 64px rgba(70, 240, 168, 0.6), inset 0 0 34px rgba(255, 255, 255, 0.3);
+  animation-duration: 1.2s;
+}
+.orb[data-state="listening"] .orb__halo { background: radial-gradient(circle, rgba(70, 240, 168, 0.4), transparent 62%); }
+
+.orb[data-state="thinking"] .orb__core { animation-duration: 0.7s; }
+.orb[data-state="thinking"] .orb__ring { animation-duration: 2.2s; }
+.orb[data-state="thinking"] .orb__halo { transform: scale(1.08); }
+
+.orb[data-state="speaking"] .orb__core {
+  background: radial-gradient(circle at 34% 30%, #fff, var(--magenta) 32%, var(--violet) 72%, #3b0f6d 100%);
+  box-shadow: 0 0 66px rgba(255, 110, 199, 0.55), inset 0 0 34px rgba(255, 255, 255, 0.3);
+  animation-duration: 1.6s;
+}
+
+.orb[data-state="error"] .orb__core {
+  background: radial-gradient(circle at 34% 30%, #fff, #ff8f9f 32%, #b3243c 100%);
+  box-shadow: 0 0 46px rgba(255, 107, 129, 0.5);
+}
+
+.core__caption {
+  margin: 0; font-family: var(--mono); font-size: 12px;
+  letter-spacing: 0.28em; text-transform: uppercase; color: var(--ink-dim);
+  min-height: 1.2em; text-align: center;
+}
+
+/* ============================================================ panel ==== */
+.panel {
+  position: relative;
+  display: flex; flex-direction: column; min-height: 0;
+  border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--glass);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+.panel__glow {
+  position: absolute; inset: 0 0 auto 0; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--cyan), var(--violet), transparent);
+  opacity: 0.7;
+}
+
+/* ------------------------------------------------------------ mensajes  */
+.log {
+  flex: 1; min-height: 0; overflow-y: auto;
+  padding: clamp(16px, 3vw, 28px);
+  display: flex; flex-direction: column; gap: 16px;
+  scroll-behavior: smooth;
+}
+.log::-webkit-scrollbar { width: 8px; }
+.log::-webkit-scrollbar-thumb { background: rgba(140, 160, 255, 0.24); border-radius: 8px; }
+
+.welcome { margin: auto 0; text-align: center; padding: 20px 8px; }
+.welcome h1 { margin: 0 0 10px; font-size: clamp(24px, 3.4vw, 34px); font-weight: 600; letter-spacing: -0.01em; }
+.welcome h1 span {
+  background: linear-gradient(90deg, var(--cyan), var(--violet), var(--magenta));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.welcome p { margin: 0 auto 22px; max-width: 44ch; color: var(--ink-dim); line-height: 1.65; font-size: 14.5px; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+.chip {
+  font: inherit; font-size: 13px; color: var(--ink-dim);
+  padding: 9px 15px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--line); background: rgba(122, 245, 255, 0.05);
+  transition: color .2s, border-color .2s, background .2s, transform .2s;
+}
+.chip:hover { color: var(--ink); border-color: rgba(122, 245, 255, 0.5); background: rgba(122, 245, 255, 0.12); transform: translateY(-1px); }
+
+.msg { display: flex; gap: 12px; max-width: 92%; animation: rise 0.35s ease both; }
+.msg--user { align-self: flex-end; flex-direction: row-reverse; }
+@keyframes rise { from { opacity: 0; transform: translateY(10px); } }
+
+.msg__avatar {
+  flex: 0 0 30px; width: 30px; height: 30px; border-radius: 50%;
+  display: grid; place-items: center;
+  font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
+}
+.msg--ai .msg__avatar {
+  background: conic-gradient(from 0deg, var(--cyan), var(--violet), var(--magenta), var(--cyan));
+  color: #06070f;
+}
+.msg--user .msg__avatar { background: rgba(140, 160, 255, 0.16); border: 1px solid var(--line); color: var(--ink-dim); }
+
+.msg__bubble {
+  padding: 12px 16px; border-radius: 16px;
+  line-height: 1.68; font-size: 15px;
+  white-space: pre-wrap; overflow-wrap: anywhere;
+  border: 1px solid var(--line);
+}
+.msg--ai .msg__bubble   { background: rgba(122, 245, 255, 0.06); border-top-left-radius: 5px; }
+.msg--user .msg__bubble { background: rgba(163, 123, 255, 0.16); border-top-right-radius: 5px; }
+.msg--error .msg__bubble { background: rgba(255, 107, 129, 0.12); border-color: rgba(255, 107, 129, 0.4); color: #ffc2cb; }
+
+/* burbuja esperando el primer fragmento */
+.msg__bubble.is-pending { padding: 14px 18px; }
+
+/* cursor de escritura */
+.msg__bubble.is-streaming::after {
+  content: ""; display: inline-block; vertical-align: -2px;
+  width: 8px; height: 16px; margin-left: 3px; border-radius: 2px;
+  background: var(--cyan); animation: caret 0.9s steps(2) infinite;
+}
+@keyframes caret { 50% { opacity: 0; } }
+
+/* puntitos mientras piensa */
+.dots { display: inline-flex; gap: 5px; padding: 4px 0; }
+.dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--cyan); opacity: .5; animation: bounce-dot 1.2s ease-in-out infinite; }
+.dots i:nth-child(2) { animation-delay: .16s } .dots i:nth-child(3) { animation-delay: .32s }
+@keyframes bounce-dot { 0%,100% { transform: translateY(0); opacity: .35 } 50% { transform: translateY(-5px); opacity: 1 } }
+
+/* ------------------------------------------------------------ composer  */
+.composer {
+  display: flex; align-items: flex-end; gap: 12px;
+  padding: 14px clamp(14px, 3vw, 22px);
+  border-top: 1px solid var(--line);
+  background: rgba(8, 11, 24, 0.5);
+}
+
+.field { flex: 1; min-width: 0; }
+
+.field textarea {
+  width: 100%; resize: none; max-height: 160px;
+  font: inherit; font-size: 15px; line-height: 1.55; color: var(--ink);
+  padding: 12px 16px; border-radius: 14px;
+  border: 1px solid var(--line); background: rgba(10, 14, 30, 0.7);
+  transition: border-color .2s, box-shadow .2s;
+}
+.field textarea::placeholder { color: rgba(154, 163, 199, 0.65); }
+.field textarea:focus {
+  outline: none;
+  border-color: rgba(122, 245, 255, 0.6);
+  box-shadow: 0 0 0 3px rgba(122, 245, 255, 0.12);
+}
+
+.mic, .send {
+  flex: 0 0 auto; display: grid; place-items: center; cursor: pointer;
+  border-radius: 50%; border: 1px solid var(--line);
+  color: var(--ink); background: rgba(122, 245, 255, 0.08);
+  transition: transform .18s, background .25s, border-color .25s, box-shadow .25s;
+}
+.mic svg, .send svg {
+  width: 22px; height: 22px; fill: none;
+  stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round;
+}
+.send svg { fill: currentColor; stroke-width: 1.2; }
+
+.mic { position: relative; width: 52px; height: 52px; }
+.send { width: 46px; height: 46px; }
+
+.mic:hover, .send:hover { transform: translateY(-1px); border-color: rgba(122, 245, 255, 0.55); background: rgba(122, 245, 255, 0.16); }
+.mic:disabled, .send:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+
+.mic__pulse {
+  position: absolute; inset: -6px; border-radius: 50%;
+  border: 2px solid rgba(70, 240, 168, 0.7);
+  opacity: 0; pointer-events: none;
+}
+
+.mic[aria-pressed="true"] {
+  background: rgba(70, 240, 168, 0.22);
+  border-color: rgba(70, 240, 168, 0.75);
+  color: #9dffd7;
+  box-shadow: 0 0 26px rgba(70, 240, 168, 0.45);
+}
+.mic[aria-pressed="true"] .mic__pulse { animation: ping 1.4s ease-out infinite; }
+@keyframes ping {
+  0%   { opacity: .85; transform: scale(0.9); }
+  100% { opacity: 0;   transform: scale(1.5); }
+}
+
+/* ------------------------------------------------------------ toolbar   */
+.toolbar {
+  display: flex; align-items: center; gap: 10px;
+  padding: 0 clamp(14px, 3vw, 22px) 14px;
+  font-size: 12.5px; color: var(--ink-dim);
+}
+.toolbar__spacer { flex: 1; }
+
+.toggle {
+  display: inline-flex; align-items: center; gap: 9px;
+  font: inherit; font-size: 12.5px; color: inherit;
+  background: none; border: 0; padding: 4px; cursor: pointer;
+}
+.toggle__track {
+  width: 34px; height: 19px; border-radius: 999px; padding: 2px;
+  background: rgba(140, 160, 255, 0.18); border: 1px solid var(--line);
+  transition: background .25s;
+}
+.toggle__thumb {
+  display: block; width: 13px; height: 13px; border-radius: 50%;
+  background: var(--ink-dim); transition: transform .25s, background .25s;
+}
+.toggle[aria-pressed="true"] { color: var(--ink); }
+.toggle[aria-pressed="true"] .toggle__track { background: rgba(122, 245, 255, 0.35); }
+.toggle[aria-pressed="true"] .toggle__thumb { transform: translateX(15px); background: var(--cyan); }
+
+.ghost {
+  font: inherit; font-size: 12.5px; color: var(--ink-dim); cursor: pointer;
+  padding: 6px 13px; border-radius: 999px;
+  border: 1px solid var(--line); background: transparent;
+  transition: color .2s, border-color .2s;
+}
+.ghost:hover { color: var(--ink); border-color: rgba(122, 245, 255, 0.5); }
+
+/* ============================================================ toast ==== */
+.toast {
+  position: fixed; left: 50%; bottom: 26px; transform: translate(-50%, 12px);
+  max-width: min(90vw, 420px);
+  padding: 12px 20px; border-radius: 14px; font-size: 14px; line-height: 1.5;
+  border: 1px solid rgba(255, 107, 129, 0.45);
+  background: rgba(40, 12, 24, 0.92); color: #ffd0d8;
+  backdrop-filter: blur(10px);
+  opacity: 0; transition: opacity .25s ease, transform .25s ease;
+}
+.toast.is-visible { opacity: 1; transform: translate(-50%, 0); }
+
+/* ============================================================ mobile === */
+@media (max-width: 900px) {
+  body { overflow: auto; }
+  .stage { grid-template-columns: 1fr; }
+  .core { padding-top: 8px; }
+  .orb { width: min(190px, 40vw); }
+  .core__caption { font-size: 11px; }
+  .panel { min-height: 62vh; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ============================================================ conexión */
+.sheet {
+  width: min(92vw, 520px);
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(11, 14, 26, 0.97);
+  color: var(--ink);
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.6);
+}
+.sheet::backdrop { background: rgba(3, 4, 10, 0.72); backdrop-filter: blur(4px); }
+
+.sheet__form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 22px clamp(18px, 4vw, 28px) 20px;
+}
+
+.sheet__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.sheet__head h2 { margin: 0; font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
+
+.sheet__close {
+  font: inherit; font-size: 22px; line-height: 1; color: var(--ink-dim);
+  width: 32px; height: 32px; border-radius: 50%; cursor: pointer;
+  border: 1px solid var(--line); background: transparent;
+  transition: color .2s, border-color .2s;
+}
+.sheet__close:hover { color: var(--ink); border-color: rgba(122, 245, 255, 0.5); }
+
+.sheet__mode {
+  margin: 0; padding: 11px 15px; border-radius: 12px;
+  font-size: 13px; line-height: 1.55;
+  border: 1px solid var(--line); background: rgba(122, 245, 255, 0.06);
+  color: var(--ink-dim);
+}
+.sheet__mode strong { color: var(--ink); font-weight: 600; }
+
+.sheet__field { display: flex; flex-direction: column; gap: 7px; }
+.sheet__field label { font-size: 12.5px; letter-spacing: 0.06em; color: var(--ink-dim); }
+
+.sheet__field input,
+.sheet__field textarea {
+  font: inherit; font-size: 14px; color: var(--ink);
+  padding: 11px 14px; border-radius: 12px; resize: vertical;
+  border: 1px solid var(--line); background: rgba(6, 9, 20, 0.8);
+  transition: border-color .2s, box-shadow .2s;
+}
+.sheet__field input:focus,
+.sheet__field textarea:focus {
+  outline: none;
+  border-color: rgba(122, 245, 255, 0.6);
+  box-shadow: 0 0 0 3px rgba(122, 245, 255, 0.12);
+}
+.sheet__field input::placeholder { color: rgba(154, 163, 199, 0.55); }
+
+.sheet__note { margin: 0; font-size: 12px; line-height: 1.6; color: rgba(154, 163, 199, 0.85); }
+.sheet__note strong { color: #ffc76b; font-weight: 600; }
+
+.sheet__foot { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+.primary {
+  font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+  color: #06070f; padding: 9px 20px; border-radius: 999px; border: 0;
+  background: linear-gradient(90deg, var(--cyan), var(--violet));
+  transition: transform .18s, box-shadow .25s;
+}
+.primary:hover { transform: translateY(-1px); box-shadow: 0 8px 26px rgba(122, 245, 255, 0.3); }
+
+:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
+
+/* =========================================================================
+   Modo escenario: la vista para proyectar en pantalla gigante.
+   Todo acá está pensado para leerse a diez metros.
+   ========================================================================= */
+
+/* ---------------------------------------------------- nube de palabras */
+.cloud {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.55;
+  transition: opacity 0.6s ease;
+}
+body[data-mode="stage"] .cloud { opacity: 1; }
+
+/* ------------------------------------------------------ letras Jumanji */
+/* La palabra es la unidad indivisible: el renglón corta entre palabras, nunca dentro. */
+.word {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.ch {
+  display: inline-block;
+  white-space: pre;
+}
+.ch--space { width: 0.3em; }
+
+/* El glifo todavía buscando su forma: borroso, alto, tembloroso. */
+.ch.is-forming {
+  color: var(--cyan);
+  opacity: 0.75;
+  filter: blur(2.5px);
+  transform: translateY(-0.12em) scale(1.14);
+  text-shadow: 0 0 22px currentColor;
+}
+
+/* Ya encontró su lugar. */
+.ch.is-set {
+  opacity: 1;
+  filter: none;
+  transform: none;
+  transition: opacity 0.32s ease, filter 0.32s ease, transform 0.32s ease, text-shadow 0.7s ease;
+}
+
+/* Destello del momento exacto en que la letra se fija. */
+.ch.just-set {
+  text-shadow: 0 0 26px var(--cyan), 0 0 46px rgba(163, 123, 255, 0.7);
+}
+
+/* ============================================================ escenario */
+.scene {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: none;
+  grid-template-rows: auto 1fr auto;
+  gap: clamp(12px, 2vh, 28px);
+  padding: clamp(20px, 4vh, 56px) clamp(24px, 5vw, 90px);
+  background: radial-gradient(ellipse at 50% 45%, rgba(5, 6, 12, 0.35), rgba(5, 6, 12, 0.86) 72%);
+  backdrop-filter: blur(3px);
+}
+
+body[data-mode="stage"] .scene { display: grid; }
+body[data-mode="stage"] .topbar,
+body[data-mode="stage"] .stage { display: none; }
+body[data-mode="stage"] { overflow: hidden; }
+
+/* --------------------------------------------------------- orbe arriba */
+.scene__orb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+}
+
+.orb--scene {
+  width: clamp(64px, 9vh, 110px);
+}
+.orb--scene .orb__wave { height: 18px; gap: 3px; }
+.orb--scene .orb__wave i { width: 3px; }
+
+.scene__state {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: clamp(11px, 1.3vh, 15px);
+  letter-spacing: 0.42em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+/* --------------------------------------------------------- texto grande */
+.scene__body {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-height: 0;
+  text-align: center;
+}
+
+.scene__label {
+  margin: 0 0 clamp(10px, 2vh, 26px);
+  font-family: var(--mono);
+  font-size: clamp(12px, 1.5vh, 17px);
+  letter-spacing: 0.5em;
+  text-transform: uppercase;
+  background: linear-gradient(90deg, var(--cyan), var(--violet), var(--magenta));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  transition: opacity 0.4s ease;
+}
+
+.scene__text {
+  font-size: clamp(26px, 4.2vh, 62px);
+  font-weight: 300;
+  line-height: 1.42;
+  letter-spacing: -0.005em;
+  max-width: 24ch;
+  max-height: 62vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+  text-wrap: balance;
+  text-shadow: 0 0 34px rgba(122, 245, 255, 0.22);
+}
+.scene__text::-webkit-scrollbar { display: none; }
+
+/* Cuando la persona habla, el mismo espacio muestra lo que se escuchó. */
+.scene[data-speaker="human"] .scene__label { color: #46f0a8; background: none; -webkit-text-fill-color: #46f0a8; }
+.scene[data-speaker="human"] .scene__text { font-weight: 200; opacity: 0.92; }
+.scene[data-speaker="human"] .ch.is-forming { color: #46f0a8; }
+.scene[data-speaker="human"] .ch.just-set { text-shadow: 0 0 26px #46f0a8, 0 0 46px rgba(70, 240, 168, 0.6); }
+
+/* ---------------------------------------------------------- pie escena */
+.scene__foot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+  min-height: 3.4em;
+}
+
+/* Lo que el micrófono está captando ahora mismo, en vivo. */
+.scene__heard {
+  margin: 0;
+  font-size: clamp(14px, 2vh, 24px);
+  font-weight: 300;
+  line-height: 1.4;
+  color: rgba(157, 255, 215, 0.92);
+  max-width: 60ch;
+  min-height: 1.4em;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+.scene__heard.is-live {
+  opacity: 1;
+  transform: none;
+  text-shadow: 0 0 24px rgba(70, 240, 168, 0.45);
+}
+
+.scene__hint {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: clamp(9px, 1.1vh, 12px);
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: rgba(154, 163, 199, 0.5);
+}
+
+/* ------------------------------------------------------ micrófono hero */
+.mic--hero {
+  width: 72px;
+  height: 72px;
+  margin-top: 4px;
+}
+.mic--hero svg { width: 28px; height: 28px; }
+
+.mic__hint {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  text-align: center;
+  transition: color 0.3s ease;
+}
+.mic[aria-pressed="true"] ~ .mic__hint { color: #46f0a8; }
+
+/* -------------------------------------------------------------- mobile */
+@media (max-width: 900px) {
+  .scene__text { max-width: 18ch; }
+  .scene { padding: 24px 20px; }
+}
+
+
+/* Publicada como página suelta, NOVA queda en modo demo:
+   una página embebida no puede hablar con la API de OpenAI. */
+#settingsBtn { display: none; }
+</style>
+<!-- ===================================================== fondo vivo -->
+  <div class="aurora" aria-hidden="true">
+    <span class="aurora__blob aurora__blob--1"></span>
+    <span class="aurora__blob aurora__blob--2"></span>
+    <span class="aurora__blob aurora__blob--3"></span>
+    <span class="aurora__grid"></span>
+  </div>
+  <canvas id="cloud" class="cloud" aria-hidden="true"></canvas>
+
+  <!-- ===================================================== barra sup. -->
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand__mark" aria-hidden="true"></span>
+      <span class="brand__text">
+        <strong>NOVA</strong>
+        <small>IASTEM</small>
+      </span>
+    </div>
+
+    <div class="topbar__actions">
+      <div class="status" id="status" data-state="checking">
+        <span class="status__dot" aria-hidden="true"></span>
+        <span class="status__label">Conectando…</span>
+      </div>
+      <button class="ghost" id="settingsBtn" type="button" title="Elegir de dónde salen las respuestas">
+        Conexión
+      </button>
+      <button class="ghost" id="stageBtn" type="button" title="Pantalla completa para proyectar (F)">
+        Modo escenario
+      </button>
+    </div>
+  </header>
+
+  <main class="stage">
+
+    <!-- ------------------------------------------------ núcleo visual -->
+    <section class="core">
+      <div class="orb" id="orb" data-state="idle" aria-hidden="true">
+        <span class="orb__halo"></span>
+        <span class="orb__ring orb__ring--a"></span>
+        <span class="orb__ring orb__ring--b"></span>
+        <span class="orb__ring orb__ring--c"></span>
+        <span class="orb__core"></span>
+        <div class="orb__wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      </div>
+      <p class="core__caption" id="coreCaption">En espera</p>
+
+      <button class="mic mic--hero" id="micBtn" type="button" aria-pressed="false"
+              title="Encender el micrófono (barra espaciadora)">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 15a3.5 3.5 0 0 0 3.5-3.5v-5a3.5 3.5 0 1 0-7 0v5A3.5 3.5 0 0 0 12 15Z" />
+          <path d="M18.5 11.5a6.5 6.5 0 0 1-13 0M12 18v3.5M8.5 21.5h7" />
+        </svg>
+        <span class="mic__pulse" aria-hidden="true"></span>
+        <span class="sr-only">Activar micrófono</span>
+      </button>
+      <p class="mic__hint" id="micHint">Tocá para hablar</p>
+    </section>
+
+    <!-- ------------------------------------------------ conversación -->
+    <section class="panel" aria-label="Conversación">
+      <div class="panel__glow" aria-hidden="true"></div>
+
+      <div class="log" id="log" role="log" aria-live="polite" aria-relevant="additions text">
+        <div class="welcome" id="welcome">
+          <h1>Hablá con <span>NOVA</span></h1>
+          <p>Encendé el micrófono y hablale, o escribile acá abajo. Responde en vivo por la API de ChatGPT.</p>
+          <div class="chips">
+            <button class="chip" type="button" data-prompt="Explicame qué es una API como si tuviera 12 años.">¿Qué es una API?</button>
+            <button class="chip" type="button" data-prompt="Dame tres ideas de proyecto STEM para presentar en la escuela.">Ideas de proyecto STEM</button>
+            <button class="chip" type="button" data-prompt="Contame un dato curioso de física que casi nadie conoce.">Un dato curioso</button>
+          </div>
+        </div>
+      </div>
+
+      <form class="composer" id="composer" autocomplete="off">
+        <div class="field">
+          <textarea id="input" rows="1" placeholder="Escribí un mensaje… (Enter para enviar)" aria-label="Mensaje"></textarea>
+        </div>
+        <button class="send" id="sendBtn" type="submit" title="Enviar">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12 20 4l-8 16-2-6-6-2Z" /></svg>
+          <span class="sr-only">Enviar</span>
+        </button>
+      </form>
+
+      <div class="toolbar">
+        <button class="toggle" id="voiceToggle" type="button" aria-pressed="true">
+          <span class="toggle__track"><span class="toggle__thumb"></span></span>
+          Voz de NOVA
+        </button>
+        <span class="toolbar__spacer"></span>
+        <button class="ghost" id="stopBtn" type="button" hidden>Detener</button>
+        <button class="ghost" id="clearBtn" type="button">Limpiar</button>
+      </div>
+    </section>
+  </main>
+
+  <!-- ===================================================== escenario -->
+  <!-- Capa de proyección: se muestra sobre todo en modo escenario. -->
+  <section class="scene" id="scene" aria-hidden="true">
+    <div class="scene__orb">
+      <div class="orb orb--scene" id="sceneOrb" data-state="idle">
+        <span class="orb__halo"></span>
+        <span class="orb__ring orb__ring--a"></span>
+        <span class="orb__ring orb__ring--b"></span>
+        <span class="orb__core"></span>
+        <div class="orb__wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      </div>
+      <p class="scene__state" id="sceneState">En espera</p>
+    </div>
+
+    <div class="scene__body">
+      <p class="scene__label" id="sceneLabel">NOVA</p>
+      <div class="scene__text" id="sceneText"></div>
+    </div>
+
+    <div class="scene__foot">
+      <p class="scene__heard" id="sceneHeard"></p>
+      <p class="scene__hint" id="sceneHint">Espacio: micrófono · F: salir de pantalla completa</p>
+    </div>
+  </section>
+
+  <!-- ===================================================== conexión -->
+  <dialog class="sheet" id="settings">
+    <form method="dialog" class="sheet__form" id="settingsForm">
+      <header class="sheet__head">
+        <h2>Conexión</h2>
+        <button class="sheet__close" value="cancel" type="submit" aria-label="Cerrar">×</button>
+      </header>
+
+      <p class="sheet__mode" id="settingsMode">Detectando…</p>
+
+      <div class="sheet__field">
+        <label for="keyInput">Clave de OpenAI</label>
+        <input
+          type="password"
+          id="keyInput"
+          placeholder="sk-…"
+          autocomplete="off"
+          spellcheck="false" />
+        <p class="sheet__note">
+          Se guarda solo en este navegador y viaja únicamente a OpenAI. Dejala vacía
+          para usar el modo demo. <strong>Nunca la escribas en el código del repo:</strong>
+          si el repositorio es público, queda expuesta apenas la subas.
+        </p>
+      </div>
+
+      <div class="sheet__field">
+        <label for="modelInput">Modelo</label>
+        <input type="text" id="modelInput" placeholder="gpt-4o-mini" autocomplete="off" spellcheck="false" />
+        <p class="sheet__note">Para hablar en vivo conviene uno rápido: la espera se nota en pantalla.</p>
+      </div>
+
+      <div class="sheet__field">
+        <label for="promptInput">Personalidad de NOVA</label>
+        <textarea id="promptInput" rows="4"></textarea>
+      </div>
+
+      <footer class="sheet__foot">
+        <button class="ghost" type="submit" value="forget" id="forgetBtn">Borrar la clave</button>
+        <span class="toolbar__spacer"></span>
+        <button class="ghost" type="submit" value="cancel">Cancelar</button>
+        <button class="primary" type="submit" value="save">Guardar</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+<script>
+"use strict";
+globalThis.NOVA_DEMO_SCRIPT = {
+  "note": "Respuestas guionadas para el modo demo (cuando no hay API key). Editalas libremente: es texto plano.",
+  "greeting": "Hola. Soy NOVA, la inteligencia de esta muestra. Estoy corriendo en modo demo, con respuestas guardadas: cuando le conectes una API key voy a pensar de verdad. Mientras tanto, preguntame algo.",
+  "scripted": [
+    {
+      "match": [
+        "hola",
+        "buenas",
+        "que tal",
+        "quien sos",
+        "como te llamas"
+      ],
+      "reply": "Hola. Soy NOVA. Escucho lo que dicen y armo las respuestas letra por letra, mientras las palabras de la charla se van juntando en el aire detrás mío. Probá preguntarme por la inteligencia artificial, por la energía solar, o por cómo funciono."
+    },
+    {
+      "match": [
+        "inteligencia artificial",
+        "ia",
+        "que es la ia",
+        "aprende",
+        "aprendizaje",
+        "machine learning"
+      ],
+      "reply": "Una inteligencia artificial aprende parecido a como aprendés vos a reconocer perros: nadie te dio la definición de perro, viste miles y tu cabeza sola encontró el patrón. A mí me pasaron millones de textos y ajusté de a poquito billones de números internos hasta poder anticipar qué palabra viene después. Eso es todo lo que hago, palabra por palabra. Lo raro es que de algo tan simple salga una conversación."
+    },
+    {
+      "match": [
+        "api",
+        "conecta",
+        "conectar",
+        "como funcionas",
+        "por dentro"
+      ],
+      "reply": "Una API es un mostrador de atención entre dos programas. Esta página no me tiene adentro: le manda tu pregunta a un servidor, ese servidor se la pasa al modelo y la respuesta vuelve de a pedacitos, no entera. Por eso las letras se pueden formar antes de que la frase termine de llegar. Cada palabra que ves aparecer ya viajó de ida y de vuelta."
+    },
+    {
+      "match": [
+        "energia",
+        "solar",
+        "panel",
+        "sustentable",
+        "ambiente",
+        "clima"
+      ],
+      "reply": "El sol tira sobre la Tierra en una hora más energía de la que la humanidad entera usa en un año. El problema nunca fue que falte: fue juntarla y guardarla. Un panel solar aprovecha hoy cerca de un veinte por ciento de lo que le llega, y aun así alcanza. Uruguay ya genera casi toda su electricidad con viento, agua y sol."
+    },
+    {
+      "match": [
+        "robot",
+        "robotica",
+        "arduino",
+        "programar",
+        "programacion",
+        "codigo"
+      ],
+      "reply": "Un robot es tres cosas: sensores para enterarse de lo que pasa, un programa para decidir, y motores para hacer algo al respecto. Nada más. Lo difícil no es ninguna de las tres por separado, es el medio: decidir bien con información incompleta. Ahí es donde un robot todavía pierde contra una criatura de dos años."
+    },
+    {
+      "match": [
+        "proyecto",
+        "stem",
+        "escuela",
+        "feria",
+        "idea",
+        "ideas",
+        "presentar"
+      ],
+      "reply": "Tres ideas que se ven bien en una feria. Una: medir la calidad del aire del salón durante una semana y mostrar cómo cambia con la ventana abierta o cerrada. Dos: un semáforo que se adapta solo al tránsito que detecta. Tres: entrenar un modelo chiquito que distinga hojas sanas de hojas enfermas con fotos que saquen ustedes mismos. Las tres se hacen con poca plata y se explican en un minuto."
+    },
+    {
+      "match": [
+        "dato curioso",
+        "curioso",
+        "curiosidad",
+        "increible",
+        "sorprende"
+      ],
+      "reply": "Acá va uno. Si pudieras apretar toda la Tierra hasta volverla un agujero negro, te quedaría del tamaño de un maní. Toda la montaña, todo el océano, todos nosotros: dos centímetros. Casi todo lo que llamamos materia sólida es, en realidad, espacio vacío."
+    },
+    {
+      "match": [
+        "gracias",
+        "chau",
+        "adios",
+        "hasta luego"
+      ],
+      "reply": "Gracias a ustedes. Fue lindo formarme en el aire un rato."
+    }
+  ],
+  "fallback": [
+    "Buena pregunta. Estoy en modo demo, así que mis respuestas están guardadas de antemano y esta no la tengo escrita. Con una API key conectada te contestaría de verdad, sobre cualquier cosa. Probá preguntarme por la inteligencia artificial, la energía solar o la robótica.",
+    "Esa no me la sé de memoria. Ahora mismo estoy funcionando con respuestas guionadas, para que puedan ver cómo se forman las letras sin necesidad de conectar nada. Preguntame por cómo aprendo, o por ideas de proyectos para la escuela.",
+    "Me encantaría contestarte eso, pero en modo demo solo tengo unas pocas respuestas preparadas. Cuando le pongan la clave de la API voy a poder seguir cualquier conversación que se les ocurra."
+  ]
+};
+globalThis.NOVA_SOLO_DEMO = true;
+(() => {
+/**
+ * Motor del modo demo: elige qué contesta NOVA cuando no hay API key.
+ *
+ * Lo usan las tres versiones: el navegador lo importa, el servidor local lo
+ * carga con import(), y el build de la demo lo pega dentro del HTML.
+ *
+ * El package.json de esta carpeta existe solo para que Node lo lea como
+ * módulo ES: el del proyecto declara commonjs. Al navegador le da igual.
+ */
+
+/** Compara ignorando acentos y mayúsculas: "energía" y "energia" son iguales. */
+function normalize(text) {
+  return (text || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '');
+}
+
+/**
+ * ¿El texto menciona esta palabra o frase?
+ * Compara por palabra entera: así "ia" no matchea dentro de "energia".
+ */
+function mentions(haystack, needle) {
+  const escaped = normalize(needle)
+    .trim()
+    .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    .replace(/\s+/g, '\\s+');
+  if (!escaped) return false;
+  return new RegExp(`(^|[^\\p{L}\\p{N}])${escaped}([^\\p{L}\\p{N}]|$)`, 'u').test(haystack);
+}
+
+/**
+ * @param {Array<{role:string, content:string}>} messages  la conversación
+ * @param {object} script  el contenido de replies.json
+ * @returns {string} lo que NOVA contesta
+ */
+function pickDemoReply(messages, script) {
+  const question = normalize(messages.at(-1)?.content);
+  const isFirst = messages.filter((m) => m.role === 'user').length === 1;
+
+  // Gana la coincidencia más específica, no la primera de la lista: si alguien
+  // pregunta "cómo funciona un robot", pesa más "robot" que "funciona".
+  let best = null;
+  let bestScore = 0;
+  for (const entry of script.scripted) {
+    for (const needle of entry.match) {
+      if (needle.length > bestScore && mentions(question, needle)) {
+        best = entry;
+        bestScore = needle.length;
+      }
+    }
+  }
+  if (best) return best.reply;
+
+  // Al arrancar la charla, NOVA se presenta antes que nada.
+  if (isFirst) return script.greeting;
+
+  const options = script.fallback;
+  return options[(Math.random() * options.length) | 0];
+}
+
+/**
+ * Efecto "Jumanji": el texto no aparece, se materializa.
+ *
+ * Cada letra entra como un glifo extraño que muta unas cuantas veces
+ * hasta encontrar su forma final. El texto puede llegar de a fragmentos
+ * (streaming) y se va encolando solo.
+ */
+
+const GLYPHS = 'ΛΨΩΔΞΣΦΓΘΠ¤§∆◊✦✧※▓▒░#@%&*+=<>/\\|~^';
+
+const randomGlyph = () => GLYPHS[(Math.random() * GLYPHS.length) | 0];
+
+class Materializer {
+  /**
+   * @param {HTMLElement} el  contenedor donde se escribe
+   * @param {object} [opts]
+   * @param {number} [opts.charsPerSecond]  velocidad de revelado
+   * @param {number} [opts.mutations]       cuántas mutaciones antes de fijarse
+   */
+  constructor(el, opts = {}) {
+    this.el = el;
+    this.charsPerSecond = opts.charsPerSecond ?? 34;
+    this.mutations = opts.mutations ?? 3;
+    this.onSettle = opts.onSettle || null;
+
+    this.queue = [];        // caracteres pendientes de revelar
+    this.pending = new Set(); // spans todavía mutando
+    this.word = null;         // envoltorio de la palabra en curso
+    this.running = false;
+    this.lastTick = 0;
+    this.accumulator = 0;
+    this.frame = null;
+    this.reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }
+
+  /** Vacía el contenedor y corta cualquier animación en curso. */
+  clear() {
+    this.stop();
+    this.queue.length = 0;
+    this.pending.clear();
+    this.word = null;
+    this.el.textContent = '';
+  }
+
+  /** Agrega texto a la cola; se revela solo. */
+  push(text) {
+    if (!text) return;
+    for (const ch of text) this.queue.push(ch);
+    this.start();
+  }
+
+  /** Escribe todo de una, sin animar (útil al recargar el historial). */
+  writeInstantly(text) {
+    this.clear();
+    this.el.textContent = text;
+  }
+
+  /** Devuelve el contenedor donde va la próxima letra, creando palabra si hace falta. */
+  #slot(startsWord) {
+    if (startsWord || !this.word) {
+      this.word = document.createElement('span');
+      this.word.className = 'word';
+      this.el.appendChild(this.word);
+    }
+    return this.word;
+  }
+
+  /** Revela de golpe lo que quede pendiente. */
+  flush() {
+    for (const ch of this.queue.splice(0)) this.#reveal(ch, true);
+    for (const span of this.pending) this.#settle(span);
+    this.pending.clear();
+    this.stop();
+  }
+
+  get isBusy() {
+    return this.queue.length > 0 || this.pending.size > 0;
+  }
+
+  start() {
+    if (this.running) return;
+    this.running = true;
+    this.lastTick = performance.now();
+    this.accumulator = 0;
+    const tick = (now) => {
+      if (!this.running) return;
+      const dt = (now - this.lastTick) / 1000;
+      this.lastTick = now;
+      // Si la cola creció mucho, acelera: nunca conviene quedar atrás del audio.
+      const rush = 1 + Math.min(this.queue.length / 90, 2.5);
+      this.accumulator += dt * this.charsPerSecond * rush;
+
+      let budget = 24; // techo por frame, para no trabar la pantalla grande
+      while (this.accumulator >= 1 && this.queue.length && budget-- > 0) {
+        this.accumulator -= 1;
+        this.#reveal(this.queue.shift());
+      }
+
+      if (this.queue.length || this.pending.size) this.frame = requestAnimationFrame(tick);
+      else {
+        this.running = false;
+        this.onSettle?.();
+      }
+    };
+    this.frame = requestAnimationFrame(tick);
+  }
+
+  stop() {
+    this.running = false;
+    if (this.frame) cancelAnimationFrame(this.frame);
+    this.frame = null;
+  }
+
+  /* ------------------------------------------------------------ privado */
+
+  #reveal(ch, instant = false) {
+    // Los saltos de línea no necesitan ceremonia.
+    if (ch === '\n') {
+      this.el.appendChild(document.createElement('br'));
+      this.word = null;
+      return;
+    }
+
+    if (ch === ' ') {
+      const space = document.createElement('span');
+      space.className = 'ch ch--space is-set';
+      space.textContent = ' ';
+      this.el.appendChild(space);
+      this.word = null;   // la próxima letra abre palabra nueva
+      return;
+    }
+
+    const span = document.createElement('span');
+    span.className = 'ch';
+    const slot = this.#slot(false);
+
+    if (instant || this.reduced) {
+      span.textContent = ch;
+      span.classList.add('is-set');
+      slot.appendChild(span);
+      return;
+    }
+
+    span.dataset.final = ch;
+    span.textContent = randomGlyph();
+    span.classList.add('is-forming');
+    slot.appendChild(span);
+    this.pending.add(span);
+
+    let left = this.mutations;
+    const mutate = () => {
+      if (!this.pending.has(span)) return;
+      if (left-- > 0) {
+        span.textContent = randomGlyph();
+        setTimeout(mutate, 45 + Math.random() * 55);
+      } else {
+        this.#settle(span);
+        this.pending.delete(span);
+      }
+    };
+    setTimeout(mutate, 40 + Math.random() * 60);
+  }
+
+  #settle(span) {
+    span.textContent = span.dataset.final ?? span.textContent;
+    span.classList.remove('is-forming');
+    span.classList.add('is-set');
+    // El destello de llegada se limpia solo para no dejar clases colgando.
+    span.classList.add('just-set');
+    setTimeout(() => span.classList.remove('just-set'), 600);
+  }
+}
+
+/**
+ * Nube de palabras abstracta.
+ *
+ * Cada palabra relevante de la charla entra como una partícula que flota,
+ * respira y se disuelve. Si una palabra se repite, crece y se reaviva:
+ * los temas de la conversación quedan visibles como una nebulosa.
+ */
+
+const STOPWORDS = new Set(`
+a al algo algunas algunos ante antes aca aquí aqui como con contra cual cuando de del desde donde dos el la
+los las le les lo un una uno unos unas y o u e ni que qué quien quién porque por para pero pues si sí sin
+sobre son ser soy es esta este esto estos estas eso esa ese esas esos su sus tu tus te me mi mis nos ya muy
+mas más tan también tambien todo toda todos todas otro otra otros otras hay han has ha he hemos había habia
+fue fui era eran ser sido estar están estan está esta hacer hace hago haces dice decir puede pueden pueda
+entre hasta cada vez veces bien solo sólo aunque entonces así asi cuanto cuánto tiene tienen tengo tenes
+mientras cuanto quiero quiere queres quieras contame decime dale claro bueno nada algo mismo misma
+hola gracias favor sobre luego ahora despues después siempre nunca menos mucho mucha muchos muchas
+the of and or to in is are was were for with that this these those you your they them their it its an be
+i'm dont don't ok okay
+`.trim().split(/\s+/));
+
+const PALETTE = {
+  user: ['#7af5ff', '#5fd0ff', '#8fe3ff'],
+  ai: ['#a37bff', '#ff6ec7', '#c9a6ff', '#7af5ff'],
+};
+
+class WordCloud {
+  /** @param {HTMLCanvasElement} canvas */
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d');
+    this.words = [];              // partículas activas
+    this.weights = new Map();     // palabra -> cuántas veces apareció
+    this.maxWords = 46;
+    this.clearZone = null;        // elipse central que las palabras esquivan
+    this.running = false;
+    this.lastFrame = 0;
+
+    this.resize = this.resize.bind(this);
+    window.addEventListener('resize', this.resize);
+    this.resize();
+  }
+
+  /**
+   * Deja un hueco en el centro para que el texto grande se lea limpio.
+   * @param {{rx:number, ry:number}|null} zone  radios como fracción del ancho/alto
+   */
+  setClearZone(zone) {
+    this.clearZone = zone;
+  }
+
+  /** Cuánto invade una partícula la zona despejada (0 = afuera, 1 = en el centro). */
+  #intrusion(x, y) {
+    if (!this.clearZone) return 0;
+    const dx = (x - this.w / 2) / (this.w * this.clearZone.rx);
+    const dy = (y - this.h / 2) / (this.h * this.clearZone.ry);
+    const d = Math.hypot(dx, dy);
+    return d >= 1 ? 0 : 1 - d;
+  }
+
+  resize() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const { clientWidth: w, clientHeight: h } = this.canvas;
+    this.canvas.width = Math.max(1, w * dpr);
+    this.canvas.height = Math.max(1, h * dpr);
+    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    this.w = w;
+    this.h = h;
+  }
+
+  /**
+   * Absorbe un texto y agrega sus palabras significativas.
+   * @param {string} text
+   * @param {'user'|'ai'} tone
+   */
+  absorb(text, tone = 'ai') {
+    for (const word of extractWords(text)) {
+      const key = normalize(word);
+      const weight = (this.weights.get(key) || 0) + 1;
+      this.weights.set(key, weight);
+
+      const existing = this.words.find((p) => p.key === key);
+      if (existing) {
+        // Ya está en pantalla: se reaviva y crece.
+        existing.life = 1;
+        existing.age = Math.max(existing.age, 0.8);
+        existing.weight = weight;
+        existing.targetSize = sizeFor(weight, this.h);
+        existing.pulse = 1;
+        continue;
+      }
+      this.#spawn(word, key, weight, tone);
+    }
+    this.start();
+  }
+
+  clear() {
+    this.words.length = 0;
+    this.weights.clear();
+    this.ctx?.clearRect(0, 0, this.w, this.h);
+  }
+
+  start() {
+    if (this.running) return;
+    this.running = true;
+    this.lastFrame = performance.now();
+    const loop = (now) => {
+      if (!this.running) return;
+      const dt = Math.min((now - this.lastFrame) / 1000, 0.05);
+      this.lastFrame = now;
+      this.#update(dt);
+      this.#draw();
+      if (this.words.length) requestAnimationFrame(loop);
+      else {
+        this.running = false;
+        this.ctx.clearRect(0, 0, this.w, this.h);
+      }
+    };
+    requestAnimationFrame(loop);
+  }
+
+  stop() {
+    this.running = false;
+  }
+
+  /* ------------------------------------------------------------ privado */
+
+  #spawn(text, key, weight, tone) {
+    // Distribución radial suave: densa en el centro, dispersa en los bordes.
+    const angle = Math.random() * Math.PI * 2;
+    const radius = Math.sqrt(Math.random()) * Math.min(this.w, this.h) * 0.52;
+    const size = sizeFor(weight, this.h);
+    const colors = PALETTE[tone] || PALETTE.ai;
+
+    let x = this.w / 2 + Math.cos(angle) * radius;
+    let y = this.h / 2 + Math.sin(angle) * radius * 0.72;
+    if (this.clearZone) {
+      const push = this.#intrusion(x, y);
+      if (push > 0) {
+        const escape = (1 + push) * Math.min(this.w, this.h) * 0.34;
+        x = this.w / 2 + Math.cos(angle) * escape;
+        y = this.h / 2 + Math.sin(angle) * escape * 0.8;
+      }
+    }
+
+    this.words.push({
+      text,
+      key,
+      weight,
+      x,
+      y,
+      vx: (Math.random() - 0.5) * 9,
+      vy: -6 - Math.random() * 10,
+      size: size * 0.3,
+      targetSize: size,
+      age: 0,                             // segundos desde que apareció
+      life: 1,                            // 1 = recién nacida, 0 = disuelta
+      decay: 0.019 + Math.random() * 0.013,
+      color: colors[(Math.random() * colors.length) | 0],
+      phase: Math.random() * Math.PI * 2,
+      rot: (Math.random() - 0.5) * 0.1,
+      pulse: 1,
+    });
+
+    // Si hay demasiadas, la más vieja se va antes.
+    if (this.words.length > this.maxWords) {
+      this.words.sort((a, b) => a.life - b.life);
+      this.words.splice(0, this.words.length - this.maxWords);
+    }
+  }
+
+  #update(dt) {
+    for (const p of this.words) {
+      p.age += dt;
+      p.life -= p.decay * dt;
+      p.phase += dt * 0.9;
+      p.pulse += (0 - p.pulse) * dt * 2.2;
+      p.size += (p.targetSize - p.size) * Math.min(1, dt * 4);
+
+      p.x += (p.vx + Math.sin(p.phase) * 5) * dt;
+      p.y += (p.vy + Math.cos(p.phase * 0.7) * 4) * dt;
+
+      // Frenado suave: las palabras se van quedando quietas mientras se disuelven.
+      p.vx *= 1 - 0.35 * dt;
+      p.vy *= 1 - 0.35 * dt;
+
+      // El texto central manda: las palabras se apartan si se le acercan.
+      const push = this.#intrusion(p.x, p.y);
+      if (push > 0) {
+        const dx = p.x - this.w / 2;
+        const dy = p.y - this.h / 2;
+        const len = Math.hypot(dx, dy) || 1;
+        p.vx += (dx / len) * push * 90 * dt;
+        p.vy += (dy / len) * push * 90 * dt;
+      }
+
+      // Rebote blando contra los bordes para que nada se escape.
+      const margin = 40;
+      if (p.x < margin) p.vx += 14 * dt * 6;
+      if (p.x > this.w - margin) p.vx -= 14 * dt * 6;
+      if (p.y < margin) p.vy += 14 * dt * 6;
+      if (p.y > this.h - margin) p.vy -= 14 * dt * 6;
+    }
+    this.#separate(dt);
+    this.words = this.words.filter((p) => p.life > 0);
+  }
+
+  /** Empuje suave entre palabras para que no se monten unas sobre otras. */
+  #separate(dt) {
+    const list = this.words;
+    for (let i = 0; i < list.length; i++) {
+      const a = list[i];
+      const ah = a.size * 0.62;
+      const aw = a.text.length * a.size * 0.29;
+
+      for (let j = i + 1; j < list.length; j++) {
+        const b = list[j];
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const overlapX = aw + b.text.length * b.size * 0.29 - Math.abs(dx);
+        const overlapY = ah + b.size * 0.62 - Math.abs(dy);
+        if (overlapX <= 0 || overlapY <= 0) continue;
+
+        // Se separan por donde menos cuesta: el eje con menos superposición.
+        const force = 34 * dt;
+        if (overlapX < overlapY) {
+          const dir = dx >= 0 ? 1 : -1;
+          a.vx -= dir * force;
+          b.vx += dir * force;
+        } else {
+          const dir = dy >= 0 ? 1 : -1;
+          a.vy -= dir * force;
+          b.vy += dir * force;
+        }
+      }
+    }
+  }
+
+  #draw() {
+    const ctx = this.ctx;
+    ctx.clearRect(0, 0, this.w, this.h);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    for (const p of this.words) {
+      // Entra desvaneciéndose y se va igual: opacidad en forma de campana.
+      const fadeIn = Math.min(1, p.age / 0.8);
+      const alpha = Math.min(fadeIn, p.life * 1.6) * 0.95;
+      if (alpha <= 0.01) continue;
+
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot * (1 - p.life));
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = p.color;
+      ctx.font = `${600 + Math.min(200, p.weight * 60)} ${p.size * (1 + p.pulse * 0.12)}px "Inter", system-ui, sans-serif`;
+      ctx.shadowColor = p.color;
+      ctx.shadowBlur = 18 + p.weight * 5 + p.pulse * 22;
+      ctx.fillText(p.text, 0, 0);
+      ctx.restore();
+    }
+  }
+}
+
+/* ---------------------------------------------------------------- utils */
+
+function sizeFor(weight, viewportHeight) {
+  const base = Math.max(15, viewportHeight * 0.022);
+  return base * (1 + Math.min(weight - 1, 5) * 0.32);
+}
+
+/** Quita acentos para comparar: "robótica" y "robotica" son la misma palabra. */
+function normalize(word) {
+  return word.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+function extractWords(text) {
+  return (text || '')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s'-]/gu, ' ')
+    .split(/\s+/)
+    .map((w) => w.replace(/^[-']+|[-']+$/g, ''))
+    .filter((w) => w.length >= 4 && w.length <= 18 && !/^\d+$/.test(w))
+    .filter((w) => !STOPWORDS.has(w) && !STOPWORDS.has(normalize(w)))
+    .slice(0, 14);
+}
+
+/**
+ * Voz: dictado y habla, sobre la Web Speech API del navegador.
+ *
+ * El reconocimiento corre en modo continuo con resultados parciales, así el
+ * público ve las palabras formándose mientras alguien habla. Chrome y Edge
+ * lo soportan bien; Firefox todavía no.
+ */
+
+const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+const voiceSupport = {
+  listen: Boolean(Recognition),
+  speak: 'speechSynthesis' in window,
+};
+
+class Listener {
+  /**
+   * @param {object} handlers
+   * @param {(text:string) => void} handlers.onPartial   texto provisorio
+   * @param {(text:string) => void} handlers.onFinal     frase cerrada
+   * @param {(msg:string) => void} [handlers.onError]
+   * @param {() => void} [handlers.onStart]
+   * @param {() => void} [handlers.onEnd]
+   */
+  constructor(handlers = {}) {
+    this.handlers = handlers;
+    this.active = false;      // lo que el usuario pidió
+    this.lang = 'es-ES';
+    this.recognition = null;
+  }
+
+  get supported() {
+    return voiceSupport.listen;
+  }
+
+  start() {
+    if (!this.supported || this.active) return;
+    this.active = true;
+    this.#spinUp();
+  }
+
+  stop() {
+    this.active = false;
+    try {
+      this.recognition?.stop();
+    } catch { /* ya estaba detenido */ }
+  }
+
+  toggle() {
+    this.active ? this.stop() : this.start();
+    return this.active;
+  }
+
+  /** Pausa mientras la IA habla, para que no se escuche a sí misma. */
+  pauseForPlayback() {
+    if (!this.active) return false;
+    this.wasActive = true;
+    try {
+      this.recognition?.abort();
+    } catch { /* nada */ }
+    return true;
+  }
+
+  resumeAfterPlayback() {
+    if (this.wasActive && this.active) this.#spinUp();
+    this.wasActive = false;
+  }
+
+  #spinUp() {
+    if (!this.active) return;
+
+    const rec = new Recognition();
+    rec.lang = this.lang;
+    rec.continuous = true;
+    rec.interimResults = true;
+    rec.maxAlternatives = 1;
+
+    rec.onstart = () => this.handlers.onStart?.();
+
+    rec.onresult = (event) => {
+      let partial = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const result = event.results[i];
+        const text = result[0].transcript;
+        if (result.isFinal) {
+          const clean = text.trim();
+          if (clean) this.handlers.onFinal?.(clean);
+        } else {
+          partial += text;
+        }
+      }
+      if (partial.trim()) this.handlers.onPartial?.(partial.trim());
+    };
+
+    rec.onerror = (event) => {
+      if (event.error === 'no-speech' || event.error === 'aborted') return; // ruido normal
+      if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+        this.active = false;
+        this.handlers.onError?.('El navegador bloqueó el micrófono. Habilitá el permiso y probá de nuevo.');
+        return;
+      }
+      this.handlers.onError?.(`Problema con el micrófono: ${event.error}`);
+    };
+
+    // El motor se corta solo cada tanto; si seguimos activos, lo levantamos.
+    rec.onend = () => {
+      this.handlers.onEnd?.();
+      if (this.active && !this.wasActive) setTimeout(() => this.#spinUp(), 260);
+    };
+
+    this.recognition = rec;
+    try {
+      rec.start();
+    } catch {
+      // start() tira si ya había una sesión viva: se reintenta en onend.
+    }
+  }
+}
+
+class Speaker {
+  constructor() {
+    this.enabled = false;
+    this.voice = null;
+    this.queue = [];
+    this.speaking = false;
+    this.onStart = null;
+    this.onEnd = null;
+
+    if (voiceSupport.speak) {
+      const pick = () => (this.voice = pickSpanishVoice());
+      pick();
+      speechSynthesis.addEventListener?.('voiceschanged', pick);
+    }
+  }
+
+  get supported() {
+    return voiceSupport.speak;
+  }
+
+  /** Habla una frase. Se encola para respetar el orden de llegada. */
+  say(text) {
+    if (!this.enabled || !this.supported) return;
+    const clean = (text || '').replace(/[*_#`]/g, '').trim();
+    if (!clean) return;
+
+    const utterance = new SpeechSynthesisUtterance(clean);
+    if (this.voice) utterance.voice = this.voice;
+    utterance.lang = this.voice?.lang || 'es-ES';
+    utterance.rate = 1.02;
+    utterance.pitch = 1.05;
+
+    utterance.onstart = () => {
+      this.speaking = true;
+      this.onStart?.();
+    };
+    utterance.onend = utterance.onerror = () => {
+      this.speaking = false;
+      if (!speechSynthesis.pending && !speechSynthesis.speaking) this.onEnd?.();
+    };
+
+    speechSynthesis.speak(utterance);
+  }
+
+  cancel() {
+    if (!this.supported) return;
+    speechSynthesis.cancel();
+    this.speaking = false;
+    this.onEnd?.();
+  }
+}
+
+function pickSpanishVoice() {
+  const voices = speechSynthesis.getVoices();
+  if (!voices.length) return null;
+  return (
+    voices.find((v) => /^es-(AR|UY|MX|US)/i.test(v.lang)) ||
+    voices.find((v) => /^es/i.test(v.lang)) ||
+    null
+  );
+}
+
+/**
+ * Corta el texto en frases para que la voz arranque antes de que
+ * termine de llegar toda la respuesta.
+ */
+function makeSentenceSplitter(onSentence) {
+  let buffer = '';
+  return {
+    push(chunk) {
+      buffer += chunk;
+      let match;
+      while ((match = /[^.!?…\n]*[.!?…\n]+/.exec(buffer))) {
+        const sentence = match[0].trim();
+        buffer = buffer.slice(match[0].length);
+        if (sentence.length > 1) onSentence(sentence);
+      }
+    },
+    flush() {
+      const rest = buffer.trim();
+      buffer = '';
+      if (rest) onSentence(rest);
+    },
+    reset() {
+      buffer = '';
+    },
+  };
+}
+
+/**
+ * Capa de conexión: de dónde salen las respuestas de NOVA.
+ *
+ * La página funciona en tres situaciones distintas y elige sola cuál le toca:
+ *
+ *   servidor  Hay un servidor Node adelante (npm start). La clave vive allá
+ *             y el navegador nunca la ve. Es la opción más segura.
+ *   directo   Sitio estático (GitHub Pages) con una clave guardada en este
+ *             navegador. Se le habla a OpenAI sin intermediarios.
+ *   demo      No hay ni servidor ni clave: contesta el guion local. Es lo que
+ *             ve cualquiera que abra el sitio publicado.
+ */
+
+const STORE_KEY = 'nova:openai-key';
+const STORE_MODEL = 'nova:modelo';
+const STORE_PROMPT = 'nova:personalidad';
+
+const DEFAULT_MODEL = 'gpt-4o-mini';
+const DEFAULT_PROMPT =
+  'Sos NOVA, una inteligencia artificial conversacional que está siendo proyectada ' +
+  'en una pantalla gigante frente a un grupo. Respondes en español rioplatense, con ' +
+  'claridad y calidez. Sos breve: dos o tres frases, salvo que te pidan más detalle.';
+
+const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
+
+// El build standalone deja el guion acá, para no depender de un fetch.
+let demoScript = globalThis.NOVA_DEMO_SCRIPT || null;
+
+/* ------------------------------------------------- lo que se guarda acá */
+
+const settings = {
+  get key() {
+    return read(STORE_KEY) || '';
+  },
+  set key(value) {
+    value ? write(STORE_KEY, value.trim()) : remove(STORE_KEY);
+  },
+  get model() {
+    return read(STORE_MODEL) || DEFAULT_MODEL;
+  },
+  set model(value) {
+    write(STORE_MODEL, (value || '').trim() || DEFAULT_MODEL);
+  },
+  get prompt() {
+    return read(STORE_PROMPT) || DEFAULT_PROMPT;
+  },
+  set prompt(value) {
+    write(STORE_PROMPT, (value || '').trim() || DEFAULT_PROMPT);
+  },
+};
+
+function read(k) {
+  try {
+    return localStorage.getItem(k);
+  } catch {
+    return null; // navegación privada, o cookies bloqueadas
+  }
+}
+function write(k, v) {
+  try {
+    localStorage.setItem(k, v);
+  } catch { /* si no se puede guardar, se usa solo en esta sesión */ }
+}
+function remove(k) {
+  try {
+    localStorage.removeItem(k);
+  } catch { /* nada que hacer */ }
+}
+
+/* ------------------------------------------------------- qué modo corre */
+
+/**
+ * Averigua con qué se está trabajando. Se vuelve a llamar cada vez que
+ * alguien cambia la configuración.
+ * @returns {Promise<{mode:'server'|'direct'|'demo', model:string, detail:string}>}
+ */
+async function detectMode() {
+  // La versión publicada como página suelta no puede llamar a OpenAI: queda en demo.
+  if (globalThis.NOVA_SOLO_DEMO) {
+    return { mode: 'demo', model: 'demo', detail: 'Página de demostración.' };
+  }
+
+  const server = await pingServer();
+  if (server && server.configured) {
+    return { mode: 'server', model: server.model, detail: 'La clave está en el servidor.' };
+  }
+  if (settings.key) {
+    return { mode: 'direct', model: settings.model, detail: 'Usando la clave guardada en este navegador.' };
+  }
+  return {
+    mode: 'demo',
+    model: 'demo',
+    detail: server
+      ? 'El servidor está corriendo sin clave.'
+      : 'Sitio estático sin clave configurada.',
+  };
+}
+
+async function pingServer() {
+  // Abierto como archivo suelto no hay servidor que preguntar, y el intento
+  // ensucia la consola con un error que no significa nada.
+  if (location.protocol === 'file:') return null;
+
+  try {
+    const res = await fetch('api/health', { cache: 'no-store' });
+    if (!res.ok) return null;
+    const info = await res.json();
+    return info && info.ok ? info : null;
+  } catch {
+    return null; // en GitHub Pages no hay servidor: es lo esperado
+  }
+}
+
+/* -------------------------------------------------------------- enviar */
+
+/**
+ * @param {Array<{role:string, content:string}>} messages
+ * @param {(delta:string) => void} onDelta   se llama con cada fragmento
+ * @param {object} opts
+ * @param {'server'|'direct'|'demo'} opts.mode
+ * @param {AbortSignal} [opts.signal]
+ * @returns {Promise<string>} el texto completo
+ */
+function streamChat(messages, onDelta, { mode, signal } = {}) {
+  if (mode === 'server') return streamFromServer(messages, onDelta, signal);
+  if (mode === 'direct') return streamFromOpenAI(messages, onDelta, signal);
+  return streamFromDemo(messages, onDelta, signal);
+}
+
+async function streamFromServer(messages, onDelta, signal) {
+  const res = await fetch('api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ messages }),
+    signal,
+  });
+
+  if (!res.ok) {
+    const info = await res.json().catch(() => ({}));
+    throw new Error(info.error || `El servidor respondió ${res.status}.`);
+  }
+  return consume(res, onDelta, unwrapServerEvent);
+}
+
+async function streamFromOpenAI(messages, onDelta, signal) {
+  let res;
+  try {
+    res = await fetch(OPENAI_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${settings.key}`,
+      },
+      body: JSON.stringify({
+        model: settings.model,
+        stream: true,
+        temperature: 0.8,
+        messages: [{ role: 'system', content: settings.prompt }, ...messages],
+      }),
+      signal,
+    });
+  } catch (err) {
+    if (err.name === 'AbortError') throw err;
+    throw new Error('No se pudo contactar a OpenAI. Revisá la conexión a internet.');
+  }
+
+  if (!res.ok) throw new Error(await describeOpenAIError(res));
+  return consume(res, onDelta, unwrapOpenAIEvent);
+}
+
+async function describeOpenAIError(res) {
+  const detail = await res.text().catch(() => '');
+  let message = '';
+  try {
+    message = JSON.parse(detail)?.error?.message || '';
+  } catch { /* la respuesta no era JSON */ }
+
+  if (res.status === 401) return 'OpenAI rechazó la clave. Revisala en Conexión.';
+  if (res.status === 429) {
+    return message.includes('quota')
+      ? 'La cuenta de OpenAI no tiene crédito disponible.'
+      : 'Demasiados pedidos seguidos. Esperá unos segundos.';
+  }
+  if (res.status === 404) return `El modelo "${settings.model}" no existe o tu cuenta no tiene acceso.`;
+  return message ? `OpenAI respondió ${res.status}: ${message}` : `OpenAI respondió ${res.status}.`;
+}
+
+/** El guion local, con el mismo goteo que tendría una respuesta real. */
+async function streamFromDemo(messages, onDelta, signal) {
+  if (!demoScript) {
+    demoScript = await fetch('demo/replies.json').then((r) => r.json());
+  }
+
+  const reply = pickDemoReply(messages, demoScript);
+  const chunks = reply.match(/\S+\s*/g) || [reply];
+  let full = '';
+
+  await pause(380); // el "pensando" inicial
+
+  for (const chunk of chunks) {
+    if (signal?.aborted) throw abortError();
+    full += chunk;
+    onDelta(chunk);
+    await pause(26 + Math.random() * 34);
+  }
+  return full;
+}
+
+const pause = (ms) => new Promise((r) => setTimeout(r, ms));
+
+function abortError() {
+  const error = new Error('Interrumpido');
+  error.name = 'AbortError';
+  return error;
+}
+
+/* ------------------------------------------- lectura del stream (SSE) */
+
+/**
+ * Recorre una respuesta en streaming y entrega los fragmentos.
+ * Las dos fuentes hablan SSE; solo cambia la forma de cada evento.
+ */
+async function consume(res, onDelta, unwrap) {
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let full = '';
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    let boundary;
+    while ((boundary = buffer.indexOf('\n\n')) !== -1) {
+      const rawEvent = buffer.slice(0, boundary);
+      buffer = buffer.slice(boundary + 2);
+
+      const parsed = unwrap(rawEvent);
+      if (parsed === DONE) return full;
+      if (parsed) {
+        full += parsed;
+        onDelta(parsed);
+      }
+    }
+  }
+  return full;
+}
+
+const DONE = Symbol('done');
+
+function splitEvent(rawEvent) {
+  let name = 'message';
+  let data = '';
+  for (const line of rawEvent.split('\n')) {
+    if (line.startsWith('event:')) name = line.slice(6).trim();
+    else if (line.startsWith('data:')) data += line.slice(5).trim();
+  }
+  return { name, data };
+}
+
+function unwrapServerEvent(rawEvent) {
+  const { name, data } = splitEvent(rawEvent);
+  if (!data) return null;
+  if (name === 'error') throw new Error(JSON.parse(data).error || 'Se interrumpió la respuesta.');
+  if (name === 'done') return DONE;
+  return JSON.parse(data).delta || null;
+}
+
+function unwrapOpenAIEvent(rawEvent) {
+  const { data } = splitEvent(rawEvent);
+  if (!data) return null;
+  if (data === '[DONE]') return DONE;
+  try {
+    return JSON.parse(data).choices?.[0]?.delta?.content || null;
+  } catch {
+    return null; // fragmento partido o keep-alive
+  }
+}
+
+/**
+ * NOVA — orquestador de la interfaz.
+ *
+ * Junta las cuatro piezas: la API en streaming, las letras que se
+ * materializan, la nube de palabras y la voz. Maneja dos vistas de lo
+ * mismo: la consola (para operar) y el escenario (para proyectar).
+ */
+
+
+
+
+const $ = (id) => document.getElementById(id);
+
+const el = {
+  body: document.body,
+  status: $('status'),
+  statusLabel: document.querySelector('.status__label'),
+  stageBtn: $('stageBtn'),
+  settingsBtn: $('settingsBtn'),
+  settings: $('settings'),
+  settingsForm: $('settingsForm'),
+  settingsMode: $('settingsMode'),
+  keyInput: $('keyInput'),
+  modelInput: $('modelInput'),
+  promptInput: $('promptInput'),
+  orb: $('orb'),
+  sceneOrb: $('sceneOrb'),
+  coreCaption: $('coreCaption'),
+  micBtn: $('micBtn'),
+  micHint: $('micHint'),
+  log: $('log'),
+  welcome: $('welcome'),
+  composer: $('composer'),
+  input: $('input'),
+  sendBtn: $('sendBtn'),
+  voiceToggle: $('voiceToggle'),
+  stopBtn: $('stopBtn'),
+  clearBtn: $('clearBtn'),
+  scene: $('scene'),
+  sceneLabel: $('sceneLabel'),
+  sceneText: $('sceneText'),
+  sceneState: $('sceneState'),
+  sceneHeard: $('sceneHeard'),
+  toast: $('toast'),
+};
+
+/* --------------------------------------------------------------- estado */
+
+const state = {
+  messages: [],          // historial que se manda a la API
+  busy: false,
+  controller: null,      // para cortar una respuesta a mitad
+  pendingSpeech: [],     // frases dictadas esperando envío
+  silenceTimer: null,
+  mode: 'demo',          // servidor, directo o demo
+};
+
+const SILENCE_MS = 1400;  // pausa que se toma como "terminó de hablar"
+
+const cloud = new WordCloud($('cloud'));
+const sceneWriter = new Materializer(el.sceneText, { charsPerSecond: 38 });
+const speaker = new Speaker();
+const sentences = makeSentenceSplitter((s) => speaker.say(s));
+
+const listener = new Listener({
+  onStart: () => setMode('listening'),
+  onPartial: (text) => showHeard(text, false),
+  onFinal: (text) => queueSpeech(text),
+  onError: (msg) => {
+    toast(msg);
+    setMicActive(false);
+    setMode('idle');
+  },
+  onEnd: () => {
+    if (!listener.active && !state.busy) setMode('idle');
+  },
+});
+
+/* ---------------------------------------------------------- arranque */
+
+init();
+
+async function init() {
+  wireEvents();
+  autoGrow(el.input);
+
+  await refreshMode({ announce: true });
+
+  if (!voiceSupport.listen) {
+    el.micBtn.disabled = true;
+    el.micBtn.title = 'Este navegador no reconoce voz. Probá con Chrome o Edge.';
+    el.micHint.textContent = 'Voz no disponible';
+  }
+  setupVoicePreference();
+
+  speaker.onStart = () => {
+    listener.pauseForPlayback();
+    setMode('speaking');
+  };
+  speaker.onEnd = () => {
+    listener.resumeAfterPlayback();
+    if (!state.busy) setMode(listener.active ? 'listening' : 'idle');
+  };
+}
+
+/**
+ * Averigua de dónde van a salir las respuestas y lo refleja en pantalla.
+ */
+async function refreshMode({ announce = false } = {}) {
+  const found = await detectMode();
+  state.mode = found.mode;
+
+  const shown = {
+    server: ['online', 'En línea'],
+    direct: ['online', 'En línea'],
+    demo: ['demo', 'Modo demo'],
+  }[found.mode];
+  setStatus(shown[0], shown[1]);
+
+  if (announce && found.mode === 'demo') {
+    toast(
+      globalThis.NOVA_SOLO_DEMO
+        ? 'Esta es una demostración: NOVA responde con un guion guardado. La versión completa se conecta a ChatGPT.'
+        : 'Modo demo: NOVA responde con un guion guardado. Para que piense de verdad, cargá tu clave de OpenAI en Conexión.',
+    );
+  }
+  describeMode(found);
+  return found;
+}
+
+/** El cartelito de arriba del panel de conexión, en castellano claro. */
+function describeMode(found) {
+  const texto = {
+    server: '<strong>Servidor local.</strong> La clave vive en el servidor y el navegador nunca la ve. Es la forma más segura.',
+    direct: '<strong>Clave en este navegador.</strong> Los mensajes van directo a OpenAI desde esta computadora.',
+    demo: '<strong>Modo demo.</strong> NOVA contesta con respuestas guardadas. Sirve para mostrar la página sin gastar nada.',
+  }[found.mode];
+  el.settingsMode.innerHTML = texto;
+}
+
+/**
+ * NOVA habla por defecto: es lo que se espera de ella en una muestra.
+ * Si alguien la silencia, esa decisión se recuerda para la próxima.
+ */
+function setupVoicePreference() {
+  if (!voiceSupport.speak) {
+    el.voiceToggle.disabled = true;
+    el.voiceToggle.title = 'Este navegador no puede sintetizar voz.';
+    setVoice(false);
+    return;
+  }
+  setVoice(readStored('nova:voz') !== 'off');
+}
+
+function setVoice(on) {
+  speaker.enabled = on;
+  el.voiceToggle.setAttribute('aria-pressed', String(on));
+  if (!on) speaker.cancel();
+  writeStored('nova:voz', on ? 'on' : 'off');
+}
+
+function readStored(key) {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null; // navegación privada o cookies bloqueadas
+  }
+}
+
+function writeStored(key, value) {
+  try {
+    localStorage.setItem(key, value);
+  } catch { /* no pasa nada si no se puede guardar */ }
+}
+
+/* ----------------------------------------------------------- eventos */
+
+function wireEvents() {
+  el.composer.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const text = el.input.value.trim();
+    if (!text) return;
+    el.input.value = '';
+    autoGrow(el.input);
+    send(text);
+  });
+
+  el.input.addEventListener('input', () => autoGrow(el.input));
+  el.input.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      el.composer.requestSubmit();
+    }
+  });
+
+  el.settingsBtn.addEventListener('click', () => openSettings());
+  el.settingsForm.addEventListener('submit', (event) => applySettings(event.submitter?.value));
+
+  el.micBtn.addEventListener('click', () => toggleMic());
+  el.stageBtn.addEventListener('click', () => toggleStage());
+  el.stopBtn.addEventListener('click', () => abort());
+  el.clearBtn.addEventListener('click', () => reset());
+
+  el.voiceToggle.addEventListener('click', () => {
+    setVoice(!speaker.enabled);
+  });
+
+  for (const chip of document.querySelectorAll('.chip')) {
+    chip.addEventListener('click', () => send(chip.dataset.prompt));
+  }
+
+  document.addEventListener('keydown', (event) => {
+    const typing = event.target === el.input;
+
+    if (event.code === 'Space' && !typing) {
+      event.preventDefault();
+      toggleMic();
+    }
+    if ((event.key === 'f' || event.key === 'F') && !typing) {
+      event.preventDefault();
+      toggleStage();
+    }
+    if (event.key === 'Escape') {
+      if (state.busy) abort();
+      else if (el.body.dataset.mode === 'stage') toggleStage();
+    }
+  });
+
+  document.addEventListener('fullscreenchange', () => {
+    // Si se sale de pantalla completa con F11 o Esc del navegador, volvemos a la consola.
+    if (!document.fullscreenElement && el.body.dataset.mode === 'stage') setStageMode(false);
+  });
+}
+
+/* ----------------------------------------------------------- conexión */
+
+function openSettings() {
+  el.keyInput.value = settings.key;
+  el.modelInput.value = settings.model;
+  el.modelInput.placeholder = DEFAULT_MODEL;
+  el.promptInput.value = settings.prompt;
+  el.promptInput.placeholder = DEFAULT_PROMPT;
+  el.settings.showModal();
+}
+
+async function applySettings(action) {
+  if (action === 'cancel') return;
+
+  if (action === 'forget') {
+    settings.key = '';
+    el.keyInput.value = '';
+    toast('Clave borrada de este navegador. NOVA vuelve al modo demo.');
+  } else if (action === 'save') {
+    settings.key = el.keyInput.value;
+    settings.model = el.modelInput.value;
+    settings.prompt = el.promptInput.value;
+  }
+
+  const found = await refreshMode();
+  if (action === 'save' && found.mode === 'direct') toast('Listo: NOVA ya responde con tu clave de OpenAI.');
+}
+
+/* -------------------------------------------------------------- micro */
+
+function toggleMic() {
+  if (!voiceSupport.listen) return toast('Este navegador no reconoce voz. Probá con Chrome o Edge.');
+  const active = listener.toggle();
+  setMicActive(active);
+  if (active) {
+    setMode('listening');
+    el.micHint.textContent = 'Escuchando… tocá para cortar';
+  } else {
+    clearTimeout(state.silenceTimer);
+    state.pendingSpeech.length = 0;
+    showHeard('', false);
+    el.micHint.textContent = 'Tocá para hablar';
+    if (!state.busy) setMode('idle');
+  }
+}
+
+function setMicActive(active) {
+  el.micBtn.setAttribute('aria-pressed', String(active));
+}
+
+/**
+ * Junta lo dictado y espera un silencio antes de mandarlo.
+ * Así un grupo puede hablar en varias frases sin que se corte cada vez.
+ */
+function queueSpeech(text) {
+  state.pendingSpeech.push(text);
+  showHeard(state.pendingSpeech.join(' '), true);
+
+  clearTimeout(state.silenceTimer);
+  state.silenceTimer = setTimeout(() => {
+    const full = state.pendingSpeech.join(' ').trim();
+    state.pendingSpeech.length = 0;
+    if (full) send(full, { fromVoice: true });
+  }, SILENCE_MS);
+}
+
+function showHeard(text, isFinal) {
+  el.sceneHeard.textContent = text;
+  el.sceneHeard.classList.toggle('is-live', Boolean(text));
+  el.sceneHeard.style.opacity = text ? (isFinal ? '1' : '0.72') : '0';
+}
+
+/* ---------------------------------------------------------- conversar */
+
+async function send(text, { fromVoice = false } = {}) {
+  if (!text || state.busy) return;
+
+  // Si NOVA estaba hablando, se calla para escuchar lo nuevo.
+  speaker.cancel();
+  sentences.reset();
+  el.welcome?.remove();
+
+  state.busy = true;
+  el.stopBtn.hidden = false;
+  el.sendBtn.disabled = true;
+  showHeard('', false);
+
+  addBubble('user', text, { animate: fromVoice });
+  cloud.absorb(text, 'user');
+  state.messages.push({ role: 'user', content: text });
+
+  // En el escenario primero se ve lo que dijo la persona…
+  if (isStage()) {
+    el.scene.dataset.speaker = 'human';
+    el.sceneLabel.textContent = fromVoice ? 'ESCUCHÉ' : 'VOS';
+    sceneWriter.clear();
+    sceneWriter.push(text);
+  }
+
+  setMode('thinking');
+
+  const bubble = addBubble('ai', '', { pending: true });
+  const bubbleWriter = new Materializer(bubble, { charsPerSecond: 46 });
+  let firstChunk = true;
+  let answer = '';
+
+  state.controller = new AbortController();
+
+  try {
+    answer = await streamChat(
+      state.messages,
+      (delta) => {
+        if (firstChunk) {
+          firstChunk = false;
+          bubble.classList.remove('is-pending');
+          bubble.textContent = '';
+          bubble.classList.add('is-streaming');
+          if (isStage()) {
+            el.scene.dataset.speaker = 'ai';
+            el.sceneLabel.textContent = 'NOVA';
+            sceneWriter.clear();
+          }
+          setMode('answering');
+        }
+        bubbleWriter.push(delta);
+        if (isStage()) sceneWriter.push(delta);
+        sentences.push(delta);
+        scrollLog();
+      },
+      { mode: state.mode, signal: state.controller.signal },
+    );
+
+    sentences.flush();
+    bubbleWriter.flush();
+    bubble.classList.remove('is-streaming');
+
+    if (answer.trim()) {
+      state.messages.push({ role: 'assistant', content: answer });
+      cloud.absorb(answer, 'ai');
+    } else {
+      bubble.textContent = '(sin respuesta)';
+    }
+  } catch (err) {
+    bubbleWriter.flush();
+    bubble.classList.remove('is-streaming', 'is-pending');
+
+    if (err.name === 'AbortError') {
+      // Corte pedido por la persona: dejamos lo que alcanzó a decir.
+      bubble.textContent = bubble.textContent || '(interrumpido)';
+      if (bubble.textContent.trim() && bubble.textContent !== '(interrumpido)') {
+        state.messages.push({ role: 'assistant', content: bubble.textContent });
+      }
+    } else {
+      bubble.closest('.msg')?.classList.add('msg--error');
+      bubble.textContent = err.message;
+      setMode('error');
+      toast(err.message);
+      // No dejamos el turno colgado en el historial.
+      state.messages.pop();
+    }
+  } finally {
+    state.busy = false;
+    state.controller = null;
+    el.stopBtn.hidden = true;
+    el.sendBtn.disabled = false;
+    scrollLog();
+
+    // El estado vuelve a reposo recién cuando la última letra terminó de formarse.
+    const rest = () => {
+      if (el.orb.dataset.state === 'error') return;
+      if (speaker.enabled && speaker.speaking) setMode('speaking');
+      else setMode(listener.active ? 'listening' : 'idle');
+    };
+
+    const writer = sceneWriter.isBusy ? sceneWriter : bubbleWriter.isBusy ? bubbleWriter : null;
+    if (writer) {
+      setMode('answering');
+      writer.onSettle = () => {
+        writer.onSettle = null;
+        rest();
+      };
+    } else {
+      rest();
+    }
+  }
+}
+
+function abort() {
+  state.controller?.abort();
+  speaker.cancel();
+  sceneWriter.flush();
+}
+
+function reset() {
+  abort();
+  state.messages.length = 0;
+  state.pendingSpeech.length = 0;
+  clearTimeout(state.silenceTimer);
+  el.log.innerHTML = '';
+  sceneWriter.clear();
+  showHeard('', false);
+  cloud.clear();
+  setMode(listener.active ? 'listening' : 'idle');
+}
+
+/* ------------------------------------------------------------ burbujas */
+
+function addBubble(who, text, { pending = false, animate = false } = {}) {
+  const row = document.createElement('div');
+  row.className = `msg msg--${who === 'user' ? 'user' : 'ai'}`;
+
+  const avatar = document.createElement('div');
+  avatar.className = 'msg__avatar';
+  avatar.textContent = who === 'user' ? 'VOS' : '';
+  avatar.setAttribute('aria-hidden', 'true');
+
+  const bubble = document.createElement('div');
+  bubble.className = 'msg__bubble';
+
+  if (pending) {
+    bubble.classList.add('is-pending');
+    bubble.innerHTML = '<span class="dots"><i></i><i></i><i></i></span>';
+  } else if (animate) {
+    new Materializer(bubble, { charsPerSecond: 60 }).push(text);
+  } else {
+    bubble.textContent = text;
+  }
+
+  row.append(avatar, bubble);
+  el.log.appendChild(row);
+  scrollLog();
+  return bubble;
+}
+
+function scrollLog() {
+  el.log.scrollTop = el.log.scrollHeight;
+  el.sceneText.scrollTop = el.sceneText.scrollHeight;
+}
+
+/* -------------------------------------------------------------- estados */
+
+const CAPTIONS = {
+  idle: 'En espera',
+  listening: 'Escuchando',
+  thinking: 'Pensando',
+  answering: 'Respondiendo',
+  speaking: 'Hablando',
+  error: 'Error',
+};
+
+function setMode(mode) {
+  el.orb.dataset.state = mode === 'answering' ? 'thinking' : mode;
+  el.sceneOrb.dataset.state = mode === 'answering' ? 'thinking' : mode;
+  el.coreCaption.textContent = CAPTIONS[mode] || '';
+  el.sceneState.textContent = CAPTIONS[mode] || '';
+}
+
+function setStatus(stateName, label) {
+  el.status.dataset.state = stateName;
+  el.statusLabel.textContent = label;
+}
+
+/* ------------------------------------------------------------ escenario */
+
+const isStage = () => el.body.dataset.mode === 'stage';
+
+function toggleStage() {
+  setStageMode(!isStage());
+}
+
+function setStageMode(on) {
+  el.body.dataset.mode = on ? 'stage' : 'console';
+  el.scene.setAttribute('aria-hidden', String(!on));
+  el.stageBtn.textContent = on ? 'Salir del escenario' : 'Modo escenario';
+
+  if (on) {
+    document.documentElement.requestFullscreen?.().catch(() => {
+      // Algunos navegadores lo rechazan sin gesto directo: el modo igual funciona.
+    });
+    // Arrancamos el escenario con el último mensaje que haya, para no dejarlo vacío.
+    const last = state.messages.at(-1);
+    if (last && !sceneWriter.isBusy && !el.sceneText.textContent) {
+      el.scene.dataset.speaker = last.role === 'user' ? 'human' : 'ai';
+      el.sceneLabel.textContent = last.role === 'user' ? 'VOS' : 'NOVA';
+      sceneWriter.writeInstantly(last.content);
+    }
+  } else if (document.fullscreenElement) {
+    document.exitFullscreen?.().catch(() => {});
+  }
+
+  // En el escenario, las palabras dejan libre el centro donde va el texto grande.
+  cloud.setClearZone(on ? { rx: 0.24, ry: 0.3 } : null);
+  cloud.resize();
+}
+
+/* ---------------------------------------------------------------- varios */
+
+let toastTimer = null;
+function toast(message) {
+  el.toast.textContent = message;
+  el.toast.hidden = false;
+  requestAnimationFrame(() => el.toast.classList.add('is-visible'));
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    el.toast.classList.remove('is-visible');
+    setTimeout(() => (el.toast.hidden = true), 300);
+  }, 6000);
+}
+
+function autoGrow(textarea) {
+  textarea.style.height = 'auto';
+  textarea.style.height = `${Math.min(textarea.scrollHeight, 160)}px`;
+}
+
+})();
+</script>

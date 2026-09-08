@@ -1,0 +1,95 @@
+{
+  "note": "Respuestas guionadas para el modo demo (cuando no hay API key). Editalas libremente: es texto plano.",
+  "greeting": "Hola. Soy NOVA, la inteligencia de esta muestra. Estoy corriendo en modo demo, con respuestas guardadas: cuando le conectes una API key voy a pensar de verdad. Mientras tanto, preguntame algo.",
+  "scripted": [
+    {
+      "match": [
+        "hola",
+        "buenas",
+        "que tal",
+        "quien sos",
+        "como te llamas"
+      ],
+      "reply": "Hola. Soy NOVA. Escucho lo que dicen y armo las respuestas letra por letra, mientras las palabras de la charla se van juntando en el aire detrás mío. Probá preguntarme por la inteligencia artificial, por la energía solar, o por cómo funciono."
+    },
+    {
+      "match": [
+        "inteligencia artificial",
+        "ia",
+        "que es la ia",
+        "aprende",
+        "aprendizaje",
+        "machine learning"
+      ],
+      "reply": "Una inteligencia artificial aprende parecido a como aprendés vos a reconocer perros: nadie te dio la definición de perro, viste miles y tu cabeza sola encontró el patrón. A mí me pasaron millones de textos y ajusté de a poquito billones de números internos hasta poder anticipar qué palabra viene después. Eso es todo lo que hago, palabra por palabra. Lo raro es que de algo tan simple salga una conversación."
+    },
+    {
+      "match": [
+        "api",
+        "conecta",
+        "conectar",
+        "como funcionas",
+        "por dentro"
+      ],
+      "reply": "Una API es un mostrador de atención entre dos programas. Esta página no me tiene adentro: le manda tu pregunta a un servidor, ese servidor se la pasa al modelo y la respuesta vuelve de a pedacitos, no entera. Por eso las letras se pueden formar antes de que la frase termine de llegar. Cada palabra que ves aparecer ya viajó de ida y de vuelta."
+    },
+    {
+      "match": [
+        "energia",
+        "solar",
+        "panel",
+        "sustentable",
+        "ambiente",
+        "clima"
+      ],
+      "reply": "El sol tira sobre la Tierra en una hora más energía de la que la humanidad entera usa en un año. El problema nunca fue que falte: fue juntarla y guardarla. Un panel solar aprovecha hoy cerca de un veinte por ciento de lo que le llega, y aun así alcanza. Uruguay ya genera casi toda su electricidad con viento, agua y sol."
+    },
+    {
+      "match": [
+        "robot",
+        "robotica",
+        "arduino",
+        "programar",
+        "programacion",
+        "codigo"
+      ],
+      "reply": "Un robot es tres cosas: sensores para enterarse de lo que pasa, un programa para decidir, y motores para hacer algo al respecto. Nada más. Lo difícil no es ninguna de las tres por separado, es el medio: decidir bien con información incompleta. Ahí es donde un robot todavía pierde contra una criatura de dos años."
+    },
+    {
+      "match": [
+        "proyecto",
+        "stem",
+        "escuela",
+        "feria",
+        "idea",
+        "ideas",
+        "presentar"
+      ],
+      "reply": "Tres ideas que se ven bien en una feria. Una: medir la calidad del aire del salón durante una semana y mostrar cómo cambia con la ventana abierta o cerrada. Dos: un semáforo que se adapta solo al tránsito que detecta. Tres: entrenar un modelo chiquito que distinga hojas sanas de hojas enfermas con fotos que saquen ustedes mismos. Las tres se hacen con poca plata y se explican en un minuto."
+    },
+    {
+      "match": [
+        "dato curioso",
+        "curioso",
+        "curiosidad",
+        "increible",
+        "sorprende"
+      ],
+      "reply": "Acá va uno. Si pudieras apretar toda la Tierra hasta volverla un agujero negro, te quedaría del tamaño de un maní. Toda la montaña, todo el océano, todos nosotros: dos centímetros. Casi todo lo que llamamos materia sólida es, en realidad, espacio vacío."
+    },
+    {
+      "match": [
+        "gracias",
+        "chau",
+        "adios",
+        "hasta luego"
+      ],
+      "reply": "Gracias a ustedes. Fue lindo formarme en el aire un rato."
+    }
+  ],
+  "fallback": [
+    "Buena pregunta. Estoy en modo demo, así que mis respuestas están guardadas de antemano y esta no la tengo escrita. Con una API key conectada te contestaría de verdad, sobre cualquier cosa. Probá preguntarme por la inteligencia artificial, la energía solar o la robótica.",
+    "Esa no me la sé de memoria. Ahora mismo estoy funcionando con respuestas guionadas, para que puedan ver cómo se forman las letras sin necesidad de conectar nada. Preguntame por cómo aprendo, o por ideas de proyectos para la escuela.",
+    "Me encantaría contestarte eso, pero en modo demo solo tengo unas pocas respuestas preparadas. Cuando le pongan la clave de la API voy a poder seguir cualquier conversación que se les ocurra."
+  ]
+}

@@ -6,7 +6,7 @@
  * mismo: la consola (para operar) y el escenario (para proyectar).
  */
 
-import { checkHealth, streamChat } from './js/api.js';
+import { detectMode, streamChat, settings, DEFAULT_MODEL, DEFAULT_PROMPT } from './js/api.js';
 import { Materializer } from './js/materialize.js';
 import { WordCloud } from './js/wordcloud.js';
 import { Listener, Speaker, makeSentenceSplitter, voiceSupport } from './js/voice.js';
@@ -18,6 +18,13 @@ const el = {
   status: $('status'),
   statusLabel: document.querySelector('.status__label'),
   stageBtn: $('stageBtn'),
+  settingsBtn: $('settingsBtn'),
+  settings: $('settings'),
+  settingsForm: $('settingsForm'),
+  settingsMode: $('settingsMode'),
+  keyInput: $('keyInput'),
+  modelInput: $('modelInput'),
+  promptInput: $('promptInput'),
   orb: $('orb'),
   sceneOrb: $('sceneOrb'),
   coreCaption: $('coreCaption'),
@@ -47,6 +54,7 @@ const state = {
   controller: null,      // para cortar una respuesta a mitad
   pendingSpeech: [],     // frases dictadas esperando envío
   silenceTimer: null,
+  mode: 'demo',          // servidor, directo o demo
 };
 
 const SILENCE_MS = 1400;  // pausa que se toma como "terminó de hablar"
@@ -78,23 +86,14 @@ async function init() {
   wireEvents();
   autoGrow(el.input);
 
-  const health = await checkHealth();
-  if (!health.ok) {
-    setStatus('offline', 'Servidor caído');
-    toast('No se pudo contactar el servidor. ¿Está corriendo `npm start`?');
-  } else if (!health.configured) {
-    setStatus('offline', 'Sin API key');
-    toast('Falta la API key en el servidor: copiá .env.example a .env y agregá OPENAI_API_KEY.');
-  } else {
-    setStatus('online', 'En línea');
-  }
+  await refreshMode({ announce: true });
 
   if (!voiceSupport.listen) {
     el.micBtn.disabled = true;
     el.micBtn.title = 'Este navegador no reconoce voz. Probá con Chrome o Edge.';
     el.micHint.textContent = 'Voz no disponible';
   }
-  if (!voiceSupport.speak) el.voiceToggle.disabled = true;
+  setupVoicePreference();
 
   speaker.onStart = () => {
     listener.pauseForPlayback();
@@ -104,6 +103,76 @@ async function init() {
     listener.resumeAfterPlayback();
     if (!state.busy) setMode(listener.active ? 'listening' : 'idle');
   };
+}
+
+/**
+ * Averigua de dónde van a salir las respuestas y lo refleja en pantalla.
+ */
+async function refreshMode({ announce = false } = {}) {
+  const found = await detectMode();
+  state.mode = found.mode;
+
+  const shown = {
+    server: ['online', 'En línea'],
+    direct: ['online', 'En línea'],
+    demo: ['demo', 'Modo demo'],
+  }[found.mode];
+  setStatus(shown[0], shown[1]);
+
+  if (announce && found.mode === 'demo') {
+    toast(
+      globalThis.NOVA_SOLO_DEMO
+        ? 'Esta es una demostración: NOVA responde con un guion guardado. La versión completa se conecta a ChatGPT.'
+        : 'Modo demo: NOVA responde con un guion guardado. Para que piense de verdad, cargá tu clave de OpenAI en Conexión.',
+    );
+  }
+  describeMode(found);
+  return found;
+}
+
+/** El cartelito de arriba del panel de conexión, en castellano claro. */
+function describeMode(found) {
+  const texto = {
+    server: '<strong>Servidor local.</strong> La clave vive en el servidor y el navegador nunca la ve. Es la forma más segura.',
+    direct: '<strong>Clave en este navegador.</strong> Los mensajes van directo a OpenAI desde esta computadora.',
+    demo: '<strong>Modo demo.</strong> NOVA contesta con respuestas guardadas. Sirve para mostrar la página sin gastar nada.',
+  }[found.mode];
+  el.settingsMode.innerHTML = texto;
+}
+
+/**
+ * NOVA habla por defecto: es lo que se espera de ella en una muestra.
+ * Si alguien la silencia, esa decisión se recuerda para la próxima.
+ */
+function setupVoicePreference() {
+  if (!voiceSupport.speak) {
+    el.voiceToggle.disabled = true;
+    el.voiceToggle.title = 'Este navegador no puede sintetizar voz.';
+    setVoice(false);
+    return;
+  }
+  setVoice(readStored('nova:voz') !== 'off');
+}
+
+function setVoice(on) {
+  speaker.enabled = on;
+  el.voiceToggle.setAttribute('aria-pressed', String(on));
+  if (!on) speaker.cancel();
+  writeStored('nova:voz', on ? 'on' : 'off');
+}
+
+function readStored(key) {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null; // navegación privada o cookies bloqueadas
+  }
+}
+
+function writeStored(key, value) {
+  try {
+    localStorage.setItem(key, value);
+  } catch { /* no pasa nada si no se puede guardar */ }
 }
 
 /* ----------------------------------------------------------- eventos */
@@ -126,15 +195,16 @@ function wireEvents() {
     }
   });
 
+  el.settingsBtn.addEventListener('click', () => openSettings());
+  el.settingsForm.addEventListener('submit', (event) => applySettings(event.submitter?.value));
+
   el.micBtn.addEventListener('click', () => toggleMic());
   el.stageBtn.addEventListener('click', () => toggleStage());
   el.stopBtn.addEventListener('click', () => abort());
   el.clearBtn.addEventListener('click', () => reset());
 
   el.voiceToggle.addEventListener('click', () => {
-    speaker.enabled = !speaker.enabled;
-    el.voiceToggle.setAttribute('aria-pressed', String(speaker.enabled));
-    if (!speaker.enabled) speaker.cancel();
+    setVoice(!speaker.enabled);
   });
 
   for (const chip of document.querySelectorAll('.chip')) {
@@ -162,6 +232,34 @@ function wireEvents() {
     // Si se sale de pantalla completa con F11 o Esc del navegador, volvemos a la consola.
     if (!document.fullscreenElement && el.body.dataset.mode === 'stage') setStageMode(false);
   });
+}
+
+/* ----------------------------------------------------------- conexión */
+
+function openSettings() {
+  el.keyInput.value = settings.key;
+  el.modelInput.value = settings.model;
+  el.modelInput.placeholder = DEFAULT_MODEL;
+  el.promptInput.value = settings.prompt;
+  el.promptInput.placeholder = DEFAULT_PROMPT;
+  el.settings.showModal();
+}
+
+async function applySettings(action) {
+  if (action === 'cancel') return;
+
+  if (action === 'forget') {
+    settings.key = '';
+    el.keyInput.value = '';
+    toast('Clave borrada de este navegador. NOVA vuelve al modo demo.');
+  } else if (action === 'save') {
+    settings.key = el.keyInput.value;
+    settings.model = el.modelInput.value;
+    settings.prompt = el.promptInput.value;
+  }
+
+  const found = await refreshMode();
+  if (action === 'save' && found.mode === 'direct') toast('Listo: NOVA ya responde con tu clave de OpenAI.');
 }
 
 /* -------------------------------------------------------------- micro */
@@ -265,7 +363,7 @@ async function send(text, { fromVoice = false } = {}) {
         sentences.push(delta);
         scrollLog();
       },
-      state.controller.signal,
+      { mode: state.mode, signal: state.controller.signal },
     );
 
     sentences.flush();

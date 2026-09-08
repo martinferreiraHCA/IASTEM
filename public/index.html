@@ -39,6 +39,9 @@
         <span class="status__dot" aria-hidden="true"></span>
         <span class="status__label">Conectando…</span>
       </div>
+      <button class="ghost" id="settingsBtn" type="button" title="Elegir de dónde salen las respuestas">
+        Conexión
+      </button>
       <button class="ghost" id="stageBtn" type="button" title="Pantalla completa para proyectar (F)">
         Modo escenario
       </button>
@@ -98,7 +101,7 @@
       </form>
 
       <div class="toolbar">
-        <button class="toggle" id="voiceToggle" type="button" aria-pressed="false">
+        <button class="toggle" id="voiceToggle" type="button" aria-pressed="true">
           <span class="toggle__track"><span class="toggle__thumb"></span></span>
           Voz de NOVA
         </button>
@@ -133,6 +136,51 @@
       <p class="scene__hint" id="sceneHint">Espacio: micrófono · F: salir de pantalla completa</p>
     </div>
   </section>
+
+  <!-- ===================================================== conexión -->
+  <dialog class="sheet" id="settings">
+    <form method="dialog" class="sheet__form" id="settingsForm">
+      <header class="sheet__head">
+        <h2>Conexión</h2>
+        <button class="sheet__close" value="cancel" type="submit" aria-label="Cerrar">×</button>
+      </header>
+
+      <p class="sheet__mode" id="settingsMode">Detectando…</p>
+
+      <div class="sheet__field">
+        <label for="keyInput">Clave de OpenAI</label>
+        <input
+          type="password"
+          id="keyInput"
+          placeholder="sk-…"
+          autocomplete="off"
+          spellcheck="false" />
+        <p class="sheet__note">
+          Se guarda solo en este navegador y viaja únicamente a OpenAI. Dejala vacía
+          para usar el modo demo. <strong>Nunca la escribas en el código del repo:</strong>
+          si el repositorio es público, queda expuesta apenas la subas.
+        </p>
+      </div>
+
+      <div class="sheet__field">
+        <label for="modelInput">Modelo</label>
+        <input type="text" id="modelInput" placeholder="gpt-4o-mini" autocomplete="off" spellcheck="false" />
+        <p class="sheet__note">Para hablar en vivo conviene uno rápido: la espera se nota en pantalla.</p>
+      </div>
+
+      <div class="sheet__field">
+        <label for="promptInput">Personalidad de NOVA</label>
+        <textarea id="promptInput" rows="4"></textarea>
+      </div>
+
+      <footer class="sheet__foot">
+        <button class="ghost" type="submit" value="forget" id="forgetBtn">Borrar la clave</button>
+        <span class="toolbar__spacer"></span>
+        <button class="ghost" type="submit" value="cancel">Cancelar</button>
+        <button class="primary" type="submit" value="save">Guardar</button>
+      </footer>
+    </form>
+  </dialog>
 
   <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 

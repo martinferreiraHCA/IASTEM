@@ -25,6 +25,14 @@ const SYSTEM_PROMPT =
   'Sos NOVA, una inteligencia artificial conversacional. Respondes en español rioplatense, ' +
     'con claridad y calidez. Sos concisa salvo que te pidan detalle.';
 
+const DEMO = !API_KEY || process.env.DEMO === '1';
+const DEMO_SCRIPT = require('./public/demo/replies.json');
+
+// El motor vive en public/ para que el sitio estático también lo use.
+// Es un módulo ES, así que se carga una sola vez, cuando hace falta.
+let demoEngine = null;
+const loadDemoEngine = () => (demoEngine ||= import('./public/demo/engine.js'));
+
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const MAX_BODY_BYTES = 1024 * 1024; // 1 MB
 const MAX_MESSAGES = 40;
@@ -49,7 +57,8 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/health') return sendJson(res, 200, {
       ok: true,
       configured: Boolean(API_KEY),
-      model: MODEL,
+      demo: DEMO,
+      model: DEMO ? 'demo' : MODEL,
     });
 
     if (url.pathname === '/api/chat') {
@@ -71,10 +80,11 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, () => {
   console.log(`\n  IASTEM escuchando en http://localhost:${PORT}`);
-  console.log(`  Modelo: ${MODEL}`);
-  if (!API_KEY) {
-    console.log('\n  ⚠  Falta OPENAI_API_KEY. Copiá .env.example a .env y completá tu clave.\n');
+  if (DEMO) {
+    console.log('  Modo demo: respuestas guionadas, sin API key.');
+    console.log('  Para conectar ChatGPT de verdad: cp .env.example .env y completá OPENAI_API_KEY.\n');
   } else {
+    console.log(`  Modelo: ${MODEL}`);
     console.log('  ✓ API key detectada.\n');
   }
 });
@@ -82,12 +92,6 @@ server.listen(PORT, () => {
 /* ------------------------------------------------------------------ chat */
 
 async function handleChat(req, res) {
-  if (!API_KEY) {
-    return sendJson(res, 503, {
-      error: 'El servidor no tiene OPENAI_API_KEY configurada. Copiá .env.example a .env y agregá tu clave.',
-    });
-  }
-
   let payload;
   try {
     payload = JSON.parse(await readBody(req));
@@ -97,6 +101,8 @@ async function handleChat(req, res) {
 
   const messages = sanitizeMessages(payload.messages);
   if (!messages.length) return sendJson(res, 400, { error: 'Hace falta al menos un mensaje.' });
+
+  if (DEMO) return await streamDemo(res, messages);
 
   const upstream = await fetch(`${BASE_URL}/chat/completions`, {
     method: 'POST',
@@ -174,6 +180,40 @@ async function handleChat(req, res) {
       res.end();
     }
   }
+}
+
+/**
+ * Responde con el guion de demo, imitando el goteo de la API real.
+ * Así la página se puede mostrar sin configurar nada.
+ */
+async function streamDemo(res, messages) {
+  const { pickDemoReply } = await loadDemoEngine();
+  const reply = pickDemoReply(messages, DEMO_SCRIPT);
+
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream; charset=utf-8',
+    'Cache-Control': 'no-cache, no-transform',
+    Connection: 'keep-alive',
+    'X-Accel-Buffering': 'no',
+  });
+
+  // Se manda de a palabras, con una pausa parecida a la de un modelo real.
+  const chunks = reply.match(/\S+\s*/g) || [reply];
+  let i = 0;
+  let closed = false;
+  res.on('close', () => (closed = true));
+
+  const tick = () => {
+    if (closed || res.writableEnded) return;
+    if (i >= chunks.length) {
+      res.write('event: done\ndata: {}\n\n');
+      return res.end();
+    }
+    res.write(`data: ${JSON.stringify({ delta: chunks[i++] })}\n\n`);
+    setTimeout(tick, 26 + Math.random() * 34);
+  };
+
+  setTimeout(tick, 380); // el "pensando" inicial
 }
 
 function sanitizeMessages(raw) {
