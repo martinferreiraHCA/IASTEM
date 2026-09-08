@@ -10,7 +10,10 @@ name: Publicar en GitHub Pages
 
 on:
   push:
-    branches: [main]
+    # main es la rama definitiva; la otra es la de desarrollo, y quedó como
+    # rama por defecto porque fue la primera del repo. Publicar desde las dos
+    # evita que el sitio dependa de cuál esté configurada.
+    branches: [main, claude/ai-web-interface-api-yp4ekl]
   workflow_dispatch:
 
 permissions:
