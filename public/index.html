@@ -42,6 +42,9 @@
       <button class="ghost" id="showBtn" type="button" title="Participantes y acuerdos de la función">
         Función
       </button>
+      <button class="ghost" id="guionBtn" type="button" title="Parlamentos preparados que NOVA dice al escuchar su pie">
+        Guion
+      </button>
       <button class="ghost" id="settingsBtn" type="button" title="Elegir de dónde salen las respuestas">
         Conexión
       </button>
@@ -106,6 +109,16 @@
       <div class="turnos" id="turnos" hidden>
         <span class="turnos__rotulo">Habla</span>
         <div class="turnos__lista" id="turnosLista"></div>
+      </div>
+
+      <!-- Dónde va el guion: el pie que se espera y el botón para decirlo a mano. -->
+      <div class="turnos guion-tira" id="guionTira" hidden>
+        <span class="turnos__rotulo">Guion</span>
+        <p class="guion-tira__pie" id="guionPie"></p>
+        <button class="ghost ghost--destacado" id="guionDecir" type="button"
+                title="NOVA dice el próximo parlamento del guion (S)">
+          Decir <span class="turno__tecla">S</span>
+        </button>
       </div>
 
       <div class="toolbar">
@@ -205,6 +218,70 @@
           <button class="ghost" id="muroBtn" type="button">Mostrar el muro</button>
           <span class="toolbar__spacer"></span>
           <button class="ghost" id="borrarAcuerdos" type="button">Borrar todos</button>
+        </div>
+      </section>
+    </div>
+  </dialog>
+
+  <!-- ===================================================== guion -->
+  <dialog class="sheet sheet--ancha" id="guion">
+    <div class="sheet__form">
+      <header class="sheet__head">
+        <h2>Guion</h2>
+        <button class="sheet__close" id="guionClose" type="button" aria-label="Cerrar">×</button>
+      </header>
+
+      <p class="sheet__note">
+        Pegá un guion en texto plano, como el de una obra: <code>NOMBRE: lo que dice</code>,
+        una línea por parlamento. Las líneas de <strong>NOVA</strong> son lo que ella
+        responde; la línea anterior es su <strong>pie</strong>. Cuando alguien dice algo
+        parecido al pie, por voz o por teclado, NOVA contesta con el parlamento tal cual.
+        Lo que no esté en el guion lo sigue pensando sola.
+      </p>
+
+      <div class="sheet__field">
+        <textarea id="guionTexto" rows="11" spellcheck="false"
+                  placeholder="ANA: Hola NOVA, ¿nos escuchás?&#10;NOVA: Los escucho. Soy NOVA, la inteligencia de esta muestra.&#10;&#10;TOMÁS: ¿Y cómo aprendiste a hablar?&#10;NOVA: Parecido a como aprendiste vos a reconocer perros…"
+                  aria-label="Texto del guion"></textarea>
+        <p class="sheet__note" id="guionResumen"></p>
+      </div>
+
+      <div class="sheet__foot">
+        <label class="ghost guion__archivo">
+          Abrir archivo…
+          <input type="file" id="guionArchivo" accept=".txt,.md,text/plain" class="sr-only" />
+        </label>
+        <button class="ghost" id="guionEjemplo" type="button">Ver un ejemplo</button>
+        <span class="toolbar__spacer"></span>
+        <button class="ghost" id="guionQuitar" type="button">Quitar guion</button>
+        <button class="primary" id="guionGuardar" type="button">Guardar guion</button>
+      </div>
+
+      <section class="bloque">
+        <h3 class="bloque__titulo">Cómo se sigue</h3>
+        <div class="guion__ajustes">
+          <button class="toggle" id="guionActivo" type="button" aria-pressed="true">
+            <span class="toggle__track"><span class="toggle__thumb"></span></span>
+            Seguir el guion
+          </button>
+          <label class="guion__tolerancia">
+            Tolerancia
+            <select id="guionTolerancia">
+              <option value="estricta">Estricta: casi textual</option>
+              <option value="normal" selected>Normal</option>
+              <option value="amplia">Amplia: con que se parezca</option>
+            </select>
+          </label>
+        </div>
+        <p class="sheet__note">
+          El parlamento que sigue en el orden del guion tiene prioridad, así dos pies
+          parecidos no se confunden. Con la tecla <strong>S</strong> NOVA dice el que
+          sigue sin esperar el pie, por si el micrófono no lo captó. Tocá cualquier
+          parlamento de la lista para que lo diga ya.
+        </p>
+        <ol class="guion__lista" id="guionLista"></ol>
+        <div class="sheet__foot">
+          <button class="ghost" id="guionReiniciar" type="button">Volver al principio</button>
         </div>
       </section>
     </div>

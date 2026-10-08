@@ -36,6 +36,7 @@ clic. Es la misma página en un solo archivo, y anda sin internet.
 | **La voz que se ve** | El volumen real de quien habla mueve el orbe y la nube: se nota que la IA lo está escuchando a él. |
 | **Turnos** | Cada estudiante tiene nombre y color; la pantalla dice quién habla. |
 | **Muro de acuerdos** | Lo que definen junto a NOVA queda fijado y se muestra todo junto al cierre. |
+| **Guion** | Se carga un guion en texto plano y NOVA dice sus parlamentos cuando escucha el pie. Lo demás lo piensa sola. |
 | **Dos vistas** | *Consola* para operar y *Escenario* a pantalla completa para proyectar. |
 | **Modo demo** | Funciona sin API key, para mostrarla o ensayar. |
 
@@ -145,7 +146,7 @@ dispare a mitad de la idea.
 ## Conducir la función
 
 La página está pensada para una performance con estudiantes frente al público,
-no para que alguien la use solo. Hay tres piezas para eso.
+no para que alguien la use solo. Hay cuatro piezas para eso.
 
 ### Los turnos
 
@@ -162,6 +163,46 @@ que la gente se lleva de la noche.
 De respuestas largas se guarda la primera parte, cortada al final de una frase:
 una tarjeta tiene que leerse de lejos, un párrafo entero no.
 
+### El guion
+
+Una función ensayada no puede depender de lo que se le ocurra a un modelo en
+el momento. En el botón **Guion** se pega un guion en texto plano, como el de
+una obra, y NOVA dice sus parlamentos cuando escucha el pie:
+
+```
+ANA: Hola NOVA, ¿nos escuchás?
+NOVA: Los escucho. Soy NOVA, la inteligencia de esta muestra.
+
+TOMÁS: ¿Y cómo aprendiste a hablar?
+NOVA: Parecido a como aprendiste vos a reconocer perros...
+```
+
+Las reglas son pocas:
+
+- `NOMBRE: texto`, una línea por parlamento. Las líneas de **NOVA** (también
+  vale `IA:`) son lo que ella dice; la línea anterior es su **pie**.
+- Cuando alguien dice algo parecido al pie, por voz o por teclado, NOVA
+  contesta con el parlamento tal cual, con las mismas letras y la misma voz
+  que una respuesta pensada. **Lo que no esté en el guion lo sigue pensando
+  sola**, así que no hace falta guionar toda la charla: solo los momentos
+  que tienen que salir bien.
+- La comparación es tolerante: ignora mayúsculas, acentos y signos, acepta
+  palabras cambiadas y frases dichas con más o menos vueltas. En el panel se
+  elige cuánto: *estricta*, *normal* o *amplia*. Pies de cuatro o cinco
+  palabras funcionan mejor que un "sí" suelto.
+- El guion tiene orden y **el parlamento que sigue corre con ventaja**: si
+  dos pies se parecen, gana el que toca. La consola muestra en todo momento
+  qué pie se está esperando.
+- Con la tecla **S** NOVA dice el parlamento que sigue sin esperar el pie,
+  para cuando el micrófono no lo captó. Un parlamento sin pie antes (por
+  ejemplo, un cierre) solo se dice así, o tocándolo en la lista del panel.
+- Las líneas que empiezan con `#`, y las acotaciones entre `[corchetes]` o
+  `(paréntesis)`, se ignoran. Una línea sin nombre continúa la anterior.
+
+Se puede pegar el texto o abrir un archivo `.txt`. En la lista del panel se
+ve por dónde va la función, y *Volver al principio* la reinicia para el
+próximo ensayo.
+
 ### Las teclas
 
 Todo se maneja sin mouse, que en vivo es lo que importa:
@@ -171,6 +212,7 @@ Todo se maneja sin mouse, que en vivo es lo que importa:
 | **Espacio** | Prende y apaga el micrófono |
 | **1** … **9** | De quién es el turno |
 | **Tab** | Pasa al siguiente estudiante |
+| **S** | NOVA dice el siguiente parlamento del guion |
 | **A** | Fija la última respuesta en el muro |
 | **M** | Muestra el muro completo, y vuelve |
 | **P** | Muestra la portada, y vuelve |
@@ -191,9 +233,9 @@ y todo lo demás sigue funcionando.
 
 ### Todo se guarda
 
-El plantel y los acuerdos quedan en el navegador. Si la máquina se reinicia a
-mitad de la función, se recupera todo al recargar. Para empezar de cero, *Función
-→ Borrar todos*.
+El plantel, los acuerdos, el guion y el punto en que va quedan en el navegador.
+Si la máquina se reinicia a mitad de la función, se recupera todo al recargar.
+Para empezar de cero, *Función → Borrar todos* y *Guion → Volver al principio*.
 
 ## Para la muestra
 
@@ -212,6 +254,9 @@ mitad de la función, se recupera todo al recargar. Para empezar de cero, *Funci
   instante; los grandes se hacen esperar y en escenario se nota.
 - **Ensayá en modo demo.** Podés probar toda la puesta en escena sin gastar
   nada, y recién conectar la clave el día de la muestra.
+- **Guioná los momentos clave.** La apertura, el cierre y lo que tiene que
+  decir sí o sí van en el guion; el resto se lo dejás al modelo. En el ensayo
+  mirá qué pies no reconoce y ajustá la tolerancia o la frase.
 - **Cargá el plantel antes de empezar**, con los nombres como los van a
   escuchar los padres. Escribirlos en vivo se nota.
 - **Arrancá en la portada** (tecla **P**) con la gente entrando, y cerrá con el
@@ -234,6 +279,7 @@ public/                  El sitio. Esto es lo que se publica en Pages.
     voice.js             Micrófono y voz (Web Speech API)
     audio.js             Mide el volumen real: la voz que mueve los visuales
     show.js              La función: turnos de estudiantes y acuerdos
+    guion.js             El guion: pies y parlamentos, y la comparación tolerante
   demo/
     engine.js            Elige qué contesta NOVA en modo demo
     replies.json         El guion. Editalo, es texto plano.

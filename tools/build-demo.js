@@ -42,6 +42,7 @@ const modules = [
   ['public', 'js', 'voice.js'],
   ['public', 'js', 'audio.js'],
   ['public', 'js', 'show.js'],
+  ['public', 'js', 'guion.js'],
   ['public', 'js', 'api.js'],
   ['public', 'app.js'],
 ];

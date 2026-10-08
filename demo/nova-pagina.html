@@ -678,6 +678,120 @@ body {
   color: rgba(154, 163, 199, 0.75);
 }
 
+/* Lo marcado como hidden no se ve, aunque su clase le ponga display. */
+[hidden] { display: none !important; }
+
+/* =============================================================== guion */
+
+/* Tira en la consola: el pie que se espera y el botón para decirlo a mano. */
+.guion-tira { padding-top: 10px; padding-bottom: 10px; }
+.guion-tira__pie {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.guion-tira__pie strong { color: var(--ink); font-weight: 500; }
+.guion-tira__pie em { font-style: normal; color: #ffc76b; }
+
+/* Respuesta dicha según el guion, no pensada: un borde ámbar la distingue. */
+.msg--guion .msg__bubble { border-left: 3px solid rgba(255, 199, 107, 0.65); }
+
+.sheet__note code {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: rgba(122, 245, 255, 0.08);
+  color: var(--ink);
+}
+
+#guionTexto {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.6;
+  min-height: 140px;
+}
+
+.guion__archivo { display: inline-flex; align-items: center; }
+.guion__archivo:focus-within { outline: 2px solid var(--cyan); outline-offset: 3px; }
+
+.guion__ajustes { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.guion__tolerancia {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 12.5px;
+  color: var(--ink-dim);
+}
+.guion__tolerancia select {
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--ink);
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: rgba(6, 9, 20, 0.8);
+}
+
+.guion__lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.guion__lista li {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 2px 10px;
+  padding: 9px 13px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  border-left: 3px solid rgba(255, 199, 107, 0.3);
+  background: rgba(8, 11, 24, 0.6);
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color .2s, background .2s;
+}
+.guion__lista li:hover { border-color: rgba(122, 245, 255, 0.5); }
+.guion__lista li.is-dicho { opacity: 0.55; }
+.guion__lista li.is-siguiente {
+  border-left-color: #ffc76b;
+  background: rgba(255, 199, 107, 0.08);
+  box-shadow: 0 0 18px rgba(255, 199, 107, 0.12);
+}
+.guion__numero {
+  grid-row: span 2;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  color: rgba(255, 199, 107, 0.8);
+  padding-top: 3px;
+}
+.guion__pie {
+  color: var(--ink-dim);
+  line-height: 1.45;
+}
+.guion__pie::before { content: "▸ "; color: rgba(154, 163, 199, 0.5); }
+.guion__pie.is-vacio { font-style: italic; }
+.guion__parlamento {
+  color: var(--ink);
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 /* =========================================================================
    Modo escenario: la vista para proyectar en pantalla gigante.
    Todo acá está pensado para leerse a diez metros.
@@ -1118,6 +1232,9 @@ body[data-escena="muro"] .scene__orb { visibility: hidden; }
       <button class="ghost" id="showBtn" type="button" title="Participantes y acuerdos de la función">
         Función
       </button>
+      <button class="ghost" id="guionBtn" type="button" title="Parlamentos preparados que NOVA dice al escuchar su pie">
+        Guion
+      </button>
       <button class="ghost" id="settingsBtn" type="button" title="Elegir de dónde salen las respuestas">
         Conexión
       </button>
@@ -1182,6 +1299,16 @@ body[data-escena="muro"] .scene__orb { visibility: hidden; }
       <div class="turnos" id="turnos" hidden>
         <span class="turnos__rotulo">Habla</span>
         <div class="turnos__lista" id="turnosLista"></div>
+      </div>
+
+      <!-- Dónde va el guion: el pie que se espera y el botón para decirlo a mano. -->
+      <div class="turnos guion-tira" id="guionTira" hidden>
+        <span class="turnos__rotulo">Guion</span>
+        <p class="guion-tira__pie" id="guionPie"></p>
+        <button class="ghost ghost--destacado" id="guionDecir" type="button"
+                title="NOVA dice el próximo parlamento del guion (S)">
+          Decir <span class="turno__tecla">S</span>
+        </button>
       </div>
 
       <div class="toolbar">
@@ -1281,6 +1408,70 @@ body[data-escena="muro"] .scene__orb { visibility: hidden; }
           <button class="ghost" id="muroBtn" type="button">Mostrar el muro</button>
           <span class="toolbar__spacer"></span>
           <button class="ghost" id="borrarAcuerdos" type="button">Borrar todos</button>
+        </div>
+      </section>
+    </div>
+  </dialog>
+
+  <!-- ===================================================== guion -->
+  <dialog class="sheet sheet--ancha" id="guion">
+    <div class="sheet__form">
+      <header class="sheet__head">
+        <h2>Guion</h2>
+        <button class="sheet__close" id="guionClose" type="button" aria-label="Cerrar">×</button>
+      </header>
+
+      <p class="sheet__note">
+        Pegá un guion en texto plano, como el de una obra: <code>NOMBRE: lo que dice</code>,
+        una línea por parlamento. Las líneas de <strong>NOVA</strong> son lo que ella
+        responde; la línea anterior es su <strong>pie</strong>. Cuando alguien dice algo
+        parecido al pie, por voz o por teclado, NOVA contesta con el parlamento tal cual.
+        Lo que no esté en el guion lo sigue pensando sola.
+      </p>
+
+      <div class="sheet__field">
+        <textarea id="guionTexto" rows="11" spellcheck="false"
+                  placeholder="ANA: Hola NOVA, ¿nos escuchás?&#10;NOVA: Los escucho. Soy NOVA, la inteligencia de esta muestra.&#10;&#10;TOMÁS: ¿Y cómo aprendiste a hablar?&#10;NOVA: Parecido a como aprendiste vos a reconocer perros…"
+                  aria-label="Texto del guion"></textarea>
+        <p class="sheet__note" id="guionResumen"></p>
+      </div>
+
+      <div class="sheet__foot">
+        <label class="ghost guion__archivo">
+          Abrir archivo…
+          <input type="file" id="guionArchivo" accept=".txt,.md,text/plain" class="sr-only" />
+        </label>
+        <button class="ghost" id="guionEjemplo" type="button">Ver un ejemplo</button>
+        <span class="toolbar__spacer"></span>
+        <button class="ghost" id="guionQuitar" type="button">Quitar guion</button>
+        <button class="primary" id="guionGuardar" type="button">Guardar guion</button>
+      </div>
+
+      <section class="bloque">
+        <h3 class="bloque__titulo">Cómo se sigue</h3>
+        <div class="guion__ajustes">
+          <button class="toggle" id="guionActivo" type="button" aria-pressed="true">
+            <span class="toggle__track"><span class="toggle__thumb"></span></span>
+            Seguir el guion
+          </button>
+          <label class="guion__tolerancia">
+            Tolerancia
+            <select id="guionTolerancia">
+              <option value="estricta">Estricta: casi textual</option>
+              <option value="normal" selected>Normal</option>
+              <option value="amplia">Amplia: con que se parezca</option>
+            </select>
+          </label>
+        </div>
+        <p class="sheet__note">
+          El parlamento que sigue en el orden del guion tiene prioridad, así dos pies
+          parecidos no se confunden. Con la tecla <strong>S</strong> NOVA dice el que
+          sigue sin esperar el pie, por si el micrófono no lo captó. Tocá cualquier
+          parlamento de la lista para que lo diga ya.
+        </p>
+        <ol class="guion__lista" id="guionLista"></ol>
+        <div class="sheet__foot">
+          <button class="ghost" id="guionReiniciar" type="button">Volver al principio</button>
         </div>
       </section>
     </div>
@@ -2433,6 +2624,354 @@ class Show {
 }
 
 /**
+ * El guion: parlamentos preparados que NOVA dice cuando escucha su pie.
+ *
+ * Se carga un texto plano con el formato de un guion de teatro:
+ *
+ *   ANA: Hola NOVA, ¿quién sos?
+ *   NOVA: Soy NOVA, la inteligencia de esta muestra.
+ *
+ *   TOMÁS: ¿Y cómo aprendés?
+ *   NOVA: Parecido a como aprendés vos a reconocer perros...
+ *
+ * Las líneas de NOVA son sus parlamentos. Lo que viene justo antes es el
+ * pie: cuando alguien dice algo parecido —por voz o por teclado— NOVA
+ * contesta con el parlamento en vez de pensar. Lo que no esté en el guion
+ * sigue yendo a la API (o al modo demo), así que la charla no se traba.
+ *
+ * La comparación es tolerante a propósito: el reconocimiento de voz no es
+ * perfecto y nadie dice una frase exactamente igual dos veces. Además el
+ * guion tiene un orden, y el parlamento que sigue en ese orden corre con
+ * ventaja: dos pies parecidos se resuelven por dónde está la función.
+ *
+ * Todo se guarda en el navegador, como el plantel y los acuerdos.
+ */
+
+const STORE_GUION = 'nova:guion';
+
+/** Nombres con los que se puede rotular a NOVA en el guion. */
+const ALIAS_NOVA = new Set(['nova', 'ia', 'ai', 'la ia', 'inteligencia artificial', 'maquina', 'la maquina']);
+
+/** Palabras chicas que pueden ir dentro de un nombre: "Ana de la Torre". */
+const PARTICULAS = new Set(['de', 'del', 'la', 'el', 'los', 'las', 'y']);
+
+/** Qué tan parecido tiene que ser lo que se escucha al pie, de 0 a 1. */
+const TOLERANCIAS = {
+  estricta: 0.85,
+  normal: 0.65,
+  amplia: 0.5,
+};
+
+/** Un guion corto para ver el formato andando. */
+const GUION_EJEMPLO = `# Guion de ejemplo. Las líneas con numeral son comentarios.
+# Las líneas de NOVA son lo que dice. La línea anterior es su pie.
+
+ANA: Hola NOVA, ¿nos escuchás?
+NOVA: Los escucho. Soy NOVA, la inteligencia de esta muestra. Estoy formándome letra por letra en la pantalla mientras hablamos.
+
+TOMÁS: ¿Y cómo aprendiste a hablar?
+NOVA: Parecido a como aprendiste vos a reconocer perros: nadie te dio la definición, viste miles y encontraste el patrón. A mí me pasaron millones de textos y ajusté de a poco hasta poder adivinar qué palabra viene después.
+
+ANA: ¿Te podés equivocar?
+NOVA: Todo el tiempo. Adivino la palabra que mejor suena, no la que es verdad. Por eso conviene preguntarme de dónde saco lo que digo.
+
+[Un parlamento sin pie se dice a mano, con la tecla S]
+NOVA: Gracias por esta noche. Lo que definimos juntos queda en el muro.
+`;
+
+/* --------------------------------------------------------------- parseo */
+
+/**
+ * Convierte el texto plano en entradas: cada parlamento de NOVA con los
+ * pies que lo preceden.
+ *
+ * Reglas, pensadas para que cualquier guion pegado tal cual funcione:
+ *   - `PERSONAJE: texto` es una línea de ese personaje.
+ *   - Una línea sin personaje continúa la anterior, salvo que haya una
+ *     línea en blanco en el medio: ahí es una línea nueva, de nadie.
+ *   - `#`, `[acotación]` y `(acotación)` se ignoran.
+ *   - Un parlamento de NOVA sin pie antes solo se dice a mano.
+ *
+ * @param {string} texto
+ * @returns {{entradas: Array<{indice:number, pies:string[], parlamento:string}>, personajes: string[]}}
+ */
+function parsearGuion(texto) {
+  const lineas = [];
+  const vistos = new Set(); // nombres que ya aparecieron rotulando una línea
+  let abierta = null; // la última línea, por si la siguiente la continúa
+
+  for (const cruda of String(texto || '').split(/\r?\n/)) {
+    const linea = cruda.trim();
+    if (!linea) {
+      abierta = null;
+      continue;
+    }
+    if (/^#/.test(linea) || /^\[.*\]$/.test(linea) || /^\(.*\)$/.test(linea)) continue;
+
+    const rotulo = /^([^\s:¿¡][^:]{0,30}?)\s*:\s*(.*)$/.exec(linea);
+    if (rotulo && esNombre(rotulo[1].trim(), vistos)) {
+      abierta = { quien: rotulo[1].trim(), texto: rotulo[2].trim() };
+      vistos.add(normalizar(abierta.quien));
+      lineas.push(abierta);
+    } else if (abierta) {
+      abierta.texto = `${abierta.texto} ${linea}`.trim();
+    } else {
+      abierta = { quien: '', texto: linea };
+      lineas.push(abierta);
+    }
+  }
+
+  const entradas = [];
+  const personajes = new Set();
+  let pies = [];
+
+  for (const { quien, texto: dicho } of lineas) {
+    if (!dicho) continue;
+    if (ALIAS_NOVA.has(normalizar(quien))) {
+      entradas.push({ indice: entradas.length, pies, parlamento: dicho });
+      pies = [];
+    } else {
+      if (quien) personajes.add(quien);
+      pies.push(dicho);
+    }
+  }
+
+  return { entradas, personajes: [...personajes] };
+}
+
+/**
+ * ¿Lo que está antes de los dos puntos es un personaje?
+ * "ANA", "Ana María", "Alumno 2" o "Sra. Directora" lo son; "Te pregunto"
+ * no: un nombre va en mayúsculas o con mayúscula inicial, salvo partículas
+ * como "de" o "la". Un nombre que ya rotuló una línea vale siempre.
+ */
+function esNombre(candidato, vistos) {
+  if (!candidato || /^https?$/i.test(candidato)) return false;
+  if (vistos.has(normalizar(candidato)) || ALIAS_NOVA.has(normalizar(candidato))) return true;
+
+  const partes = candidato.split(/\s+/);
+  if (partes.length > 3) return false;
+  return partes.every((parte) => /^[\p{Lu}\p{N}]/u.test(parte) || PARTICULAS.has(normalizar(parte)));
+}
+
+/* ---------------------------------------------------------- comparación */
+
+/** Minúsculas y sin acentos: "¿Quién sos?" queda como "quien sos". */
+function normalizar(texto) {
+  return String(texto || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .trim();
+}
+
+/** Las palabras del texto, ya normalizadas. */
+function palabras(texto) {
+  return normalizar(texto)
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+}
+
+/**
+ * Cuánto del pie se escuchó, de 0 a 1.
+ *
+ * Cada palabra del pie pesa según su largo: "energía" dice más que "de".
+ * Las palabras se aceptan con una letra cambiada si son largas, porque el
+ * reconocimiento de voz confunde terminaciones. Y si lo escuchado es mucho
+ * más largo que el pie, el puntaje baja: un pie de dos palabras no puede
+ * ganar por aparecer dentro de un discurso.
+ */
+function puntaje(oido, pie) {
+  const a = palabras(oido);
+  const b = palabras(pie);
+  if (!a.length || !b.length) return 0;
+
+  const usadas = new Array(a.length).fill(false);
+  let total = 0;
+  let hallado = 0;
+  for (const palabra of b) {
+    const peso = Math.min(palabra.length, 6);
+    total += peso;
+    const i = a.findIndex((otra, j) => !usadas[j] && parecidas(otra, palabra));
+    if (i !== -1) {
+      usadas[i] = true;
+      hallado += peso;
+    }
+  }
+
+  const largo = Math.min(1, (b.length * 2 + 3) / a.length);
+  return (hallado / total) * largo;
+}
+
+function parecidas(a, b) {
+  if (a === b) return true;
+  const largo = Math.min(a.length, b.length);
+  if (largo < 5) return false;
+  const margen = largo >= 9 ? 2 : 1;
+  if (Math.abs(a.length - b.length) > margen) return false;
+  return distancia(a, b, margen) <= margen;
+}
+
+/** Distancia de Levenshtein, cortando apenas se pasa del margen. */
+function distancia(a, b, margen) {
+  let fila = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const nueva = [i];
+    let minimo = i;
+    for (let j = 1; j <= b.length; j++) {
+      const costo = a[i - 1] === b[j - 1] ? 0 : 1;
+      nueva[j] = Math.min(nueva[j - 1] + 1, fila[j] + 1, fila[j - 1] + costo);
+      if (nueva[j] < minimo) minimo = nueva[j];
+    }
+    if (minimo > margen) return margen + 1;
+    fila = nueva;
+  }
+  return fila[b.length];
+}
+
+/* ---------------------------------------------------------------- guion */
+
+class Guion {
+  constructor() {
+    this.texto = '';
+    this.entradas = [];
+    this.personajes = [];
+    this.activo = true;
+    this.tolerancia = 'normal';
+    this.cursor = -1; // índice del último parlamento dicho
+    this.listeners = new Set();
+    this.#load();
+  }
+
+  /** Carga un guion nuevo y vuelve al principio. Devuelve cuántos parlamentos tiene. */
+  cargar(texto) {
+    const { entradas, personajes } = parsearGuion(texto);
+    this.texto = String(texto || '');
+    this.entradas = entradas;
+    this.personajes = personajes;
+    this.cursor = -1;
+    this.#save();
+    return entradas.length;
+  }
+
+  quitar() {
+    this.cargar('');
+  }
+
+  get tiene() {
+    return this.entradas.length > 0;
+  }
+
+  get umbral() {
+    return TOLERANCIAS[this.tolerancia] ?? TOLERANCIAS.normal;
+  }
+
+  /** El parlamento que viene según el orden del guion. */
+  get siguiente() {
+    return this.entradas[this.cursor + 1] || null;
+  }
+
+  setActivo(on) {
+    this.activo = Boolean(on);
+    this.#save();
+  }
+
+  setTolerancia(nombre) {
+    this.tolerancia = nombre in TOLERANCIAS ? nombre : 'normal';
+    this.#save();
+  }
+
+  /** Marca un parlamento como dicho: desde ahí sigue el guion. */
+  marcar(indice) {
+    if (!this.entradas[indice]) return;
+    this.cursor = indice;
+    this.#save();
+  }
+
+  reiniciar() {
+    this.cursor = -1;
+    this.#save();
+  }
+
+  /**
+   * Busca el parlamento cuyo pie se parece a lo que se escuchó.
+   * El que sigue en el orden del guion corre con ventaja.
+   *
+   * @param {string} oido
+   * @returns {{entrada: object, puntaje: number} | null}
+   */
+  buscar(oido) {
+    if (!this.activo || !this.tiene || !String(oido || '').trim()) return null;
+
+    let mejor = null;
+    let mejorValor = 0;
+    for (const entrada of this.entradas) {
+      if (!entrada.pies.length) continue;
+      const esSiguiente = entrada.indice === this.cursor + 1;
+      const crudo = Math.max(...entrada.pies.map((pie) => puntaje(oido, pie)));
+      if (crudo < this.umbral - (esSiguiente ? 0.1 : 0)) continue;
+
+      const valor = crudo + (esSiguiente ? 0.1 : 0);
+      if (valor > mejorValor) {
+        mejor = { entrada, puntaje: crudo };
+        mejorValor = valor;
+      }
+    }
+    return mejor;
+  }
+
+  /* ------------------------------------------------------------ avisos */
+
+  subscribe(fn) {
+    this.listeners.add(fn);
+    fn(this);
+    return () => this.listeners.delete(fn);
+  }
+
+  #notify() {
+    for (const fn of this.listeners) fn(this);
+  }
+
+  /* --------------------------------------------------------- guardado */
+
+  #save() {
+    try {
+      localStorage.setItem(
+        STORE_GUION,
+        JSON.stringify({
+          texto: this.texto,
+          activo: this.activo,
+          tolerancia: this.tolerancia,
+          cursor: this.cursor,
+        }),
+      );
+    } catch { /* navegación privada: se usa solo en esta sesión */ }
+    this.#notify();
+  }
+
+  #load() {
+    let guardado;
+    try {
+      guardado = JSON.parse(localStorage.getItem(STORE_GUION) || 'null');
+    } catch {
+      guardado = null;
+    }
+    if (!guardado) return;
+
+    const { entradas, personajes } = parsearGuion(guardado.texto);
+    this.texto = typeof guardado.texto === 'string' ? guardado.texto : '';
+    this.entradas = entradas;
+    this.personajes = personajes;
+    this.activo = guardado.activo !== false;
+    this.tolerancia = guardado.tolerancia in TOLERANCIAS ? guardado.tolerancia : 'normal';
+    const cursor = Number(guardado.cursor);
+    this.cursor = Number.isInteger(cursor) && cursor < entradas.length ? Math.max(-1, cursor) : -1;
+  }
+}
+
+/**
  * Capa de conexión: de dónde salen las respuestas de NOVA.
  *
  * La página funciona en tres situaciones distintas y elige sola cuál le toca:
@@ -2619,14 +3158,26 @@ async function describeOpenAIError(res) {
   return message ? `OpenAI respondió ${res.status}: ${message}` : `OpenAI respondió ${res.status}.`;
 }
 
-/** El guion local, con el mismo goteo que tendría una respuesta real. */
+/** El guion de demo, con el mismo goteo que tendría una respuesta real. */
 async function streamFromDemo(messages, onDelta, signal) {
   if (!demoScript) {
     demoScript = await fetch('demo/replies.json').then((r) => r.json());
   }
+  return streamText(pickDemoReply(messages, demoScript), onDelta, signal);
+}
 
-  const reply = pickDemoReply(messages, demoScript);
-  const chunks = reply.match(/\S+\s*/g) || [reply];
+/**
+ * Entrega un texto ya escrito de a palabras, imitando el goteo de la API.
+ * Lo usan el modo demo y los parlamentos del guion de la función: así se
+ * ven formarse igual que una respuesta pensada de verdad.
+ *
+ * @param {string} text
+ * @param {(delta:string) => void} onDelta
+ * @param {AbortSignal} [signal]
+ * @returns {Promise<string>} el texto completo
+ */
+async function streamText(text, onDelta, signal) {
+  const chunks = text.match(/\S+\s*/g) || [text];
   let full = '';
 
   await pause(380); // el "pensando" inicial
@@ -2718,8 +3269,10 @@ function unwrapOpenAIEvent(rawEvent) {
  * Junta las piezas: la API en streaming, las letras que se materializan, la
  * nube de palabras, la voz y el nivel de audio. Maneja dos vistas de lo
  * mismo —la consola, para operar; el escenario, para proyectar— y conduce
- * la función: de quién es el turno y qué va quedando definido.
+ * la función: de quién es el turno, qué va quedando definido y qué dice
+ * NOVA cuando escucha un pie del guion.
  */
+
 
 
 
@@ -2777,6 +3330,25 @@ const el = {
   sceneNombre: $('sceneNombre'),
   muroGrilla: $('muroGrilla'),
   muroSub: $('muroSub'),
+  sceneHint: $('sceneHint'),
+
+  // guion
+  guionBtn: $('guionBtn'),
+  guion: $('guion'),
+  guionClose: $('guionClose'),
+  guionTexto: $('guionTexto'),
+  guionResumen: $('guionResumen'),
+  guionArchivo: $('guionArchivo'),
+  guionEjemplo: $('guionEjemplo'),
+  guionQuitar: $('guionQuitar'),
+  guionGuardar: $('guionGuardar'),
+  guionActivo: $('guionActivo'),
+  guionTolerancia: $('guionTolerancia'),
+  guionLista: $('guionLista'),
+  guionReiniciar: $('guionReiniciar'),
+  guionTira: $('guionTira'),
+  guionPie: $('guionPie'),
+  guionDecir: $('guionDecir'),
 };
 
 /* --------------------------------------------------------------- estado */
@@ -2800,6 +3372,7 @@ const sceneWriter = new Materializer(el.sceneText, { charsPerSecond: 38 });
 const speaker = new Speaker();
 const meter = new VoiceMeter();
 const show = new Show();
+const guion = new Guion();
 const sentences = makeSentenceSplitter((s) => speaker.say(s));
 
 const listener = new Listener({
@@ -2825,6 +3398,7 @@ async function init() {
   autoGrow(el.input);
 
   show.subscribe(() => pintarFuncion());
+  guion.subscribe(() => pintarGuion());
   conectarMedidor();
   verEscena('charla');
 
@@ -2957,6 +3531,7 @@ function wireEvents() {
 
   el.showBtn.addEventListener('click', () => el.show.showModal());
   el.showClose.addEventListener('click', () => el.show.close());
+  wireGuion();
   el.muroBtn.addEventListener('click', () => verEscena(state.escena === 'muro' ? 'charla' : 'muro'));
   el.pinBtn.addEventListener('click', () => fijarAcuerdo());
 
@@ -3017,6 +3592,10 @@ function wireEvents() {
       event.preventDefault();
       verEscena(state.escena === 'portada' ? 'charla' : 'portada');
     }
+    if ((event.key === 's' || event.key === 'S') && !typing) {
+      event.preventDefault();
+      decirSiguiente();
+    }
     if (event.key === 'Tab' && !typing && show.speakers.length) {
       event.preventDefault();
       show.next();
@@ -3063,6 +3642,150 @@ async function applySettings(action) {
 
   const found = await refreshMode();
   if (action === 'save' && found.mode === 'direct') toast('Listo: NOVA ya responde con tu clave de OpenAI.');
+}
+
+/* ------------------------------------------------------------- el guion */
+
+function wireGuion() {
+  el.guionBtn.addEventListener('click', () => abrirGuion());
+  el.guionClose.addEventListener('click', () => el.guion.close());
+
+  el.guionGuardar.addEventListener('click', () => guardarGuion());
+  el.guionQuitar.addEventListener('click', () => {
+    guion.quitar();
+    el.guionTexto.value = '';
+    toast('Guion quitado. NOVA vuelve a pensar todas las respuestas.');
+  });
+  el.guionEjemplo.addEventListener('click', () => {
+    el.guionTexto.value = GUION_EJEMPLO;
+    el.guionTexto.focus();
+    describirGuion(el.guionTexto.value, { borrador: true });
+  });
+  el.guionTexto.addEventListener('input', () => describirGuion(el.guionTexto.value, { borrador: true }));
+
+  el.guionArchivo.addEventListener('change', async () => {
+    const archivo = el.guionArchivo.files?.[0];
+    el.guionArchivo.value = '';
+    if (!archivo) return;
+    try {
+      el.guionTexto.value = await archivo.text();
+      guardarGuion();
+    } catch {
+      toast('No se pudo leer ese archivo.');
+    }
+  });
+
+  el.guionActivo.addEventListener('click', () => guion.setActivo(!guion.activo));
+  el.guionTolerancia.addEventListener('change', () => guion.setTolerancia(el.guionTolerancia.value));
+  el.guionReiniciar.addEventListener('click', () => {
+    guion.reiniciar();
+    toast('El guion vuelve al principio.');
+  });
+  el.guionDecir.addEventListener('click', () => decirSiguiente());
+}
+
+function abrirGuion() {
+  el.guionTexto.value = guion.texto;
+  describirGuion(guion.texto);
+  el.guion.showModal();
+}
+
+function guardarGuion() {
+  const cuantos = guion.cargar(el.guionTexto.value);
+  if (!cuantos && el.guionTexto.value.trim()) {
+    return toast('No encontré parlamentos de NOVA. Las líneas tienen que empezar con "NOVA:".');
+  }
+  toast(cuantos ? `Guion cargado: ${cuantos} ${cuantos === 1 ? 'parlamento' : 'parlamentos'}.` : 'Guion vacío.');
+}
+
+/** El renglón bajo el texto: cuántos parlamentos y de quiénes son los pies. */
+function describirGuion(texto, { borrador = false } = {}) {
+  if (!texto.trim()) {
+    el.guionResumen.textContent = 'Sin guion. Podés pegarlo acá o abrir un archivo de texto.';
+    return;
+  }
+  const { entradas, personajes } = parsearGuion(texto);
+  const sinPie = entradas.filter((e) => !e.pies.length).length;
+  const partes = [`${entradas.length} ${entradas.length === 1 ? 'parlamento' : 'parlamentos'} de NOVA`];
+  if (personajes.length) partes.push(`pies de ${personajes.join(', ')}`);
+  if (sinPie) partes.push(`${sinPie} sin pie (se ${sinPie === 1 ? 'dice' : 'dicen'} con la tecla S)`);
+  el.guionResumen.textContent = `${partes.join(' · ')}${borrador ? ' — sin guardar' : ''}.`;
+  if (!entradas.length) {
+    el.guionResumen.textContent = 'No hay líneas de NOVA. Cada parlamento tiene que empezar con "NOVA:".';
+  }
+}
+
+/** Redibuja todo lo que depende del guion: el panel, la tira y la ayuda del escenario. */
+function pintarGuion() {
+  const siguiente = guion.siguiente;
+  const enUso = guion.tiene && guion.activo;
+
+  el.guionActivo.setAttribute('aria-pressed', String(guion.activo));
+  el.guionTolerancia.value = guion.tolerancia;
+
+  // La lista de parlamentos, con el que sigue resaltado.
+  el.guionLista.innerHTML = '';
+  if (!guion.tiene) {
+    el.guionLista.innerHTML = '<p class="vacio">Todavía no hay guion cargado.</p>';
+  }
+  guion.entradas.forEach((entrada) => {
+    const fila = document.createElement('li');
+    fila.classList.toggle('is-dicho', entrada.indice <= guion.cursor);
+    fila.classList.toggle('is-siguiente', entrada.indice === guion.cursor + 1);
+    fila.title = 'NOVA lo dice ya mismo';
+    const pie = entrada.pies.length ? escapar(entrada.pies.at(-1)) : 'sin pie: se dice con la tecla S';
+    fila.innerHTML = `
+      <span class="guion__numero">${entrada.indice + 1}</span>
+      <span class="guion__pie${entrada.pies.length ? '' : ' is-vacio'}">${pie}</span>
+      <span class="guion__parlamento">${escapar(entrada.parlamento)}</span>`;
+    fila.addEventListener('click', () => {
+      el.guion.close();
+      decirDelGuion(entrada.indice);
+    });
+    el.guionLista.appendChild(fila);
+  });
+
+  // La tira en la consola: qué pie se espera ahora.
+  el.guionTira.hidden = !enUso;
+  el.guionDecir.disabled = !siguiente;
+  if (enUso) {
+    if (!siguiente) {
+      el.guionPie.innerHTML = '<em>Fin del guion.</em> Lo que sigue lo piensa NOVA.';
+    } else if (siguiente.pies.length) {
+      el.guionPie.innerHTML = `${siguiente.indice + 1}/${guion.entradas.length} · se espera: <strong>${escapar(siguiente.pies.at(-1))}</strong>`;
+    } else {
+      el.guionPie.innerHTML = `${siguiente.indice + 1}/${guion.entradas.length} · <em>sin pie</em>: <strong>${escapar(siguiente.parlamento)}</strong>`;
+    }
+  }
+
+  el.sceneHint.textContent = enUso
+    ? 'Espacio: micrófono · S: guion · A: fijar acuerdo · M: muro · F: salir'
+    : 'Espacio: micrófono · A: fijar acuerdo · M: muro · F: salir';
+}
+
+/** Tecla S: NOVA dice el parlamento que sigue, sin esperar el pie. */
+function decirSiguiente() {
+  if (!guion.tiene) return toast('No hay guion cargado. Está en el botón Guion, arriba.');
+  const siguiente = guion.siguiente;
+  if (!siguiente) return toast('El guion ya terminó. En el panel podés volver al principio.');
+  decirDelGuion(siguiente.indice);
+}
+
+/** NOVA dice un parlamento del guion por decisión del operador, sin pregunta previa. */
+async function decirDelGuion(indice) {
+  const entrada = guion.entradas[indice];
+  if (!entrada || state.busy) return;
+
+  speaker.cancel();
+  sentences.reset();
+  el.welcome?.remove();
+  if (state.escena !== 'charla') verEscena('charla');
+  showHeard('', false);
+
+  guion.marcar(indice);
+  // Si después se fija como acuerdo, el pie sirve de título.
+  state.ultimaPregunta = entrada.pies.at(-1) || '';
+  await responder((onDelta, signal) => streamText(entrada.parlamento, onDelta, signal), { delGuion: true });
 }
 
 /* --------------------------------------------------------- la función */
@@ -3289,17 +4012,12 @@ async function send(text, { fromVoice = false } = {}) {
   el.welcome?.remove();
   if (state.escena !== 'charla') verEscena('charla');
 
-  state.busy = true;
-  el.stopBtn.hidden = false;
-  el.sendBtn.disabled = true;
   showHeard('', false);
 
   addBubble('user', text, { animate: fromVoice });
   cloud.absorb(text, 'user');
   state.messages.push({ role: 'user', content: text });
   state.ultimaPregunta = text;
-  state.ultimaRespuesta = '';
-  el.pinBtn.disabled = true;
 
   // En el escenario primero se ve lo que dijo la persona…
   if (isStage()) {
@@ -3309,9 +4027,39 @@ async function send(text, { fromVoice = false } = {}) {
     sceneWriter.push(text);
   }
 
+  // Si lo dicho es un pie del guion, NOVA contesta con su parlamento.
+  // Si no, piensa la respuesta como siempre.
+  const hallado = guion.buscar(text);
+  if (hallado) {
+    guion.marcar(hallado.entrada.indice);
+    await responder((onDelta, signal) => streamText(hallado.entrada.parlamento, onDelta, signal), { delGuion: true });
+  } else {
+    await responder((onDelta, signal) => streamChat(state.messages, onDelta, { mode: state.mode, signal }));
+  }
+}
+
+/**
+ * Produce y muestra una respuesta de NOVA, venga de donde venga: de la API,
+ * del modo demo o del guion. Maneja el goteo de letras, la voz, el historial
+ * y los cortes; `producir` solo tiene que entregar los fragmentos.
+ *
+ * @param {(onDelta:(delta:string)=>void, signal:AbortSignal) => Promise<string>} producir
+ * @param {{delGuion?: boolean}} [opts]
+ */
+async function responder(producir, { delGuion = false } = {}) {
+  state.busy = true;
+  el.stopBtn.hidden = false;
+  el.sendBtn.disabled = true;
+  state.ultimaRespuesta = '';
+  el.pinBtn.disabled = true;
+
   setMode('thinking');
 
   const bubble = addBubble('ai', '', { pending: true });
+  if (delGuion) {
+    bubble.closest('.msg')?.classList.add('msg--guion');
+    bubble.title = 'Dicho según el guion';
+  }
   const bubbleWriter = new Materializer(bubble, { charsPerSecond: 46 });
   let firstChunk = true;
   let answer = '';
@@ -3319,8 +4067,7 @@ async function send(text, { fromVoice = false } = {}) {
   state.controller = new AbortController();
 
   try {
-    answer = await streamChat(
-      state.messages,
+    answer = await producir(
       (delta) => {
         if (firstChunk) {
           firstChunk = false;
@@ -3339,7 +4086,7 @@ async function send(text, { fromVoice = false } = {}) {
         sentences.push(delta);
         scrollLog();
       },
-      { mode: state.mode, signal: state.controller.signal },
+      state.controller.signal,
     );
 
     sentences.flush();
@@ -3370,7 +4117,7 @@ async function send(text, { fromVoice = false } = {}) {
       setMode('error');
       toast(err.message);
       // No dejamos el turno colgado en el historial.
-      state.messages.pop();
+      if (state.messages.at(-1)?.role === 'user') state.messages.pop();
     }
   } finally {
     state.busy = false;

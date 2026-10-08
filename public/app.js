@@ -4,15 +4,17 @@
  * Junta las piezas: la API en streaming, las letras que se materializan, la
  * nube de palabras, la voz y el nivel de audio. Maneja dos vistas de lo
  * mismo —la consola, para operar; el escenario, para proyectar— y conduce
- * la función: de quién es el turno y qué va quedando definido.
+ * la función: de quién es el turno, qué va quedando definido y qué dice
+ * NOVA cuando escucha un pie del guion.
  */
 
-import { detectMode, streamChat, settings, DEFAULT_MODEL, DEFAULT_PROMPT } from './js/api.js';
+import { detectMode, streamChat, streamText, settings, DEFAULT_MODEL, DEFAULT_PROMPT } from './js/api.js';
 import { Materializer } from './js/materialize.js';
 import { WordCloud } from './js/wordcloud.js';
 import { Listener, Speaker, makeSentenceSplitter, voiceSupport } from './js/voice.js';
 import { VoiceMeter } from './js/audio.js';
 import { Show } from './js/show.js';
+import { Guion, parsearGuion, GUION_EJEMPLO } from './js/guion.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -65,6 +67,25 @@ const el = {
   sceneNombre: $('sceneNombre'),
   muroGrilla: $('muroGrilla'),
   muroSub: $('muroSub'),
+  sceneHint: $('sceneHint'),
+
+  // guion
+  guionBtn: $('guionBtn'),
+  guion: $('guion'),
+  guionClose: $('guionClose'),
+  guionTexto: $('guionTexto'),
+  guionResumen: $('guionResumen'),
+  guionArchivo: $('guionArchivo'),
+  guionEjemplo: $('guionEjemplo'),
+  guionQuitar: $('guionQuitar'),
+  guionGuardar: $('guionGuardar'),
+  guionActivo: $('guionActivo'),
+  guionTolerancia: $('guionTolerancia'),
+  guionLista: $('guionLista'),
+  guionReiniciar: $('guionReiniciar'),
+  guionTira: $('guionTira'),
+  guionPie: $('guionPie'),
+  guionDecir: $('guionDecir'),
 };
 
 /* --------------------------------------------------------------- estado */
@@ -88,6 +109,7 @@ const sceneWriter = new Materializer(el.sceneText, { charsPerSecond: 38 });
 const speaker = new Speaker();
 const meter = new VoiceMeter();
 const show = new Show();
+const guion = new Guion();
 const sentences = makeSentenceSplitter((s) => speaker.say(s));
 
 const listener = new Listener({
@@ -113,6 +135,7 @@ async function init() {
   autoGrow(el.input);
 
   show.subscribe(() => pintarFuncion());
+  guion.subscribe(() => pintarGuion());
   conectarMedidor();
   verEscena('charla');
 
@@ -245,6 +268,7 @@ function wireEvents() {
 
   el.showBtn.addEventListener('click', () => el.show.showModal());
   el.showClose.addEventListener('click', () => el.show.close());
+  wireGuion();
   el.muroBtn.addEventListener('click', () => verEscena(state.escena === 'muro' ? 'charla' : 'muro'));
   el.pinBtn.addEventListener('click', () => fijarAcuerdo());
 
@@ -305,6 +329,10 @@ function wireEvents() {
       event.preventDefault();
       verEscena(state.escena === 'portada' ? 'charla' : 'portada');
     }
+    if ((event.key === 's' || event.key === 'S') && !typing) {
+      event.preventDefault();
+      decirSiguiente();
+    }
     if (event.key === 'Tab' && !typing && show.speakers.length) {
       event.preventDefault();
       show.next();
@@ -351,6 +379,150 @@ async function applySettings(action) {
 
   const found = await refreshMode();
   if (action === 'save' && found.mode === 'direct') toast('Listo: NOVA ya responde con tu clave de OpenAI.');
+}
+
+/* ------------------------------------------------------------- el guion */
+
+function wireGuion() {
+  el.guionBtn.addEventListener('click', () => abrirGuion());
+  el.guionClose.addEventListener('click', () => el.guion.close());
+
+  el.guionGuardar.addEventListener('click', () => guardarGuion());
+  el.guionQuitar.addEventListener('click', () => {
+    guion.quitar();
+    el.guionTexto.value = '';
+    toast('Guion quitado. NOVA vuelve a pensar todas las respuestas.');
+  });
+  el.guionEjemplo.addEventListener('click', () => {
+    el.guionTexto.value = GUION_EJEMPLO;
+    el.guionTexto.focus();
+    describirGuion(el.guionTexto.value, { borrador: true });
+  });
+  el.guionTexto.addEventListener('input', () => describirGuion(el.guionTexto.value, { borrador: true }));
+
+  el.guionArchivo.addEventListener('change', async () => {
+    const archivo = el.guionArchivo.files?.[0];
+    el.guionArchivo.value = '';
+    if (!archivo) return;
+    try {
+      el.guionTexto.value = await archivo.text();
+      guardarGuion();
+    } catch {
+      toast('No se pudo leer ese archivo.');
+    }
+  });
+
+  el.guionActivo.addEventListener('click', () => guion.setActivo(!guion.activo));
+  el.guionTolerancia.addEventListener('change', () => guion.setTolerancia(el.guionTolerancia.value));
+  el.guionReiniciar.addEventListener('click', () => {
+    guion.reiniciar();
+    toast('El guion vuelve al principio.');
+  });
+  el.guionDecir.addEventListener('click', () => decirSiguiente());
+}
+
+function abrirGuion() {
+  el.guionTexto.value = guion.texto;
+  describirGuion(guion.texto);
+  el.guion.showModal();
+}
+
+function guardarGuion() {
+  const cuantos = guion.cargar(el.guionTexto.value);
+  if (!cuantos && el.guionTexto.value.trim()) {
+    return toast('No encontré parlamentos de NOVA. Las líneas tienen que empezar con "NOVA:".');
+  }
+  toast(cuantos ? `Guion cargado: ${cuantos} ${cuantos === 1 ? 'parlamento' : 'parlamentos'}.` : 'Guion vacío.');
+}
+
+/** El renglón bajo el texto: cuántos parlamentos y de quiénes son los pies. */
+function describirGuion(texto, { borrador = false } = {}) {
+  if (!texto.trim()) {
+    el.guionResumen.textContent = 'Sin guion. Podés pegarlo acá o abrir un archivo de texto.';
+    return;
+  }
+  const { entradas, personajes } = parsearGuion(texto);
+  const sinPie = entradas.filter((e) => !e.pies.length).length;
+  const partes = [`${entradas.length} ${entradas.length === 1 ? 'parlamento' : 'parlamentos'} de NOVA`];
+  if (personajes.length) partes.push(`pies de ${personajes.join(', ')}`);
+  if (sinPie) partes.push(`${sinPie} sin pie (se ${sinPie === 1 ? 'dice' : 'dicen'} con la tecla S)`);
+  el.guionResumen.textContent = `${partes.join(' · ')}${borrador ? ' — sin guardar' : ''}.`;
+  if (!entradas.length) {
+    el.guionResumen.textContent = 'No hay líneas de NOVA. Cada parlamento tiene que empezar con "NOVA:".';
+  }
+}
+
+/** Redibuja todo lo que depende del guion: el panel, la tira y la ayuda del escenario. */
+function pintarGuion() {
+  const siguiente = guion.siguiente;
+  const enUso = guion.tiene && guion.activo;
+
+  el.guionActivo.setAttribute('aria-pressed', String(guion.activo));
+  el.guionTolerancia.value = guion.tolerancia;
+
+  // La lista de parlamentos, con el que sigue resaltado.
+  el.guionLista.innerHTML = '';
+  if (!guion.tiene) {
+    el.guionLista.innerHTML = '<p class="vacio">Todavía no hay guion cargado.</p>';
+  }
+  guion.entradas.forEach((entrada) => {
+    const fila = document.createElement('li');
+    fila.classList.toggle('is-dicho', entrada.indice <= guion.cursor);
+    fila.classList.toggle('is-siguiente', entrada.indice === guion.cursor + 1);
+    fila.title = 'NOVA lo dice ya mismo';
+    const pie = entrada.pies.length ? escapar(entrada.pies.at(-1)) : 'sin pie: se dice con la tecla S';
+    fila.innerHTML = `
+      <span class="guion__numero">${entrada.indice + 1}</span>
+      <span class="guion__pie${entrada.pies.length ? '' : ' is-vacio'}">${pie}</span>
+      <span class="guion__parlamento">${escapar(entrada.parlamento)}</span>`;
+    fila.addEventListener('click', () => {
+      el.guion.close();
+      decirDelGuion(entrada.indice);
+    });
+    el.guionLista.appendChild(fila);
+  });
+
+  // La tira en la consola: qué pie se espera ahora.
+  el.guionTira.hidden = !enUso;
+  el.guionDecir.disabled = !siguiente;
+  if (enUso) {
+    if (!siguiente) {
+      el.guionPie.innerHTML = '<em>Fin del guion.</em> Lo que sigue lo piensa NOVA.';
+    } else if (siguiente.pies.length) {
+      el.guionPie.innerHTML = `${siguiente.indice + 1}/${guion.entradas.length} · se espera: <strong>${escapar(siguiente.pies.at(-1))}</strong>`;
+    } else {
+      el.guionPie.innerHTML = `${siguiente.indice + 1}/${guion.entradas.length} · <em>sin pie</em>: <strong>${escapar(siguiente.parlamento)}</strong>`;
+    }
+  }
+
+  el.sceneHint.textContent = enUso
+    ? 'Espacio: micrófono · S: guion · A: fijar acuerdo · M: muro · F: salir'
+    : 'Espacio: micrófono · A: fijar acuerdo · M: muro · F: salir';
+}
+
+/** Tecla S: NOVA dice el parlamento que sigue, sin esperar el pie. */
+function decirSiguiente() {
+  if (!guion.tiene) return toast('No hay guion cargado. Está en el botón Guion, arriba.');
+  const siguiente = guion.siguiente;
+  if (!siguiente) return toast('El guion ya terminó. En el panel podés volver al principio.');
+  decirDelGuion(siguiente.indice);
+}
+
+/** NOVA dice un parlamento del guion por decisión del operador, sin pregunta previa. */
+async function decirDelGuion(indice) {
+  const entrada = guion.entradas[indice];
+  if (!entrada || state.busy) return;
+
+  speaker.cancel();
+  sentences.reset();
+  el.welcome?.remove();
+  if (state.escena !== 'charla') verEscena('charla');
+  showHeard('', false);
+
+  guion.marcar(indice);
+  // Si después se fija como acuerdo, el pie sirve de título.
+  state.ultimaPregunta = entrada.pies.at(-1) || '';
+  await responder((onDelta, signal) => streamText(entrada.parlamento, onDelta, signal), { delGuion: true });
 }
 
 /* --------------------------------------------------------- la función */
@@ -577,17 +749,12 @@ async function send(text, { fromVoice = false } = {}) {
   el.welcome?.remove();
   if (state.escena !== 'charla') verEscena('charla');
 
-  state.busy = true;
-  el.stopBtn.hidden = false;
-  el.sendBtn.disabled = true;
   showHeard('', false);
 
   addBubble('user', text, { animate: fromVoice });
   cloud.absorb(text, 'user');
   state.messages.push({ role: 'user', content: text });
   state.ultimaPregunta = text;
-  state.ultimaRespuesta = '';
-  el.pinBtn.disabled = true;
 
   // En el escenario primero se ve lo que dijo la persona…
   if (isStage()) {
@@ -597,9 +764,39 @@ async function send(text, { fromVoice = false } = {}) {
     sceneWriter.push(text);
   }
 
+  // Si lo dicho es un pie del guion, NOVA contesta con su parlamento.
+  // Si no, piensa la respuesta como siempre.
+  const hallado = guion.buscar(text);
+  if (hallado) {
+    guion.marcar(hallado.entrada.indice);
+    await responder((onDelta, signal) => streamText(hallado.entrada.parlamento, onDelta, signal), { delGuion: true });
+  } else {
+    await responder((onDelta, signal) => streamChat(state.messages, onDelta, { mode: state.mode, signal }));
+  }
+}
+
+/**
+ * Produce y muestra una respuesta de NOVA, venga de donde venga: de la API,
+ * del modo demo o del guion. Maneja el goteo de letras, la voz, el historial
+ * y los cortes; `producir` solo tiene que entregar los fragmentos.
+ *
+ * @param {(onDelta:(delta:string)=>void, signal:AbortSignal) => Promise<string>} producir
+ * @param {{delGuion?: boolean}} [opts]
+ */
+async function responder(producir, { delGuion = false } = {}) {
+  state.busy = true;
+  el.stopBtn.hidden = false;
+  el.sendBtn.disabled = true;
+  state.ultimaRespuesta = '';
+  el.pinBtn.disabled = true;
+
   setMode('thinking');
 
   const bubble = addBubble('ai', '', { pending: true });
+  if (delGuion) {
+    bubble.closest('.msg')?.classList.add('msg--guion');
+    bubble.title = 'Dicho según el guion';
+  }
   const bubbleWriter = new Materializer(bubble, { charsPerSecond: 46 });
   let firstChunk = true;
   let answer = '';
@@ -607,8 +804,7 @@ async function send(text, { fromVoice = false } = {}) {
   state.controller = new AbortController();
 
   try {
-    answer = await streamChat(
-      state.messages,
+    answer = await producir(
       (delta) => {
         if (firstChunk) {
           firstChunk = false;
@@ -627,7 +823,7 @@ async function send(text, { fromVoice = false } = {}) {
         sentences.push(delta);
         scrollLog();
       },
-      { mode: state.mode, signal: state.controller.signal },
+      state.controller.signal,
     );
 
     sentences.flush();
@@ -658,7 +854,7 @@ async function send(text, { fromVoice = false } = {}) {
       setMode('error');
       toast(err.message);
       // No dejamos el turno colgado en el historial.
-      state.messages.pop();
+      if (state.messages.at(-1)?.role === 'user') state.messages.pop();
     }
   } finally {
     state.busy = false;

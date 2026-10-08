@@ -187,14 +187,26 @@ async function describeOpenAIError(res) {
   return message ? `OpenAI respondió ${res.status}: ${message}` : `OpenAI respondió ${res.status}.`;
 }
 
-/** El guion local, con el mismo goteo que tendría una respuesta real. */
+/** El guion de demo, con el mismo goteo que tendría una respuesta real. */
 async function streamFromDemo(messages, onDelta, signal) {
   if (!demoScript) {
     demoScript = await fetch('demo/replies.json').then((r) => r.json());
   }
+  return streamText(pickDemoReply(messages, demoScript), onDelta, signal);
+}
 
-  const reply = pickDemoReply(messages, demoScript);
-  const chunks = reply.match(/\S+\s*/g) || [reply];
+/**
+ * Entrega un texto ya escrito de a palabras, imitando el goteo de la API.
+ * Lo usan el modo demo y los parlamentos del guion de la función: así se
+ * ven formarse igual que una respuesta pensada de verdad.
+ *
+ * @param {string} text
+ * @param {(delta:string) => void} onDelta
+ * @param {AbortSignal} [signal]
+ * @returns {Promise<string>} el texto completo
+ */
+export async function streamText(text, onDelta, signal) {
+  const chunks = text.match(/\S+\s*/g) || [text];
   let full = '';
 
   await pause(380); // el "pensando" inicial
