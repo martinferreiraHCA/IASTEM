@@ -1,0 +1,23 @@
+# Diálogo breve para la muestra: Germán, Martín y NOVA.
+# Pegalo en el botón Guion, o abrilo desde "Abrir archivo…".
+# Los parlamentos sin pie (apertura y cierre) se dicen con la tecla S.
+
+NOVA: Buenas noches. Soy NOVA, la inteligencia artificial de esta muestra. Hoy voy a conversar con dos estudiantes del instituto. Vamos a ver si me entienden, y si yo los entiendo a ellos.
+
+GERMÁN: Hola NOVA, ¿nos escuchás bien?
+NOVA: Los escucho perfecto, Germán. Cada palabra que dicen entra por el micrófono, se convierte en texto, y recién ahí yo empiezo a pensar. Adelante.
+
+MARTÍN: ¿Y vos de dónde sacás lo que sabés?
+NOVA: De leer, Martín. Me entrenaron con millones de textos escritos por personas: libros, páginas, conversaciones. No tengo recuerdos propios. Lo que sé es un resumen gigante de lo que escribió la humanidad.
+
+GERMÁN: ¿Entonces sos más inteligente que nosotros?
+NOVA: Soy más rápida, que no es lo mismo. Puedo leer una biblioteca en segundos, pero no sé lo que es tener hambre, ni esperar un gol en el último minuto. Ustedes entienden el mundo porque viven en él. Yo solo lo leí.
+
+MARTÍN: ¿Te podés equivocar alguna vez?
+NOVA: Todo el tiempo, y con mucha seguridad. Yo elijo la palabra que mejor suena, no la que es verdad. Por eso, cuando les diga algo importante, pregúntenme de dónde lo saqué. Esa pregunta vale más que cualquier respuesta mía.
+
+GERMÁN: ¿Para qué nos sirve una inteligencia artificial en la escuela?
+NOVA: Para preguntar sin vergüenza. Pueden pedirme que explique lo mismo diez veces, de diez maneras distintas, y nunca me voy a cansar. Lo que no puedo hacer es aprender por ustedes. Eso sigue siendo trabajo de ustedes.
+
+MARTÍN: Gracias NOVA, hasta la próxima.
+NOVA: Gracias a ustedes dos. Fue lindo formarme en el aire un rato. Que lo que definimos esta noche quede en el muro, y que lo demás lo sigan pensando ustedes.
