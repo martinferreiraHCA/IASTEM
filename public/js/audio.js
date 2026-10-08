@@ -28,20 +28,28 @@ export class VoiceMeter {
     return Boolean(navigator.mediaDevices?.getUserMedia && (window.AudioContext || window.webkitAudioContext));
   }
 
-  /** @returns {Promise<boolean>} si quedó midiendo */
-  async start() {
+  /**
+   * @param {MediaStream} [stream]  un micrófono ya abierto, para no pedirlo dos veces
+   * @returns {Promise<boolean>} si quedó midiendo
+   */
+  async start(stream = null) {
     if (this.active || !this.supported) return this.active;
 
-    try {
-      this.stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
-      });
-    } catch {
-      return false; // sin permiso, o el micrófono ya está tomado
+    this.owned = !stream;
+    if (stream) {
+      this.stream = stream;
+    } else {
+      try {
+        this.stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+        });
+      } catch {
+        return false; // sin permiso, o el micrófono ya está tomado
+      }
     }
 
     const Context = window.AudioContext || window.webkitAudioContext;
@@ -65,7 +73,7 @@ export class VoiceMeter {
     this.active = false;
     if (this.frame) cancelAnimationFrame(this.frame);
     this.frame = null;
-    this.stream?.getTracks().forEach((t) => t.stop());
+    if (this.owned) this.stream?.getTracks().forEach((t) => t.stop());
     this.context?.close().catch(() => {});
     this.stream = this.context = this.analyser = this.data = null;
     this.level = this.peak = 0;

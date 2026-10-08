@@ -476,13 +476,16 @@ body {
 .sheet__field label { font-size: 12.5px; letter-spacing: 0.06em; color: var(--ink-dim); }
 
 .sheet__field input,
+.sheet__field select,
 .sheet__field textarea {
   font: inherit; font-size: 14px; color: var(--ink);
   padding: 11px 14px; border-radius: 12px; resize: vertical;
   border: 1px solid var(--line); background: rgba(6, 9, 20, 0.8);
   transition: border-color .2s, box-shadow .2s;
 }
+.sheet__field select { resize: none; cursor: pointer; }
 .sheet__field input:focus,
+.sheet__field select:focus,
 .sheet__field textarea:focus {
   outline: none;
   border-color: rgba(122, 245, 255, 0.6);

@@ -1,10 +1,12 @@
 /**
  * IASTEM — servidor mínimo (sin dependencias).
  *
- * Hace dos cosas:
+ * Hace tres cosas:
  *   1. Sirve los archivos estáticos de /public
  *   2. Expone POST /api/chat, que reenvía la conversación a la API de
  *      ChatGPT y devuelve la respuesta en streaming (SSE).
+ *   3. Expone POST /api/transcribe, que manda un audio a transcribir, para
+ *      los navegadores que no reconocen voz por su cuenta.
  *
  * La API key vive solo acá, en el servidor. El navegador nunca la ve.
  */
@@ -20,6 +22,7 @@ const PORT = Number(process.env.PORT) || 3000;
 const API_KEY = process.env.OPENAI_API_KEY || '';
 const BASE_URL = (process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1').replace(/\/+$/, '');
 const MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+const TRANSCRIBE_MODEL = process.env.OPENAI_TRANSCRIBE_MODEL || 'gpt-4o-mini-transcribe';
 const SYSTEM_PROMPT =
   process.env.SYSTEM_PROMPT ||
   'Sos NOVA, una inteligencia artificial conversacional. Respondes en español rioplatense, ' +
@@ -35,6 +38,7 @@ const loadDemoEngine = () => (demoEngine ||= import('./public/demo/engine.js'));
 
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const MAX_BODY_BYTES = 1024 * 1024; // 1 MB
+const MAX_AUDIO_BYTES = 8 * 1024 * 1024; // 8 MB: medio minuto de voz pesa menos de 1 MB
 const MAX_MESSAGES = 40;
 
 const MIME = {
@@ -59,11 +63,17 @@ const server = http.createServer(async (req, res) => {
       configured: Boolean(API_KEY),
       demo: DEMO,
       model: DEMO ? 'demo' : MODEL,
+      transcribe: Boolean(API_KEY),
     });
 
     if (url.pathname === '/api/chat') {
       if (req.method !== 'POST') return sendJson(res, 405, { error: 'Usá POST.' });
       return await handleChat(req, res);
+    }
+
+    if (url.pathname === '/api/transcribe') {
+      if (req.method !== 'POST') return sendJson(res, 405, { error: 'Usá POST.' });
+      return await handleTranscribe(req, res, url);
     }
 
     if (req.method !== 'GET' && req.method !== 'HEAD') {
@@ -94,7 +104,7 @@ server.listen(PORT, () => {
 async function handleChat(req, res) {
   let payload;
   try {
-    payload = JSON.parse(await readBody(req));
+    payload = JSON.parse((await readBody(req, MAX_BODY_BYTES)).toString('utf8'));
   } catch (err) {
     return sendJson(res, 400, { error: err.message || 'JSON inválido.' });
   }
@@ -216,6 +226,57 @@ async function streamDemo(res, messages) {
   setTimeout(tick, 380); // el "pensando" inicial
 }
 
+/* ------------------------------------------------------------ transcribir */
+
+/**
+ * Recibe el audio crudo (webm, ogg, mp4 o wav) y lo manda a la API de
+ * transcripción. Devuelve { text }. El vocabulario de la función viaja en
+ * ?prompt= y ayuda con los nombres propios.
+ */
+async function handleTranscribe(req, res, url) {
+  if (!API_KEY) {
+    return sendJson(res, 503, { error: 'El servidor no tiene clave: no puede transcribir. Completá OPENAI_API_KEY en .env.' });
+  }
+
+  let audio;
+  try {
+    audio = await readBody(req, MAX_AUDIO_BYTES);
+  } catch (err) {
+    return sendJson(res, 413, { error: err.message || 'El audio es demasiado grande.' });
+  }
+  if (audio.length < 1000) return sendJson(res, 400, { error: 'El audio llegó vacío.' });
+
+  const type = (req.headers['content-type'] || 'audio/webm').split(';')[0].trim();
+  const ext = { 'audio/webm': 'webm', 'audio/ogg': 'ogg', 'audio/mp4': 'mp4', 'audio/mpeg': 'mp3', 'audio/wav': 'wav' }[type] || 'webm';
+
+  const form = new FormData();
+  form.append('file', new Blob([audio], { type }), `voz.${ext}`);
+  form.append('model', TRANSCRIBE_MODEL);
+  form.append('language', 'es');
+  form.append('response_format', 'json');
+  const prompt = (url.searchParams.get('prompt') || '').slice(0, 600);
+  if (prompt) form.append('prompt', prompt);
+
+  const upstream = await fetch(`${BASE_URL}/audio/transcriptions`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${API_KEY}` },
+    body: form,
+  }).catch((err) => {
+    console.error('No se pudo contactar la API de transcripción:', err);
+    return null;
+  });
+
+  if (!upstream) return sendJson(res, 502, { error: 'No se pudo contactar la API. ¿Hay conexión a internet?' });
+  if (!upstream.ok) {
+    const detail = await upstream.text().catch(() => '');
+    console.error(`La transcripción respondió ${upstream.status}:`, detail.slice(0, 500));
+    return sendJson(res, upstream.status, { error: describeUpstreamError(upstream.status, detail) });
+  }
+
+  const info = await upstream.json().catch(() => ({}));
+  return sendJson(res, 200, { text: typeof info.text === 'string' ? info.text : '' });
+}
+
 function sanitizeMessages(raw) {
   if (!Array.isArray(raw)) return [];
   return raw
@@ -263,20 +324,20 @@ async function serveStatic(pathname, res) {
 
 /* --------------------------------------------------------------- helpers */
 
-function readBody(req) {
+function readBody(req, maxBytes = MAX_BODY_BYTES) {
   return new Promise((resolve, reject) => {
     let size = 0;
     const chunks = [];
     req.on('data', (chunk) => {
       size += chunk.length;
-      if (size > MAX_BODY_BYTES) {
+      if (size > maxBytes) {
         reject(new Error('El mensaje es demasiado grande.'));
         req.destroy();
         return;
       }
       chunks.push(chunk);
     });
-    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+    req.on('end', () => resolve(Buffer.concat(chunks)));
     req.on('error', reject);
   });
 }

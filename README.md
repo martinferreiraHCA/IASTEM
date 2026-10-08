@@ -32,7 +32,7 @@ clic. Es la misma página en un solo archivo, y anda sin internet.
 |---|---|
 | **Letras estilo Jumanji** | Cada carácter entra como un glifo extraño que muta hasta encontrar su forma. |
 | **Nube de palabras** | Las palabras importantes flotan de fondo, crecen si se repiten y se disuelven solas. |
-| **Voz en vivo** | Micrófono continuo: el público habla, NOVA escucha, piensa y contesta en voz alta. |
+| **Voz en vivo** | Micrófono continuo: el público habla, NOVA escucha, piensa y contesta en voz alta. Si el navegador no reconoce voz, graba y transcribe por la API. |
 | **La voz que se ve** | El volumen real de quien habla mueve el orbe y la nube: se nota que la IA lo está escuchando a él. |
 | **Turnos** | Cada estudiante tiene nombre y color; la pantalla dice quién habla. |
 | **Muro de acuerdos** | Lo que definen junto a NOVA queda fijado y se muestra todo junto al cierre. |
@@ -143,6 +143,36 @@ Con el micrófono encendido, NOVA espera **1,4 segundos de silencio** antes de
 contestar: así un grupo puede hablar en varias frases sin que la respuesta se
 dispare a mitad de la idea.
 
+### Si el micrófono no transcribe
+
+Hay dos maneras de escuchar, y la página elige sola en *Conexión → Cómo
+escucha*:
+
+| Cómo | Qué hace | Dónde anda |
+|---|---|---|
+| **El navegador** | Transcribe en vivo, con las palabras apareciendo mientras se habla. Gratis. | **Google Chrome y Edge.** En Chromium, Brave y Opera existe pero falla; en Firefox no está. |
+| **La API de OpenAI** | Graba cada frase, corta en la pausa y la manda a transcribir. Tarda un segundo más. | Cualquier navegador, pero **necesita la clave** (en el servidor o en Conexión). |
+
+En *Automático* usa el navegador si puede y, si ese reconocimiento falla, pasa
+solo a la API y avisa. Cuando algo no anda, el cartel bajo el micrófono y el
+aviso rojo dicen qué fue: el permiso bloqueado, que no hay micrófono, que el
+navegador no reconoce voz, o que falta la clave.
+
+Si la voz no transcribe, en este orden:
+
+1. **Mirá el aviso.** Dice qué falló y qué hacer.
+2. **Permiso.** Tocá el candado en la barra de direcciones y permití el
+   micrófono. Hace falta HTTPS o `localhost`; por HTTP desde otra máquina el
+   navegador lo bloquea sin preguntar.
+3. **Navegador.** Si no es Google Chrome ni Edge, o elegí uno de esos, o
+   cargá la clave para transcribir por la API.
+4. **Internet.** Las dos maneras la necesitan: el reconocimiento de Chrome
+   también corre en servidores de Google.
+
+A la transcripción por la API se le pasan los nombres del plantel, los
+personajes del guion y el pie que se espera, así no inventa palabras raras
+donde iba "NOVA" o "Germán".
+
 ## Conducir la función
 
 La página está pensada para una performance con estudiantes frente al público,
@@ -239,8 +269,9 @@ Para empezar de cero, *Función → Borrar todos* y *Guion → Volver al princip
 
 ## Para la muestra
 
-- **Usá Chrome o Edge.** Son los que reconocen voz. En Firefox el micrófono
-  aparece deshabilitado, pero el chat escrito anda igual.
+- **Usá Google Chrome o Edge.** Son los que reconocen voz por su cuenta. En
+  cualquier otro navegador la voz funciona igual, pero por la API y con la
+  clave cargada.
 - **El micrófono necesita HTTPS o `localhost`.** GitHub Pages es HTTPS, así que
   sirve. Si servís desde otra máquina de la red por HTTP, el navegador lo
   bloquea.
@@ -276,7 +307,8 @@ public/                  El sitio. Esto es lo que se publica en Pages.
     api.js               Elige de dónde salen las respuestas y lee el streaming
     materialize.js       El efecto Jumanji, letra por letra
     wordcloud.js         La nube de palabras en canvas
-    voice.js             Micrófono y voz (Web Speech API)
+    voice.js             Micrófono y voz: el reconocimiento del navegador o
+                         la grabación que se transcribe por la API
     audio.js             Mide el volumen real: la voz que mueve los visuales
     show.js              La función: turnos de estudiantes y acuerdos
     guion.js             El guion: pies y parlamentos, y la comparación tolerante
@@ -292,7 +324,8 @@ tools/build-demo.js      Genera ese archivo desde los de arriba
 
 Con servidor, el navegador nunca habla con OpenAI: le pide a `/api/chat`, y el
 servidor —el único que conoce la clave— reenvía y devuelve la respuesta en
-streaming. Sin servidor, el navegador llama a OpenAI por su cuenta con la clave
+streaming. Lo mismo con la voz: el audio va a `/api/transcribe` y el servidor
+lo manda a transcribir. Sin servidor, el navegador llama a OpenAI por su cuenta con la clave
 que tenga guardada. En los dos casos la respuesta llega **de a fragmentos**, y
 por eso las letras pueden empezar a formarse antes de que la frase termine.
 
@@ -322,6 +355,7 @@ Solo aplican a `npm start`; en Pages se configura todo desde *Conexión*.
 |---|---|---|
 | `OPENAI_API_KEY` | Tu clave. Sin ella, arranca en modo demo. | — |
 | `OPENAI_MODEL` | Qué modelo usar | `gpt-4o-mini` |
+| `OPENAI_TRANSCRIBE_MODEL` | Con qué transcribir la voz cuando el navegador no puede | `gpt-4o-mini-transcribe` |
 | `OPENAI_BASE_URL` | Endpoint compatible con OpenAI | `https://api.openai.com/v1` |
 | `SYSTEM_PROMPT` | La personalidad de NOVA | NOVA en español rioplatense |
 | `PORT` | Puerto del servidor | `3000` |

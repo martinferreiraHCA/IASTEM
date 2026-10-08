@@ -323,6 +323,16 @@
         <textarea id="promptInput" rows="4"></textarea>
       </div>
 
+      <div class="sheet__field">
+        <label for="dictadoInput">Cómo escucha</label>
+        <select id="dictadoInput">
+          <option value="auto">Automático: el navegador si puede, si no la API</option>
+          <option value="navegador">El navegador (Google Chrome o Edge)</option>
+          <option value="api">La API de OpenAI (cualquier navegador, usa la clave)</option>
+        </select>
+        <p class="sheet__note" id="dictadoNota">Detectando…</p>
+      </div>
+
       <footer class="sheet__foot">
         <button class="ghost" type="submit" value="forget" id="forgetBtn">Borrar la clave</button>
         <span class="toolbar__spacer"></span>

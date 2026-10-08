@@ -8,10 +8,10 @@
  * NOVA cuando escucha un pie del guion.
  */
 
-import { detectMode, streamChat, streamText, settings, DEFAULT_MODEL, DEFAULT_PROMPT } from './js/api.js';
+import { detectMode, streamChat, streamText, transcribe, settings, DEFAULT_MODEL, DEFAULT_PROMPT } from './js/api.js';
 import { Materializer } from './js/materialize.js';
 import { WordCloud } from './js/wordcloud.js';
-import { Listener, Speaker, makeSentenceSplitter, voiceSupport } from './js/voice.js';
+import { Listener, RecorderListener, Speaker, makeSentenceSplitter, voiceSupport } from './js/voice.js';
 import { VoiceMeter } from './js/audio.js';
 import { Show } from './js/show.js';
 import { Guion, parsearGuion, GUION_EJEMPLO } from './js/guion.js';
@@ -30,6 +30,8 @@ const el = {
   keyInput: $('keyInput'),
   modelInput: $('modelInput'),
   promptInput: $('promptInput'),
+  dictadoInput: $('dictadoInput'),
+  dictadoNota: $('dictadoNota'),
   orb: $('orb'),
   sceneOrb: $('sceneOrb'),
   coreCaption: $('coreCaption'),
@@ -100,6 +102,8 @@ const state = {
   escena: 'charla',      // portada, charla o muro
   ultimaPregunta: '',    // para saber de qué trata el último acuerdo
   ultimaRespuesta: '',   // lo que se fija con la tecla A
+  navegadorRoto: false,  // el reconocimiento del navegador falló: se pasa a la API
+  abriendoMic: false,
 };
 
 const SILENCE_MS = 1400;  // pausa que se toma como "terminó de hablar"
@@ -112,19 +116,41 @@ const show = new Show();
 const guion = new Guion();
 const sentences = makeSentenceSplitter((s) => speaker.say(s));
 
-const listener = new Listener({
+/**
+ * Quien escucha: el reconocimiento del navegador o la grabación que se
+ * transcribe por la API. Lo elige montarDictado() según el navegador, la
+ * conexión y lo que se haya pedido en Conexión. Los dos avisan igual.
+ */
+let listener = null;
+
+const oidos = {
   onStart: () => setMode('listening'),
   onPartial: (text) => showHeard(text, false),
   onFinal: (text) => queueSpeech(text),
-  onError: (msg) => {
+  onStatus: (msg) => {
+    if (listener?.active) el.micHint.textContent = msg || pistaEscuchando();
+  },
+  onError: (msg, code) => {
     toast(msg);
-    setMicActive(false);
-    setMode('idle');
+    micApagado();
+    if (code === 'transcribe') listener?.stop();
+
+    // El navegador no puede: si hay con qué, se pasa a transcribir por la
+    // API y se vuelve a abrir el micrófono solo.
+    const navegadorFallo = ['network', 'service-not-allowed', 'language-not-supported', 'unsupported', 'silent'].includes(code);
+    if (navegadorFallo && listener?.nombre === 'navegador') {
+      state.navegadorRoto = true;
+      montarDictado();
+      if (listener?.nombre === 'API' && state.mode !== 'demo') {
+        toast('El navegador no transcribe: NOVA pasa a escuchar por la API de OpenAI.');
+        toggleMic();
+      }
+    }
   },
   onEnd: () => {
-    if (!listener.active && !state.busy) setMode('idle');
+    if (!listener?.active && !state.busy) setMode('idle');
   },
-});
+};
 
 /* ---------------------------------------------------------- arranque */
 
@@ -140,21 +166,15 @@ async function init() {
   verEscena('charla');
 
   await refreshMode({ announce: true });
-
-  if (!voiceSupport.listen) {
-    el.micBtn.disabled = true;
-    el.micBtn.title = 'Este navegador no reconoce voz. Probá con Chrome o Edge.';
-    el.micHint.textContent = 'Voz no disponible';
-  }
   setupVoicePreference();
 
   speaker.onStart = () => {
-    listener.pauseForPlayback();
+    listener?.pauseForPlayback();
     setMode('speaking');
   };
   speaker.onEnd = () => {
-    listener.resumeAfterPlayback();
-    if (!state.busy) setMode(listener.active ? 'listening' : 'idle');
+    listener?.resumeAfterPlayback();
+    if (!state.busy) setMode(listener?.active ? 'listening' : 'idle');
   };
 }
 
@@ -180,6 +200,7 @@ async function refreshMode({ announce = false } = {}) {
     );
   }
   describeMode(found);
+  montarDictado();
   return found;
 }
 
@@ -228,6 +249,66 @@ function writeStored(key, value) {
   } catch { /* no pasa nada si no se puede guardar */ }
 }
 
+/* ------------------------------------------------------------- dictado */
+
+/**
+ * Decide con qué se escucha. El navegador transcribe en vivo y sin costo,
+ * pero solo Google Chrome y Edge lo hacen bien; cuando no puede, se graba
+ * y se transcribe por la API, que anda en cualquier navegador pero necesita
+ * una clave. No se cambia de motor con el micrófono abierto.
+ */
+function montarDictado() {
+  if (listener?.active || state.abriendoMic) return;
+
+  const pedido = settings.dictado;
+  const apiPosible = voiceSupport.record && state.mode !== 'demo';
+  let usar;
+  if (pedido === 'navegador') usar = 'navegador';
+  else if (pedido === 'api') usar = 'api';
+  else if (voiceSupport.listen && !state.navegadorRoto) usar = 'navegador';
+  else if (apiPosible) usar = 'api';
+  else usar = voiceSupport.listen ? 'navegador' : 'api';
+
+  if (usar === 'api' && voiceSupport.record) {
+    listener = new RecorderListener(oidos, (blob) => transcribe(blob, { mode: state.mode, prompt: vocabulario() }));
+  } else if (usar === 'navegador' && voiceSupport.listen) {
+    listener = new Listener(oidos);
+  } else {
+    listener = null;
+  }
+
+  // El botón del micrófono y su cartelito cuentan en qué quedó.
+  el.micBtn.disabled = !listener;
+  if (!listener) {
+    el.micBtn.title = 'Este navegador no puede escuchar. Probá con Chrome o Edge.';
+    el.micHint.textContent = 'Voz no disponible';
+  } else if (listener.nombre === 'API' && state.mode === 'demo') {
+    el.micBtn.title = 'Para transcribir por la API hace falta una clave en Conexión.';
+    el.micHint.textContent = 'Para dictar, cargá una clave en Conexión';
+  } else {
+    el.micBtn.title = 'Encender el micrófono (barra espaciadora)';
+    el.micHint.textContent = 'Tocá para hablar';
+  }
+
+  el.dictadoNota.innerHTML = {
+    navegador: '<strong>Ahora escucha con el navegador.</strong> Transcribe en vivo y sin costo. Anda en Google Chrome y Edge; en otros navegadores suele fallar.',
+    api: state.mode === 'demo'
+      ? '<strong>Ahora escucharía por la API</strong>, pero sin clave no puede. Cargá una arriba, o usá Google Chrome o Edge.'
+      : '<strong>Ahora escucha por la API de OpenAI.</strong> Graba cada frase y la transcribe; tarda un segundo más pero anda en cualquier navegador.',
+  }[listener ? (listener.nombre === 'API' ? 'api' : 'navegador') : 'api'];
+}
+
+/** Nombres y pies que ayudan a la transcripción a no inventar palabras. */
+function vocabulario() {
+  const partes = ['NOVA', 'IASTEM', ...show.speakers.map((p) => p.name), ...guion.personajes];
+  const pie = guion.activo ? guion.siguiente?.pies.at(-1) : '';
+  return `${[...new Set(partes)].join(', ')}.${pie ? ` ${pie}` : ''}`.slice(0, 600);
+}
+
+function pistaEscuchando() {
+  return listener?.nombre === 'API' ? 'Escuchando por la API… tocá para cortar' : 'Escuchando… tocá para cortar';
+}
+
 /* ------------------------------------------------------ voz que se ve */
 
 /**
@@ -240,6 +321,7 @@ function conectarMedidor() {
     el.orb.style.setProperty('--voz', valor);
     el.sceneOrb.style.setProperty('--voz', valor);
     cloud.setEnergy(nivel);
+    listener?.noteSound?.(nivel);
   };
 }
 
@@ -361,6 +443,7 @@ function openSettings() {
   el.modelInput.placeholder = DEFAULT_MODEL;
   el.promptInput.value = settings.prompt;
   el.promptInput.placeholder = DEFAULT_PROMPT;
+  el.dictadoInput.value = settings.dictado;
   el.settings.showModal();
 }
 
@@ -375,6 +458,8 @@ async function applySettings(action) {
     settings.key = el.keyInput.value;
     settings.model = el.modelInput.value;
     settings.prompt = el.promptInput.value;
+    settings.dictado = el.dictadoInput.value;
+    state.navegadorRoto = false; // se vuelve a probar con lo que se pidió
   }
 
   const found = await refreshMode();
@@ -690,26 +775,50 @@ function escapar(texto) {
 
 /* -------------------------------------------------------------- micro */
 
-function toggleMic() {
-  if (!voiceSupport.listen) return toast('Este navegador no reconoce voz. Probá con Chrome o Edge.');
-  const active = listener.toggle();
-  setMicActive(active);
-  if (active) {
-    setMode('listening');
-    el.micHint.textContent = 'Escuchando… tocá para cortar';
-    // El nivel de voz es lo que mueve los visuales. Si el navegador no deja
-    // abrir el micrófono dos veces, la página sigue andando sin reaccionar.
-    meter.start().then((ok) => {
-      if (!ok) console.info('NOVA: sin medidor de voz; los visuales no reaccionan al volumen.');
-    });
-  } else {
-    meter.stop();
-    clearTimeout(state.silenceTimer);
-    state.pendingSpeech.length = 0;
-    showHeard('', false);
-    el.micHint.textContent = 'Tocá para hablar';
-    if (!state.busy) setMode('idle');
+async function toggleMic() {
+  if (!listener) return toast('Este navegador no reconoce voz. Probá con Chrome o Edge.');
+  if (state.abriendoMic) return;
+
+  if (listener.active) {
+    listener.stop();
+    micApagado();
+    return;
   }
+
+  if (listener.nombre === 'API' && state.mode === 'demo') {
+    return toast('Para dictar en este navegador hace falta una clave de OpenAI. Cargala en Conexión, o usá Google Chrome o Edge.');
+  }
+
+  state.abriendoMic = true;
+  setMicActive(true);
+  setMode('listening');
+  el.micHint.textContent = 'Abriendo el micrófono…';
+  const ok = await listener.start();
+  state.abriendoMic = false;
+
+  if (!ok || !listener.active) {
+    micApagado();
+    return;
+  }
+  el.micHint.textContent = pistaEscuchando();
+
+  // El nivel de voz es lo que mueve los visuales. Si el micrófono ya está
+  // abierto se comparte; si el navegador no deja abrirlo dos veces, la
+  // página sigue andando sin reaccionar.
+  meter.start(listener.stream || undefined).then((bien) => {
+    if (!bien) console.info('NOVA: sin medidor de voz; los visuales no reaccionan al volumen.');
+  });
+}
+
+/** Deja todo como cuando el micrófono está cerrado. */
+function micApagado() {
+  meter.stop();
+  clearTimeout(state.silenceTimer);
+  state.pendingSpeech.length = 0;
+  showHeard('', false);
+  setMicActive(false);
+  el.micHint.textContent = 'Tocá para hablar';
+  if (!state.busy) setMode('idle');
 }
 
 function setMicActive(active) {
@@ -725,11 +834,16 @@ function queueSpeech(text) {
   showHeard(state.pendingSpeech.join(' '), true);
 
   clearTimeout(state.silenceTimer);
-  state.silenceTimer = setTimeout(() => {
-    const full = state.pendingSpeech.join(' ').trim();
-    state.pendingSpeech.length = 0;
-    if (full) send(full, { fromVoice: true });
-  }, SILENCE_MS);
+  const esperar = () => {
+    state.silenceTimer = setTimeout(() => {
+      // Si hay una frase a medio grabar o transcribir, se le da tiempo a llegar.
+      if (listener?.busy) return esperar();
+      const full = state.pendingSpeech.join(' ').trim();
+      state.pendingSpeech.length = 0;
+      if (full) send(full, { fromVoice: true });
+    }, listener?.silenceMs ?? SILENCE_MS);
+  };
+  esperar();
 }
 
 function showHeard(text, isFinal) {

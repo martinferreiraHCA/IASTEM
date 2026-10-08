@@ -16,6 +16,7 @@ import { pickDemoReply } from '../demo/engine.js';
 const STORE_KEY = 'nova:openai-key';
 const STORE_MODEL = 'nova:modelo';
 const STORE_PROMPT = 'nova:personalidad';
+const STORE_DICTADO = 'nova:dictado';
 
 export const DEFAULT_MODEL = 'gpt-4o-mini';
 export const DEFAULT_PROMPT =
@@ -24,6 +25,11 @@ export const DEFAULT_PROMPT =
   'claridad y calidez. Sos breve: dos o tres frases, salvo que te pidan más detalle.';
 
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
+const OPENAI_TRANSCRIBE_URL = 'https://api.openai.com/v1/audio/transcriptions';
+const TRANSCRIBE_MODEL = 'gpt-4o-mini-transcribe';
+
+/** Cómo se escucha: el navegador, la API, o lo que convenga. */
+export const DICTADOS = ['auto', 'navegador', 'api'];
 
 // El build standalone deja el guion acá, para no depender de un fetch.
 let demoScript = globalThis.NOVA_DEMO_SCRIPT || null;
@@ -48,6 +54,13 @@ export const settings = {
   },
   set prompt(value) {
     write(STORE_PROMPT, (value || '').trim() || DEFAULT_PROMPT);
+  },
+  get dictado() {
+    const guardado = read(STORE_DICTADO);
+    return DICTADOS.includes(guardado) ? guardado : 'auto';
+  },
+  set dictado(value) {
+    DICTADOS.includes(value) && value !== 'auto' ? write(STORE_DICTADO, value) : remove(STORE_DICTADO);
   },
 };
 
@@ -226,6 +239,58 @@ function abortError() {
   const error = new Error('Interrumpido');
   error.name = 'AbortError';
   return error;
+}
+
+/* --------------------------------------------------------- transcribir */
+
+/**
+ * Manda un audio grabado y devuelve lo que se dijo. Es el camino para los
+ * navegadores que no reconocen voz por su cuenta.
+ *
+ * @param {Blob} blob  el audio (webm, ogg, mp4 o wav)
+ * @param {object} opts
+ * @param {'server'|'direct'|'demo'} opts.mode
+ * @param {string} [opts.prompt]  vocabulario que ayuda: nombres, el pie que se espera
+ * @returns {Promise<string>}
+ */
+export async function transcribe(blob, { mode, prompt = '' } = {}) {
+  if (mode === 'server') {
+    const query = prompt ? `?prompt=${encodeURIComponent(prompt)}` : '';
+    const res = await fetch(`api/transcribe${query}`, {
+      method: 'POST',
+      headers: { 'Content-Type': blob.type || 'audio/webm' },
+      body: blob,
+    });
+    const info = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(info.error || `El servidor respondió ${res.status}.`);
+    return info.text || '';
+  }
+
+  if (mode === 'direct') {
+    const form = new FormData();
+    const ext = { 'audio/ogg': 'ogg', 'audio/mp4': 'mp4', 'audio/wav': 'wav' }[(blob.type || '').split(';')[0]] || 'webm';
+    form.append('file', blob, `voz.${ext}`);
+    form.append('model', TRANSCRIBE_MODEL);
+    form.append('language', 'es');
+    form.append('response_format', 'json');
+    if (prompt) form.append('prompt', prompt.slice(0, 600));
+
+    let res;
+    try {
+      res = await fetch(OPENAI_TRANSCRIBE_URL, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${settings.key}` },
+        body: form,
+      });
+    } catch {
+      throw new Error('No se pudo contactar a OpenAI para transcribir. Revisá la conexión a internet.');
+    }
+    if (!res.ok) throw new Error(await describeOpenAIError(res));
+    const info = await res.json().catch(() => ({}));
+    return info.text || '';
+  }
+
+  throw new Error('Para transcribir por la API hace falta una clave de OpenAI. Cargala en Conexión, o usá Google Chrome o Edge.');
 }
 
 /* ------------------------------------------- lectura del stream (SSE) */
