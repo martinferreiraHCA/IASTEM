@@ -495,6 +495,7 @@ body {
 
 .sheet__note { margin: 0; font-size: 12px; line-height: 1.6; color: rgba(154, 163, 199, 0.85); }
 .sheet__note strong { color: #ffc76b; font-weight: 600; }
+.sheet__note a { color: var(--cyan); }
 
 .sheet__foot { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 

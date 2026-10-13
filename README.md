@@ -108,7 +108,10 @@ El asistente tiene dos usos, que se eligen en su panel:
   la función.
 
 En los dos casos el guion manda: un pie reconocido siempre gana, y la IA solo
-habla cuando el guion no tiene nada preparado. Las respuestas improvisadas se
+habla cuando el guion no tiene nada preparado. Para probar la clave y charlar
+con NOVA sin tocar la función está `prueba-api.html`, enlazada desde el panel
+Asistente: comprueba la clave, mide cuánto tarda, ubica pies sobre un guion
+chico y conversa con memoria. Las respuestas improvisadas se
 distinguen en la consola con un borde violeta, y el panel de control las
 anota.
 

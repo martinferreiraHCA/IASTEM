@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NOVA · Prueba de la API</title>
+  <meta name="theme-color" content="#05060c" />
+  <style>
+    :root { --fondo: #05060c; --ink: #eef1ff; --dim: #9aa3c7; --line: rgba(140,160,255,.18); --verde: #46f0a8; --ambar: #ffc76b; --rojo: #ff6b81; --cyan: #7af5ff; --violet: #a37bff; --mono: "JetBrains Mono", ui-monospace, monospace; }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 20px 16px 60px; font: 15px/1.5 Inter, system-ui, sans-serif; color: var(--ink); background: var(--fondo); max-width: 760px; margin-inline: auto; }
+    h1 { font-size: 22px; margin: 0 0 4px; }
+    h2 { font-size: 15px; margin: 0 0 10px; display: flex; align-items: center; gap: 10px; }
+    p { margin: 6px 0; color: var(--dim); }
+    .paso { margin-top: 16px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 14px; background: rgba(11,14,26,.9); }
+    .luz { width: 12px; height: 12px; border-radius: 50%; background: var(--dim); flex: 0 0 auto; }
+    .luz.bien { background: var(--verde); box-shadow: 0 0 10px var(--verde); }
+    .luz.mal { background: var(--rojo); box-shadow: 0 0 10px var(--rojo); }
+    .luz.duda { background: var(--ambar); box-shadow: 0 0 10px var(--ambar); }
+    label { display: block; font-size: 12px; letter-spacing: .06em; color: var(--dim); margin: 10px 0 4px; }
+    input, select, textarea { width: 100%; font: inherit; color: var(--ink); padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: rgba(6,9,20,.8); }
+    textarea { font-family: var(--mono); font-size: 12.5px; line-height: 1.55; resize: vertical; }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: rgba(122,245,255,.6); }
+    .fila { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .fila > * { flex: 1; min-width: 140px; }
+    .fila > button { flex: 0 0 auto; }
+    button { font: inherit; color: var(--ink); background: rgba(122,245,255,.12); border: 1px solid var(--cyan); border-radius: 999px; padding: 9px 16px; cursor: pointer; }
+    button.segundo { background: transparent; border-color: var(--line); color: var(--dim); }
+    button:disabled { opacity: .5; cursor: wait; }
+    .estado { padding: 10px 14px; border-radius: 12px; border: 1px solid var(--line); background: rgba(122,245,255,.06); font-size: 13.5px; }
+    .estado strong { color: var(--ink); }
+    .resultado { margin-top: 10px; padding: 10px 14px; border-radius: 12px; background: rgba(6,9,20,.8); border: 1px solid var(--line); font-size: 14px; min-height: 2.4em; white-space: pre-wrap; }
+    .resultado.bien { border-color: rgba(70,240,168,.5); }
+    .resultado.mal { border-color: rgba(255,107,129,.5); color: #ffd0d8; }
+    .charla { display: flex; flex-direction: column; gap: 8px; max-height: 360px; overflow-y: auto; padding: 4px 0; }
+    .burbuja { max-width: 88%; padding: 9px 14px; border-radius: 14px; border: 1px solid var(--line); line-height: 1.5; white-space: pre-wrap; }
+    .burbuja.vos { align-self: flex-end; background: rgba(163,123,255,.16); }
+    .burbuja.nova { align-self: flex-start; background: rgba(122,245,255,.06); border-left: 3px solid var(--violet); }
+    .burbuja.nova.guion { border-left-color: var(--ambar); }
+    .burbuja small { display: block; font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); margin-top: 4px; }
+    .log { font: 12px/1.6 var(--mono); color: var(--dim); max-height: 200px; overflow: auto; white-space: pre-wrap; background: rgba(6,9,20,.8); border-radius: 10px; padding: 10px 12px; margin-top: 10px; }
+    .log b { color: var(--ambar); }
+    .log .ok { color: var(--verde); }
+    .log .err { color: var(--rojo); }
+    a { color: var(--cyan); }
+  </style>
+</head>
+<body>
+  <h1>Prueba de la API</h1>
+  <p>Para probar la clave y la conversación con NOVA <strong>sin tocar la función</strong>. Usa la misma clave y los mismos ajustes que el escenario: lo que guardes acá, el escenario lo usa, y al revés.</p>
+
+  <section class="paso">
+    <h2><span class="luz" id="luzClave"></span>1. Clave</h2>
+    <div class="estado" id="estado">Detectando…</div>
+    <div class="fila">
+      <div>
+        <label for="proveedor">Con quién</label>
+        <select id="proveedor">
+          <option value="anthropic">Claude (Anthropic)</option>
+          <option value="openai">OpenAI</option>
+        </select>
+      </div>
+      <div style="flex: 2">
+        <label for="clave">Clave</label>
+        <input type="password" id="clave" placeholder="sk-ant-…" autocomplete="off" spellcheck="false" />
+      </div>
+      <div>
+        <label for="modelo">Modelo</label>
+        <input type="text" id="modelo" placeholder="claude-opus-5-5" autocomplete="off" spellcheck="false" />
+      </div>
+    </div>
+    <div class="fila" style="margin-top: 12px">
+      <button id="guardar">Guardar y comprobar</button>
+      <button id="olvidar" class="segundo">Borrar la clave</button>
+    </div>
+    <p>Se guarda solo en este navegador. Con <code>npm start</code> y la clave en el <code>.env</code>, acá no hace falta nada.</p>
+  </section>
+
+  <section class="paso">
+    <h2><span class="luz" id="luzUbicar"></span>2. Ubicar un pie</h2>
+    <p>Un guion chico para probar. Editalo si querés: el formato es el mismo que en el escenario.</p>
+    <textarea id="guion" rows="7"></textarea>
+    <div class="fila" style="margin-top: 10px">
+      <input type="text" id="oido" value="contanos de dónde viene todo lo que sabés" aria-label="Lo que se oyó" />
+      <button id="ubicar">¿A qué pie corresponde?</button>
+    </div>
+    <div class="resultado" id="veredicto">Escribí algo que diría un estudiante y tocá el botón.</div>
+  </section>
+
+  <section class="paso">
+    <h2><span class="luz" id="luzCharla"></span>3. Conversar con NOVA</h2>
+    <p>Lo mismo que pasa en la función: si lo que escribís es un pie, NOVA dice el guion; si no, improvisa. Se acuerda de la charla.</p>
+    <label for="personalidad">Quién es NOVA cuando improvisa</label>
+    <textarea id="personalidad" rows="3"></textarea>
+    <div class="charla" id="charla"></div>
+    <form class="fila" id="formCharla" style="margin-top: 10px">
+      <input type="text" id="mensaje" placeholder="Decile algo a NOVA…" autocomplete="off" />
+      <button type="submit" id="enviar">Enviar</button>
+      <button type="button" id="limpiar" class="segundo">Limpiar</button>
+    </form>
+    <div class="log" id="log"></div>
+  </section>
+
+<script type="module">
+  import { Arbitro, PROVEEDORES, PERSONALIDAD } from './js/arbitro.js';
+  import { parsearGuion } from './js/guion.js';
+
+  const $ = (id) => document.getElementById(id);
+  const arbitro = new Arbitro();
+  const historial = [];
+  const t0 = Date.now();
+  const marca = () => `${((Date.now() - t0) / 1000).toFixed(1)}s`;
+
+  $('guion').value = `GERMÁN: Hola NOVA, ¿nos escuchás bien?
+NOVA: Los escucho perfecto. Cada palabra que dicen entra por el micrófono.
+
+MARTÍN: ¿Y vos de dónde sacás lo que sabés?
+NOVA: De leer. Me entrenaron con millones de textos escritos por personas.
+
+GERMÁN: ¿Te podés equivocar?
+NOVA: Todo el tiempo, y con mucha seguridad.`;
+
+  function log(texto, clase = '') {
+    const linea = document.createElement('div');
+    linea.className = clase;
+    linea.innerHTML = `<b>${marca()}</b> ${texto}`;
+    $('log').appendChild(linea);
+    $('log').scrollTop = $('log').scrollHeight;
+  }
+  const luz = (id, estado) => ($(id).className = `luz ${estado}`);
+  const entradas = () => parsearGuion($('guion').value).entradas;
+
+  /* ---- 1. clave */
+  function pintar() {
+    const quien = PROVEEDORES[arbitro.proveedor];
+    $('proveedor').value = arbitro.proveedor;
+    $('clave').value = arbitro.clave;
+    $('clave').placeholder = quien.pista;
+    $('modelo').value = arbitro.modelo;
+    $('modelo').placeholder = quien.modelo;
+    $('personalidad').value = arbitro.personalidad;
+    $('estado').innerHTML = {
+      servidor: `<strong>Hay servidor con clave</strong> (${arbitro.conQuien}). Las consultas salen por el servidor; la clave de abajo no hace falta.`,
+      directo: `<strong>Clave guardada en este navegador</strong>, con ${quien.nombre}. Modelo: ${arbitro.modelo}.`,
+      ninguno: '<strong>Sin clave.</strong> Pegala abajo y tocá "Guardar y comprobar".',
+    }[arbitro.modo];
+    luz('luzClave', arbitro.modo === 'ninguno' ? 'duda' : 'bien');
+  }
+
+  $('proveedor').addEventListener('change', () => {
+    const quien = PROVEEDORES[$('proveedor').value];
+    $('clave').placeholder = quien.pista;
+    $('modelo').placeholder = quien.modelo;
+    if (Object.values(PROVEEDORES).some((p) => p.modelo === $('modelo').value)) $('modelo').value = '';
+  });
+
+  $('guardar').addEventListener('click', async () => {
+    arbitro.proveedor = $('proveedor').value;
+    arbitro.clave = $('clave').value;
+    arbitro.modelo = $('modelo').value;
+    await arbitro.detectar();
+    pintar();
+    if (!arbitro.disponible) return log('no hay clave ni servidor con clave', 'err');
+    $('guardar').disabled = true;
+    const desde = Date.now();
+    const v = await arbitro.ubicar({ oido: 'hola nova, ¿nos estás escuchando?', cursor: -1, entradas: entradas() });
+    $('guardar').disabled = false;
+    const tardo = ((Date.now() - desde) / 1000).toFixed(1);
+    if (v.error) { luz('luzClave', 'mal'); log(`la API no respondió: ${v.error}`, 'err'); }
+    else { luz('luzClave', 'bien'); log(`la API responde (${tardo} s); ubicó ${v.indice === null ? 'ninguno' : `el pie ${v.indice + 1}`}`, 'ok'); }
+  });
+
+  $('olvidar').addEventListener('click', async () => {
+    arbitro.clave = '';
+    await arbitro.detectar();
+    pintar();
+    log('clave borrada de este navegador');
+  });
+
+  /* ---- 2. ubicar */
+  $('ubicar').addEventListener('click', async () => {
+    if (!arbitro.disponible) { $('veredicto').className = 'resultado mal'; $('veredicto').textContent = 'Primero guardá una clave.'; return; }
+    const oido = $('oido').value.trim();
+    if (!oido) return;
+    $('ubicar').disabled = true;
+    $('veredicto').className = 'resultado';
+    $('veredicto').textContent = 'Preguntando…';
+    const desde = Date.now();
+    const v = await arbitro.ubicar({ oido, cursor: -1, entradas: entradas() });
+    const tardo = ((Date.now() - desde) / 1000).toFixed(1);
+    $('ubicar').disabled = false;
+    if (v.error) {
+      $('veredicto').className = 'resultado mal';
+      $('veredicto').textContent = `No respondió: ${v.error}.`;
+      luz('luzUbicar', 'mal');
+      log(`ubicar falló: ${v.error}`, 'err');
+      return;
+    }
+    const entrada = v.indice === null ? null : entradas()[v.indice];
+    $('veredicto').className = 'resultado bien';
+    $('veredicto').textContent = entrada
+      ? `Pie ${v.indice + 1}: «${entrada.pies.at(-1)}» (confianza ${v.confianza.toFixed(2)}, ${tardo} s).\nNOVA diría: «${entrada.parlamento}»`
+      : `Ningún pie (${tardo} s). En la función, con "ubicar y conversar", acá NOVA improvisaría.`;
+    luz('luzUbicar', 'bien');
+    log(`ubicar: ${entrada ? `pie ${v.indice + 1}` : 'ninguno'} en ${tardo} s`, 'ok');
+  });
+
+  /* ---- 3. conversar */
+  function burbuja(clase, texto, nota) {
+    const b = document.createElement('div');
+    b.className = `burbuja ${clase}`;
+    b.textContent = texto;
+    if (nota) { const s = document.createElement('small'); s.textContent = nota; b.appendChild(s); }
+    $('charla').appendChild(b);
+    $('charla').scrollTop = $('charla').scrollHeight;
+    return b;
+  }
+
+  $('formCharla').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const texto = $('mensaje').value.trim();
+    if (!texto) return;
+    if (!arbitro.disponible) return log('primero guardá una clave', 'err');
+    arbitro.personalidad = $('personalidad').value;
+    $('mensaje').value = '';
+    $('enviar').disabled = true;
+    burbuja('vos', texto);
+    historial.push({ role: 'user', content: texto });
+
+    const b = burbuja('nova', '…');
+    const desde = Date.now();
+    let primera = 0;
+    let dicho = '';
+    const v = await arbitro.conversar(
+      { oido: texto, cursor: -1, entradas: entradas(), historial },
+      (delta) => {
+        if (!primera) primera = Date.now() - desde;
+        dicho += delta;
+        b.textContent = dicho;
+      },
+    );
+    const total = ((Date.now() - desde) / 1000).toFixed(1);
+    $('enviar').disabled = false;
+
+    if (v.error) {
+      b.textContent = `No respondió: ${v.error}.`;
+      b.classList.add('mal');
+      luz('luzCharla', 'mal');
+      log(`conversar falló: ${v.error}`, 'err');
+      return;
+    }
+    if (v.indice !== null) {
+      const entrada = entradas()[v.indice];
+      b.textContent = entrada.parlamento;
+      b.classList.add('guion');
+      b.appendChild(Object.assign(document.createElement('small'), { textContent: `del guion, pie ${v.indice + 1} · ${total} s` }));
+      historial.push({ role: 'assistant', content: entrada.parlamento });
+      log(`era el pie ${v.indice + 1}: NOVA dice el guion (${total} s)`, 'ok');
+    } else {
+      b.textContent = v.texto;
+      b.appendChild(Object.assign(document.createElement('small'), { textContent: `improvisado · primera letra a los ${(primera / 1000).toFixed(1)} s · total ${total} s` }));
+      historial.push({ role: 'assistant', content: v.texto });
+      log(`improvisó: primera letra ${(primera / 1000).toFixed(1)} s, total ${total} s`, 'ok');
+    }
+    luz('luzCharla', 'bien');
+  });
+
+  $('limpiar').addEventListener('click', () => {
+    historial.length = 0;
+    $('charla').innerHTML = '';
+    log('charla limpia: NOVA no se acuerda de nada');
+  });
+
+  await arbitro.detectar();
+  pintar();
+</script>
+</body>
+</html>
