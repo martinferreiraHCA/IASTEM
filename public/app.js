@@ -874,7 +874,9 @@ async function toggleMic() {
   if (!listener) return toast('Este navegador no reconoce voz. Probá con Google Chrome o Edge, o manejá el guion desde el panel.');
   if (state.abriendoMic) return;
 
-  if (listener.active || state.micQuerido) {
+  // Solo se apaga si está escuchando de verdad. Si quería estar prendido
+  // pero no pudo (sin permiso todavía), el toque es para prenderlo.
+  if (listener.active) {
     state.micQuerido = false;
     writeStored('nova:mic', 'off');
     listener.stop();

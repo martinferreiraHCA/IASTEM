@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NOVA · Prueba del micrófono</title>
+  <meta name="theme-color" content="#05060c" />
+  <style>
+    :root { --fondo: #05060c; --ink: #eef1ff; --dim: #9aa3c7; --line: rgba(140,160,255,.18); --verde: #46f0a8; --ambar: #ffc76b; --rojo: #ff6b81; --cyan: #7af5ff; }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 20px 16px 60px; font: 16px/1.5 Inter, system-ui, sans-serif; color: var(--ink); background: var(--fondo); max-width: 720px; margin-inline: auto; }
+    h1 { font-size: 22px; margin: 0 0 4px; }
+    p { margin: 6px 0; color: var(--dim); }
+    .paso { margin-top: 18px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 14px; background: rgba(11,14,26,.9); }
+    .paso h2 { font-size: 15px; margin: 0 0 8px; display: flex; align-items: center; gap: 10px; }
+    .luz { width: 12px; height: 12px; border-radius: 50%; background: var(--dim); flex: 0 0 auto; }
+    .luz.bien { background: var(--verde); box-shadow: 0 0 10px var(--verde); }
+    .luz.mal { background: var(--rojo); box-shadow: 0 0 10px var(--rojo); }
+    .luz.duda { background: var(--ambar); box-shadow: 0 0 10px var(--ambar); }
+    .valor { color: var(--ink); }
+    .barra { height: 14px; border-radius: 7px; background: rgba(140,160,255,.12); overflow: hidden; margin: 8px 0; }
+    .barra i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--cyan), var(--verde)); transition: width .08s; }
+    .grande { font-size: 24px; line-height: 1.35; min-height: 2.7em; color: var(--ink); }
+    .grande small { display: block; font-size: 14px; color: var(--dim); }
+    button { font: inherit; color: var(--ink); background: rgba(122,245,255,.12); border: 1px solid var(--cyan); border-radius: 999px; padding: 10px 18px; cursor: pointer; margin: 4px 6px 4px 0; }
+    button.segundo { background: transparent; border-color: var(--line); color: var(--dim); }
+    .log { font: 12px/1.6 ui-monospace, monospace; color: var(--dim); max-height: 260px; overflow: auto; white-space: pre-wrap; background: rgba(6,9,20,.8); border-radius: 10px; padding: 10px 12px; margin-top: 8px; }
+    .log b { color: var(--ambar); }
+    .log .ok { color: var(--verde); }
+    .log .err { color: var(--rojo); }
+    textarea { width: 100%; height: 160px; font: 12px/1.5 ui-monospace, monospace; color: var(--ink); background: rgba(6,9,20,.8); border: 1px solid var(--line); border-radius: 10px; padding: 10px; }
+  </style>
+</head>
+<body>
+  <h1>Prueba del micrófono de NOVA</h1>
+  <p>Tocá <strong>Empezar</strong>, esperá a que se prenda la primera luz y hablá unos segundos en voz normal. Después tocá <strong>Copiar informe</strong> y pegalo en el chat.</p>
+  <p>
+    <button id="empezar">Empezar la prueba</button>
+    <button id="soloVoz" class="segundo">Probar solo el reconocimiento</button>
+    <button id="parar" class="segundo">Parar</button>
+  </p>
+
+  <section class="paso">
+    <h2><span class="luz" id="luzNav"></span>1. Navegador y permiso</h2>
+    <p id="nav">…</p>
+  </section>
+
+  <section class="paso">
+    <h2><span class="luz" id="luzNivel"></span>2. ¿Llega sonido al micrófono?</h2>
+    <p id="dispositivos">…</p>
+    <div class="barra"><i id="nivel"></i></div>
+    <p id="nivelTexto">La barra se tiene que mover cuando hablás.</p>
+  </section>
+
+  <section class="paso">
+    <h2><span class="luz" id="luzVoz"></span>3. ¿El reconocimiento transcribe?</h2>
+    <div class="grande" id="texto"><small>Acá tiene que aparecer lo que decís.</small></div>
+    <p id="vozTexto">…</p>
+    <div class="log" id="log"></div>
+  </section>
+
+  <section class="paso">
+    <h2>4. Informe</h2>
+    <p><button id="copiar">Copiar informe</button> <span id="copiado"></span></p>
+    <textarea id="informe" readonly></textarea>
+  </section>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const t0 = Date.now();
+  const marca = () => `${((Date.now() - t0) / 1000).toFixed(1)}s`;
+  const lineas = [];
+  const info = { ua: navigator.userAgent, url: location.href, permiso: '?', dispositivos: [], nivelMax: 0, eventos: 0, resultados: 0, errores: [], texto: '' };
+
+  function log(texto, clase = '') {
+    lineas.push(`${marca()} ${texto}`);
+    const linea = document.createElement('div');
+    linea.className = clase;
+    linea.innerHTML = `<b>${marca()}</b> ${texto}`;
+    $('log').appendChild(linea);
+    $('log').scrollTop = $('log').scrollHeight;
+    armarInforme();
+  }
+
+  function luz(id, estado) { $(id).className = `luz ${estado}`; }
+
+  function armarInforme() {
+    $('informe').value = [
+      `NOVA · informe del micrófono · ${new Date().toISOString()}`,
+      `Página: ${info.url}`,
+      `Navegador: ${info.ua}`,
+      `Permiso del micrófono: ${info.permiso}`,
+      `Reconocimiento de voz disponible: ${Boolean(window.SpeechRecognition || window.webkitSpeechRecognition)}`,
+      `Dispositivos de entrada: ${info.dispositivos.join(' | ') || '(sin nombres: falta permiso)'}`,
+      `Nivel máximo captado: ${info.nivelMax.toFixed(3)} (hablando normal tiene que pasar 0.1)`,
+      `Eventos del reconocimiento: ${info.eventos} · resultados: ${info.resultados} · errores: ${info.errores.join(', ') || 'ninguno'}`,
+      `Texto transcripto: ${info.texto || '(nada)'}`,
+      '',
+      ...lineas,
+    ].join('\n');
+  }
+
+  /* ---- 1. navegador y permiso */
+  async function paso1() {
+    const Rec = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const partes = [];
+    partes.push(`Reconocimiento de voz: <span class="valor">${Rec ? 'disponible' : 'NO disponible (hace falta Google Chrome o Edge)'}</span>`);
+    partes.push(`Conexión segura: <span class="valor">${location.protocol === 'https:' || location.hostname === 'localhost' ? 'sí' : 'NO (por HTTP el micrófono se bloquea)'}</span>`);
+    try {
+      const p = await navigator.permissions.query({ name: 'microphone' });
+      info.permiso = p.state;
+      partes.push(`Permiso del micrófono: <span class="valor">${{ granted: 'concedido', prompt: 'todavía no pedido', denied: 'BLOQUEADO (tocá el candado y permitilo)' }[p.state] || p.state}</span>`);
+      luz('luzNav', Rec && p.state !== 'denied' ? 'bien' : 'mal');
+    } catch {
+      partes.push('Permiso del micrófono: no se pudo consultar');
+      luz('luzNav', Rec ? 'duda' : 'mal');
+    }
+    $('nav').innerHTML = partes.join('<br>');
+    log(`navegador: ${navigator.userAgent}`);
+    armarInforme();
+  }
+
+  /* ---- 2. nivel */
+  let contexto = null;
+  let cuadro = null;
+  async function paso2() {
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      log('micrófono abierto por getUserMedia', 'ok');
+    } catch (err) {
+      log(`getUserMedia falló: ${err.name} ${err.message}`, 'err');
+      luz('luzNivel', 'mal');
+      $('nivelTexto').textContent = `No se pudo abrir el micrófono: ${err.name}. ${err.name === 'NotAllowedError' ? 'Tocá el candado de la barra de direcciones y permitilo.' : ''}`;
+      return;
+    }
+    const pista = stream.getAudioTracks()[0];
+    log(`pista: ${pista.label || '(sin nombre)'} · ${JSON.stringify(pista.getSettings())}`);
+    try {
+      const devs = await navigator.mediaDevices.enumerateDevices();
+      info.dispositivos = devs.filter((d) => d.kind === 'audioinput').map((d) => d.label || d.deviceId.slice(0, 8));
+      $('dispositivos').innerHTML = `Micrófono en uso: <span class="valor">${pista.label || '?'}</span><br>Entradas disponibles: <span class="valor">${info.dispositivos.join(' · ')}</span>`;
+    } catch { /* nada */ }
+
+    contexto = new (window.AudioContext || window.webkitAudioContext)();
+    if (contexto.state === 'suspended') await contexto.resume().catch(() => {});
+    const analizador = contexto.createAnalyser();
+    analizador.fftSize = 1024;
+    contexto.createMediaStreamSource(stream).connect(analizador);
+    const datos = new Float32Array(analizador.fftSize);
+    let avisado = false;
+    const tick = () => {
+      analizador.getFloatTimeDomainData(datos);
+      let suma = 0;
+      for (let i = 0; i < datos.length; i++) suma += datos[i] * datos[i];
+      const rms = Math.sqrt(suma / datos.length);
+      const nivel = Math.min(1, rms * 6);
+      $('nivel').style.width = `${(nivel * 100).toFixed(0)}%`;
+      if (rms > info.nivelMax) info.nivelMax = rms;
+      if (rms > 0.05 && !avisado) {
+        avisado = true;
+        luz('luzNivel', 'bien');
+        $('nivelTexto').textContent = 'Llega sonido. El micrófono funciona.';
+        log(`llega sonido (nivel ${rms.toFixed(3)})`, 'ok');
+      }
+      cuadro = requestAnimationFrame(tick);
+    };
+    tick();
+    setTimeout(() => {
+      if (!avisado) {
+        luz('luzNivel', 'mal');
+        $('nivelTexto').textContent = `En 8 segundos no llegó sonido (máximo ${info.nivelMax.toFixed(3)}). El micrófono elegido por el sistema no capta: revisá cuál es el predeterminado, o si está silenciado.`;
+        log('no llega sonido al micrófono', 'err');
+      }
+    }, 8000);
+  }
+
+  /* ---- 3. reconocimiento */
+  let rec = null;
+  function paso3() {
+    const Rec = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!Rec) {
+      luz('luzVoz', 'mal');
+      $('vozTexto').textContent = 'Este navegador no tiene reconocimiento de voz.';
+      return;
+    }
+    rec = new Rec();
+    rec.lang = 'es-ES';
+    rec.continuous = true;
+    rec.interimResults = true;
+    const ev = (nombre, clase = '') => (e) => { info.eventos++; log(`reconocimiento: ${nombre}${e?.error ? ` (${e.error})` : ''}`, clase); };
+    rec.onstart = ev('start', 'ok');
+    rec.onaudiostart = ev('audiostart', 'ok');
+    rec.onsoundstart = ev('soundstart', 'ok');
+    rec.onspeechstart = ev('speechstart', 'ok');
+    rec.onspeechend = ev('speechend');
+    rec.onsoundend = ev('soundend');
+    rec.onaudioend = ev('audioend');
+    rec.onnomatch = ev('nomatch');
+    rec.onerror = (e) => { info.errores.push(e.error); ev('error', 'err')(e); describirError(e.error); };
+    rec.onend = (e) => {
+      ev('end')(e);
+      if (rec && !parado) { log('se reinicia la sesión'); setTimeout(() => { try { rec.start(); } catch {} }, 300); }
+    };
+    rec.onresult = (e) => {
+      info.eventos++;
+      info.resultados++;
+      let parcial = '';
+      let final = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) final += e.results[i][0].transcript;
+        else parcial += e.results[i][0].transcript;
+      }
+      if (final) { info.texto += `${final.trim()} `; log(`texto final: «${final.trim()}»`, 'ok'); }
+      $('texto').textContent = (info.texto + parcial).trim();
+      luz('luzVoz', 'bien');
+      $('vozTexto').textContent = 'Transcribe. Todo funciona.';
+    };
+    try {
+      rec.start();
+      log('reconocimiento: start() llamado');
+      $('vozTexto').textContent = 'Reconocimiento iniciado. Hablá…';
+      setTimeout(() => {
+        if (!info.resultados) {
+          luz('luzVoz', info.errores.length ? 'mal' : 'duda');
+          if (!info.errores.length) $('vozTexto').textContent = 'En 15 segundos no transcribió nada ni dio error. Si la barra de arriba se movía, el reconocimiento de este navegador no está respondiendo (pasa sin internet, o si no es Google Chrome o Edge).';
+        }
+      }, 15000);
+    } catch (err) {
+      log(`start() tiró: ${err.message}`, 'err');
+    }
+  }
+
+  function describirError(codigo) {
+    const textos = {
+      'not-allowed': 'El navegador bloqueó el micrófono para el reconocimiento. Tocá el candado y permitilo.',
+      'service-not-allowed': 'Este navegador no deja usar su servicio de voz. Hace falta Google Chrome o Edge.',
+      network: 'El servicio de reconocimiento no responde: sin internet, o el navegador no es Google Chrome/Edge.',
+      'audio-capture': 'No se pudo capturar audio del micrófono.',
+      'no-speech': 'No detectó voz en esta sesión (normal si hubo silencio).',
+      aborted: 'Sesión cortada.',
+      'language-not-supported': 'El idioma no está soportado.',
+    };
+    if (codigo !== 'no-speech' && codigo !== 'aborted') {
+      luz('luzVoz', 'mal');
+      $('vozTexto').textContent = textos[codigo] || `Error: ${codigo}`;
+    }
+  }
+
+  let parado = false;
+  $('empezar').addEventListener('click', async () => {
+    parado = false;
+    $('log').innerHTML = '';
+    lineas.length = 0;
+    await paso1();
+    await paso2();
+    paso3();
+  });
+  $('soloVoz').addEventListener('click', async () => {
+    parado = false;
+    $('log').innerHTML = '';
+    lineas.length = 0;
+    await paso1();
+    log('prueba solo del reconocimiento, sin abrir el micrófono aparte');
+    paso3();
+  });
+  $('parar').addEventListener('click', () => {
+    parado = true;
+    try { rec?.stop(); } catch {}
+    rec = null;
+    if (cuadro) cancelAnimationFrame(cuadro);
+    contexto?.close().catch(() => {});
+    log('prueba parada');
+  });
+  $('copiar').addEventListener('click', async () => {
+    armarInforme();
+    try {
+      await navigator.clipboard.writeText($('informe').value);
+      $('copiado').textContent = 'Copiado. Pegalo en el chat.';
+    } catch {
+      $('informe').select();
+      $('copiado').textContent = 'Seleccioná el texto de abajo y copialo.';
+    }
+  });
+
+  paso1();
+})();
+</script>
+</body>
+</html>
