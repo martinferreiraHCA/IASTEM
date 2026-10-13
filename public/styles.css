@@ -679,6 +679,19 @@ body {
 /* Lo marcado como hidden no se ve, aunque su clase le ponga display. */
 [hidden] { display: none !important; }
 
+/* Diagnóstico del micrófono, chiquito, abajo del cartel. */
+.mic__diag {
+  margin: 4px 0 0;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(154, 163, 199, 0.55);
+  text-align: center;
+  max-width: 260px;
+}
+.mic__diag:empty { display: none; }
+
 /* =============================================================== guion */
 
 /* Tira en la consola: el pie que se espera y el botón para decirlo a mano. */

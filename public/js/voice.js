@@ -19,36 +19,43 @@ export const voiceSupport = {
 
 /** Qué le decimos a la persona según lo que falló. */
 const ERRORES_RECONOCIMIENTO = {
-  'not-allowed': 'El navegador bloqueó el micrófono. Tocá el candado de la barra de direcciones, permití el micrófono y probá de nuevo.',
+  'not-allowed': 'El navegador bloqueó el micrófono. Tocá el candado de la barra de direcciones, permití el micrófono y recargá la página.',
   'service-not-allowed': 'Este navegador no deja usar su reconocimiento de voz. Probá con Google Chrome o Edge, o manejá el guion desde el panel de control.',
   'audio-capture': 'No se encontró ningún micrófono. Revisá que esté conectado y elegido en el sistema.',
-  network: 'El reconocimiento de voz de este navegador no responde. Pasa en Chromium, Brave u Opera, o sin internet. Con Google Chrome o Edge anda; mientras tanto, manejá el guion desde el panel de control.',
+  network: 'El reconocimiento de voz no responde. Pasa en Chromium, Brave u Opera, o sin internet. Con Google Chrome o Edge y conexión anda; mientras tanto, manejá el guion desde el panel.',
   'language-not-supported': 'Este navegador no reconoce español. Probá con Google Chrome o Edge.',
-  silent: 'El micrófono capta sonido, pero el reconocimiento de voz de este navegador no transcribe nada. Pasa en Chromium, Brave u Opera. Con Google Chrome o Edge anda; mientras tanto, manejá el guion desde el panel de control.',
+  silent: 'El micrófono capta sonido, pero el reconocimiento no devuelve texto. Si es Google Chrome o Edge con internet, acercá el micrófono; si no, manejá el guion desde el panel.',
 };
+
+/** Estos no se arreglan insistiendo: el micrófono se apaga y se avisa. */
+const ERRORES_FATALES = new Set(['not-allowed', 'service-not-allowed', 'audio-capture', 'language-not-supported']);
 
 export class Listener {
   /**
    * @param {object} handlers
    * @param {(text:string) => void} handlers.onPartial   texto provisorio
    * @param {(text:string) => void} handlers.onFinal     frase cerrada
-   * @param {(msg:string, code?:string) => void} [handlers.onError]
+   * @param {(msg:string, code?:string) => void} [handlers.onError]   algo que la persona tiene que saber
    * @param {() => void} [handlers.onStart]
    * @param {() => void} [handlers.onEnd]
-   * @param {(msg:string) => void} [handlers.onStatus]  qué está pasando, para el cartelito
+   * @param {(texto:string) => void} [handlers.onStatus]  el diagnóstico, cada vez que cambia
    */
   constructor(handlers = {}) {
     this.handlers = handlers;
     this.active = false;      // lo que el usuario pidió
-    this.lang = 'es-UY';
+    this.lang = 'es-ES';      // el genérico: es el que Chrome reconoce seguro
     this.recognition = null;
     this.stream = null;
     this.lastEvent = 0;
+    this.lastResult = 0;
     this.watchdog = null;
     this.resultados = 0;      // cuántas veces devolvió texto, en toda su vida
     this.sonidoMs = 0;        // cuánto sonido captó el medidor sin que llegara texto
     this.ultimoSonido = 0;
     this.desde = 0;
+    this.fallos = 0;          // errores seguidos de red, para espaciar los reintentos
+    this.avisado = '';        // el último aviso dado, para no repetirlo
+    this.diagnostico = 'apagado';
   }
 
   get supported() {
@@ -57,11 +64,11 @@ export class Listener {
 
   /**
    * El medidor de volumen le cuenta cuánto suena. Si hay voz durante varios
-   * segundos y el reconocimiento no devuelve nada, es que no funciona: en
+   * segundos y el reconocimiento no devuelve nada, algo anda mal: en
    * Chromium, Brave u Opera arranca sin quejarse y nunca transcribe.
    */
   noteSound(nivel) {
-    if (!this.active || this.resultados) return;
+    if (!this.active) return;
     const ahora = Date.now();
     if (nivel > 0.12) {
       if (this.ultimoSonido && ahora - this.ultimoSonido < 500) this.sonidoMs += ahora - this.ultimoSonido;
@@ -80,49 +87,42 @@ export class Listener {
     this.desde = Date.now();
     this.sonidoMs = 0;
     this.ultimoSonido = 0;
+    this.fallos = 0;
+    this.avisado = '';
+    this.#estado('arrancando');
     this.#spinUp();
 
     clearInterval(this.watchdog);
     this.watchdog = setInterval(() => {
       if (!this.active || this.wasActive) return;
 
-      // Sonó voz un buen rato y nunca llegó texto: el reconocimiento está muerto.
-      if (!this.resultados && this.sonidoMs > 3000 && Date.now() - this.desde > 6000) {
-        this.#fallar('silent');
+      // Sonó voz un buen rato y no llegó texto: se avisa y se reinicia la
+      // sesión, por si fue un tropiezo. El micrófono sigue encendido.
+      const sinTexto = this.lastResult ? Date.now() - this.lastResult : Date.now() - this.desde;
+      if (this.sonidoMs > 4000 && sinTexto > 8000) {
+        this.sonidoMs = 0;
+        this.#avisar('silent');
+        this.#reiniciar();
         return;
       }
       // Chrome a veces se queda mudo sin avisar: si pasa un rato largo sin
       // ninguna señal, se reinicia la sesión.
-      if (Date.now() - this.lastEvent > 60000) {
-        try { this.recognition?.abort(); } catch { /* nada */ }
-      }
+      if (Date.now() - this.lastEvent > 45000) this.#reiniciar();
     }, 2000);
     return true;
-  }
-
-  /** Se apaga y avisa qué pasó: insistir no serviría. */
-  #fallar(codigo) {
-    this.active = false;
-    this.wasActive = false;
-    clearInterval(this.watchdog);
-    const rec = this.recognition;
-    this.recognition = null;
-    if (rec) {
-      rec.onend = null;
-      try { rec.abort(); } catch { /* nada */ }
-    }
-    this.handlers.onError?.(ERRORES_RECONOCIMIENTO[codigo] || `Problema con el micrófono: ${codigo}`, codigo);
   }
 
   stop() {
     this.active = false;
     this.wasActive = false;
     clearInterval(this.watchdog);
+    clearTimeout(this.reintento);
     const rec = this.recognition;
     this.recognition = null;
     try {
       rec?.stop();
     } catch { /* ya estaba detenido */ }
+    this.#estado('apagado');
   }
 
   /** Pausa mientras la IA habla, para que no se escuche a sí misma. */
@@ -132,6 +132,7 @@ export class Listener {
     try {
       this.recognition?.abort();
     } catch { /* nada */ }
+    this.#estado('en pausa mientras NOVA habla');
     return true;
   }
 
@@ -139,6 +140,44 @@ export class Listener {
     const retomar = this.wasActive && this.active;
     this.wasActive = false;
     if (retomar) this.#spinUp();
+  }
+
+  /* -------------------------------------------------------------- adentro */
+
+  #estado(texto) {
+    if (this.diagnostico === texto) return;
+    this.diagnostico = texto;
+    this.handlers.onStatus?.(texto);
+  }
+
+  /** Avisa una vez por tipo de problema; si se repite, no insiste. */
+  #avisar(codigo) {
+    if (this.avisado === codigo) return;
+    this.avisado = codigo;
+    this.handlers.onError?.(ERRORES_RECONOCIMIENTO[codigo] || `Problema con el micrófono: ${codigo}`, codigo);
+  }
+
+  /** Se apaga y avisa qué pasó: insistir no serviría. */
+  #fallar(codigo) {
+    this.active = false;
+    this.wasActive = false;
+    clearInterval(this.watchdog);
+    clearTimeout(this.reintento);
+    const rec = this.recognition;
+    this.recognition = null;
+    if (rec) {
+      rec.onend = null;
+      try { rec.abort(); } catch { /* nada */ }
+    }
+    this.#estado(`apagado: ${codigo}`);
+    this.handlers.onError?.(ERRORES_RECONOCIMIENTO[codigo] || `Problema con el micrófono: ${codigo}`, codigo);
+  }
+
+  /** Corta la sesión actual; onend la vuelve a levantar. */
+  #reiniciar() {
+    try {
+      this.recognition?.abort();
+    } catch { /* nada */ }
   }
 
   #spinUp() {
@@ -160,12 +199,20 @@ export class Listener {
 
     rec.onstart = () => {
       this.lastEvent = Date.now();
+      this.#estado('escuchando');
       this.handlers.onStart?.();
     };
 
+    rec.onaudiostart = () => this.#estado('escuchando, con audio');
+    rec.onspeechstart = () => this.#estado('escuchando, detecta voz');
+
     rec.onresult = (event) => {
-      this.lastEvent = Date.now();
+      this.lastEvent = this.lastResult = Date.now();
       this.resultados++;
+      this.fallos = 0;
+      this.sonidoMs = 0;
+      this.avisado = '';
+      this.#estado('transcribiendo');
       let partial = '';
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const result = event.results[i];
@@ -184,24 +231,26 @@ export class Listener {
       this.lastEvent = Date.now();
       if (event.error === 'no-speech' || event.error === 'aborted') return; // ruido normal
 
-      // Si no acepta el español rioplatense, se insiste con el genérico.
-      if (event.error === 'language-not-supported' && this.lang !== 'es-ES') {
-        this.lang = 'es-ES';
-        return;
-      }
-
-      if (event.error in ERRORES_RECONOCIMIENTO) {
+      if (ERRORES_FATALES.has(event.error)) {
         this.#fallar(event.error);
         return;
       }
-      this.handlers.onError?.(`Problema con el micrófono: ${event.error}`, event.error);
+
+      // Red y parecidos: a veces es un tropiezo, a veces el navegador no
+      // puede. Se reintenta espaciando, y se avisa al segundo fallo seguido.
+      this.fallos++;
+      this.#estado(`sin respuesta (${event.error}), reintento ${this.fallos}`);
+      if (this.fallos >= 2) this.#avisar(event.error in ERRORES_RECONOCIMIENTO ? event.error : 'network');
     };
 
     // El motor se corta solo cada tanto; si seguimos activos, lo levantamos.
     rec.onend = () => {
       if (this.recognition !== rec) return; // una sesión vieja: ya hay otra
       this.handlers.onEnd?.();
-      if (this.active && !this.wasActive) setTimeout(() => this.#spinUp(), 260);
+      if (!this.active || this.wasActive) return;
+      const espera = Math.min(15000, 260 * 2 ** Math.min(this.fallos, 6));
+      clearTimeout(this.reintento);
+      this.reintento = setTimeout(() => this.#spinUp(), espera);
     };
 
     this.recognition = rec;

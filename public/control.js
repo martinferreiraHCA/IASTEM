@@ -204,12 +204,14 @@ function pintar() {
   for (const boton of document.querySelectorAll('[data-escena]')) {
     boton.setAttribute('aria-pressed', String(boton.dataset.escena === estado.escena));
   }
-  el.mic.setAttribute('aria-pressed', String(estado.mic === 'escuchando'));
+  el.mic.setAttribute('aria-pressed', String(estado.mic === 'escuchando' || estado.micQuerido));
   el.mic.disabled = estado.mic === 'no disponible';
-  el.mic.textContent = estado.mic === 'escuchando' ? 'Micrófono: escuchando' : 'Micrófono: apagado';
+  el.mic.textContent = estado.mic === 'escuchando'
+    ? 'Micrófono: escuchando'
+    : estado.micQuerido ? 'Micrófono: caído, reintentando' : 'Micrófono: apagado';
   el.micNota.textContent = estado.mic === 'no disponible'
     ? 'El navegador del escenario no reconoce voz. Manejá el guion desde acá: con "Decir el siguiente" o tocando una línea.'
-    : '';
+    : estado.micDiag ? `Micrófono: ${estado.micDiag}.` : '';
   el.voz.setAttribute('aria-pressed', String(estado.voz));
   el.voz.textContent = estado.voz ? 'Voz de NOVA: encendida' : 'Voz de NOVA: apagada';
   el.escenario.setAttribute('aria-pressed', String(estado.escenario));

@@ -140,7 +140,7 @@ vuelve a enganchar solo cuando el escenario reaparece.
 
 | Acción | Cómo |
 |---|---|
-| Hablarle | Botón del micrófono, o **barra espaciadora** |
+| Hablarle | El micrófono **queda encendido solo**. El botón, o la **barra espaciadora**, lo apagan y lo vuelven a prender |
 | Escribirle | Campo de texto, **Enter** para enviar |
 | Proyectar | Botón *Modo escenario*, o tecla **F** |
 | Volver | **Esc** |
@@ -148,9 +148,15 @@ vuelve a enganchar solo cuando el escenario reaparece.
 | Silenciar a NOVA | Interruptor *Voz de NOVA* (viene encendida) |
 | Empezar de cero | Botón *Limpiar* |
 
-Con el micrófono encendido, NOVA espera **1,4 segundos de silencio** antes de
-contestar: así un grupo puede hablar en varias frases sin que la respuesta se
-dispare a mitad de la idea.
+El micrófono se prende solo al abrir la página, si el navegador ya dio el
+permiso, y si se cae por algo pasajero se vuelve a prender. Apagarlo es una
+decisión: se recuerda hasta que lo vuelvas a prender. Mientras escucha, abajo
+del botón se ve lo que va oyendo y un diagnóstico chiquito ("escuchando",
+"detecta voz", "transcribiendo", "sin respuesta, reintento 2"), que también se
+ve en el panel.
+
+NOVA espera **1,4 segundos de silencio** antes de contestar: así un grupo puede
+hablar en varias frases sin que la respuesta se dispare a mitad de la idea.
 
 ### Si el micrófono no transcribe
 
@@ -189,7 +195,7 @@ Todo se maneja sin mouse, que en vivo es lo que importa:
 
 | Tecla | Qué hace |
 |---|---|
-| **Espacio** | Prende y apaga el micrófono |
+| **Espacio** | Apaga el micrófono, y lo vuelve a prender |
 | **S** | NOVA dice el siguiente parlamento del guion |
 | **1** … **9** | De quién es el turno |
 | **Tab** | Pasa al siguiente estudiante |
@@ -213,7 +219,8 @@ Para empezar de cero, *Función → Borrar todos* y *Guion → Volver al princip
 - **Usá Google Chrome o Edge** en la computadora que proyecta. Son los que
   reconocen voz. El panel, en cambio, anda en cualquier navegador y celular.
 - **Dale permiso al micrófono con el público entrando**, no en el momento: el
-  cartel del navegador arruina cualquier apertura.
+  cartel del navegador arruina cualquier apertura. Desde ahí queda encendido
+  solo, también si recargás la página.
 - **Ensayá con los parlantes de la sala.** El micrófono se pausa solo mientras
   NOVA habla para no escucharse a sí misma, pero conviene probarlo.
 - **Ensayá con el panel en la mano.** Mirá qué pies no reconoce y ajustá la

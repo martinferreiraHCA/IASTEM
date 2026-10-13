@@ -34,6 +34,7 @@ const el = {
   coreCaption: $('coreCaption'),
   micBtn: $('micBtn'),
   micHint: $('micHint'),
+  micDiag: $('micDiag'),
   log: $('log'),
   welcome: $('welcome'),
   welcomeGuion: $('welcomeGuion'),
@@ -117,6 +118,9 @@ const state = {
   oido: '',              // lo que el micrófono captó por última vez
   evento: null,          // lo último que pasó, para el panel
   abriendoMic: false,
+  micQuerido: false,     // el micrófono tiene que estar encendido: se vuelve a prender solo
+  micFatal: '',          // un error que no se arregla reintentando
+  micDiag: '',           // diagnóstico del micrófono, para la consola y el panel
 };
 
 const SILENCE_MS = 1400;  // pausa que se toma como "terminó de hablar"
@@ -125,6 +129,15 @@ const SILENCE_MS = 1400;  // pausa que se toma como "terminó de hablar"
 // evaluarse el archivo, y los usa.
 let publicarTimer = null;
 let toastTimer = null;
+const isStage = () => el.body.dataset.mode === 'stage';
+const CAPTIONS = {
+  idle: 'En espera',
+  listening: 'Escuchando',
+  thinking: 'Pensando',
+  answering: 'Respondiendo',
+  speaking: 'Hablando',
+  error: 'Error',
+};
 
 const cloud = new WordCloud($('cloud'));
 const sceneWriter = new Materializer(el.sceneText, { charsPerSecond: 38 });
@@ -140,9 +153,15 @@ const listener = voiceSupport.listen
     onStart: () => setMode('listening'),
     onPartial: (text) => showHeard(text, false),
     onFinal: (text) => queueSpeech(text),
-    onError: (msg) => {
+    onStatus: (texto) => pintarMic(texto),
+    onError: (msg, code) => {
       toast(msg);
-      micApagado();
+      anotar(`Micrófono: ${msg}`);
+      if (!listener.active) {
+        // Se apagó por algo que no se arregla insistiendo: se deja de reintentar.
+        state.micFatal = code;
+        micApagado();
+      }
     },
     onEnd: () => {
       if (!listener.active && !state.busy) setMode('idle');
@@ -173,8 +192,10 @@ async function init() {
     el.micBtn.disabled = true;
     el.micBtn.title = 'Este navegador no reconoce voz. Probá con Google Chrome o Edge, o manejá el guion desde el panel.';
     el.micHint.textContent = 'Voz no disponible';
+    pintarMic('este navegador no reconoce voz');
   }
   setupVoicePreference();
+  setupMicPreference();
 
   speaker.onStart = () => {
     listener?.pauseForPlayback();
@@ -224,6 +245,30 @@ function writeStored(key, value) {
   try {
     localStorage.setItem(key, value);
   } catch { /* no pasa nada si no se puede guardar */ }
+}
+
+/**
+ * El micrófono queda encendido todo el tiempo: es lo que se espera en una
+ * función. Se prende solo al abrir la página (si el navegador ya dio el
+ * permiso) y, si se cae por algo pasajero, se vuelve a prender. Apagarlo
+ * es una decisión, y se recuerda.
+ */
+function setupMicPreference() {
+  state.micQuerido = Boolean(listener) && readStored('nova:mic') !== 'off';
+  if (state.micQuerido) encenderMic({ automatico: true });
+
+  setInterval(() => {
+    if (state.micQuerido && listener && !listener.active && !state.abriendoMic && !state.micFatal) {
+      encenderMic({ automatico: true });
+    }
+  }, 8000);
+}
+
+/** Qué está pasando con el micrófono, abajo del botón y en el panel. */
+function pintarMic(texto) {
+  state.micDiag = texto;
+  el.micDiag.textContent = texto;
+  publicar();
 }
 
 /* ------------------------------------------------------ voz que se ve */
@@ -401,6 +446,8 @@ function publicar() {
         modo: state.modo,
         escenario: isStage(),
         mic: !listener ? 'no disponible' : listener.active ? 'escuchando' : 'apagado',
+        micDiag: state.micDiag,
+        micQuerido: state.micQuerido,
         voz: speaker.enabled,
         oido: state.oido,
         ultimaRespuesta: state.ultimaRespuesta,
@@ -444,7 +491,7 @@ function recibirComando(mensaje) {
     case 'escenario': setStageMode(Boolean(mensaje.on)); break;
     case 'mic': {
       if (!listener) return anotar('Este navegador no reconoce voz: el micrófono no se puede encender.');
-      if (Boolean(mensaje.on) !== listener.active) toggleMic();
+      if (Boolean(mensaje.on) !== (listener.active || state.micQuerido)) toggleMic();
       break;
     }
     case 'voz': setVoice(Boolean(mensaje.on)); break;
@@ -827,12 +874,28 @@ async function toggleMic() {
   if (!listener) return toast('Este navegador no reconoce voz. Probá con Google Chrome o Edge, o manejá el guion desde el panel.');
   if (state.abriendoMic) return;
 
-  if (listener.active) {
+  if (listener.active || state.micQuerido) {
+    state.micQuerido = false;
+    writeStored('nova:mic', 'off');
     listener.stop();
     micApagado();
-    anotar('Micrófono apagado.');
+    anotar('Micrófono apagado a mano. Queda apagado hasta que lo vuelvas a prender.');
     return;
   }
+
+  state.micQuerido = true;
+  state.micFatal = '';
+  writeStored('nova:mic', 'on');
+  await encenderMic({ automatico: false });
+}
+
+/**
+ * Abre el micrófono. Si es automático (al cargar la página, o al
+ * recuperarse de un corte) y el navegador no lo deja, se queda esperando
+ * a que la persona toque el botón, que es el gesto que el navegador pide.
+ */
+async function encenderMic({ automatico }) {
+  if (!listener || listener.active || state.abriendoMic) return;
 
   state.abriendoMic = true;
   setMicActive(true);
@@ -843,15 +906,19 @@ async function toggleMic() {
 
   if (!ok || !listener.active) {
     micApagado();
+    if (automatico) el.micHint.textContent = 'Tocá el micrófono para darle permiso';
     return;
   }
-  el.micHint.textContent = 'Escuchando… tocá para cortar';
-  anotar('Micrófono encendido.');
+  el.micHint.textContent = 'Escuchando. Queda encendido; Espacio lo apaga';
+  anotar(automatico ? 'Micrófono encendido solo.' : 'Micrófono encendido.');
 
   // El nivel de voz es lo que mueve los visuales. Si el navegador no deja
   // abrir el micrófono dos veces, la página sigue andando sin reaccionar.
   meter.start().then((bien) => {
-    if (!bien) console.info('NOVA: sin medidor de voz; los visuales no reaccionan al volumen.');
+    if (!bien) {
+      console.info('NOVA: sin medidor de voz; los visuales no reaccionan al volumen.');
+      pintarMic(`${listener.diagnostico} · sin medidor de volumen`);
+    }
   });
 }
 
@@ -862,7 +929,7 @@ function micApagado() {
   state.pendingSpeech.length = 0;
   showHeard('', false);
   setMicActive(false);
-  el.micHint.textContent = 'Tocá para hablar';
+  el.micHint.textContent = state.micQuerido ? 'Micrófono caído: se vuelve a prender solo' : 'Tocá para encender el micrófono';
   if (!state.busy) setMode('idle');
   publicar();
 }
@@ -892,6 +959,8 @@ function showHeard(text, isFinal) {
   el.sceneHeard.classList.toggle('is-live', Boolean(text));
   el.sceneHeard.style.opacity = text ? (isFinal ? '1' : '0.72') : '0';
   if (text) state.oido = text;
+  // En la consola también se ve lo que va oyendo, para saber que anda.
+  if (text && listener?.active) el.micHint.textContent = `Oigo: «${text.length > 60 ? `…${text.slice(-60)}` : text}»`;
   publicar();
 }
 
@@ -1134,15 +1203,6 @@ function scrollLog() {
 
 /* -------------------------------------------------------------- estados */
 
-const CAPTIONS = {
-  idle: 'En espera',
-  listening: 'Escuchando',
-  thinking: 'Pensando',
-  answering: 'Respondiendo',
-  speaking: 'Hablando',
-  error: 'Error',
-};
-
 function setMode(mode) {
   state.modo = mode;
   el.orb.dataset.state = mode === 'answering' ? 'thinking' : mode;
@@ -1158,8 +1218,6 @@ function setStatus(stateName, label) {
 }
 
 /* ------------------------------------------------------------ escenario */
-
-const isStage = () => el.body.dataset.mode === 'stage';
 
 function toggleStage() {
   setStageMode(!isStage());
