@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>NOVA · Panel de control</title>
+  <meta name="description" content="Panel para manejar a NOVA durante la función: por dónde va el guion, qué escucha y qué dice." />
+  <meta name="theme-color" content="#05060c" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='38' fill='none' stroke='%23ffc76b' stroke-width='7'/><circle cx='50' cy='50' r='13' fill='%23a37bff'/></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@300;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./control.css" />
+</head>
+<body>
+
+  <header class="cabecera">
+    <div class="marca">
+      <span class="marca__punto" aria-hidden="true"></span>
+      <strong>NOVA</strong>
+      <small>panel de control</small>
+    </div>
+    <div class="enlace" id="enlace" data-estado="buscando">
+      <span class="enlace__punto" aria-hidden="true"></span>
+      <span id="enlaceTexto">Buscando el escenario…</span>
+    </div>
+  </header>
+
+  <main class="panel">
+
+    <!-- Lo que pasa ahora mismo en el escenario. -->
+    <section class="ahora" id="ahora" data-modo="idle">
+      <div class="ahora__cabeza">
+        <span class="ahora__modo" id="modo">Sin señal</span>
+        <span class="ahora__escena" id="escena"></span>
+      </div>
+      <p class="ahora__oido" id="oido"></p>
+      <p class="ahora__dicho" id="dicho"></p>
+      <div class="ahora__botones">
+        <button class="boton boton--grande" id="siguiente" type="button" disabled>
+          <span class="boton__rotulo">Decir el siguiente</span>
+          <span class="boton__detalle" id="siguienteDetalle"></span>
+        </button>
+        <button class="boton boton--rojo" id="detener" type="button">Detener</button>
+      </div>
+    </section>
+
+    <!-- El guion y por dónde va. -->
+    <section class="bloque">
+      <header class="bloque__cabeza">
+        <h2>Guion <span class="bloque__cuenta" id="progreso"></span></h2>
+        <div class="bloque__acciones">
+          <button class="chip" id="activo" type="button" aria-pressed="true">Seguir el guion</button>
+          <button class="chip" id="reiniciar" type="button">Al principio</button>
+        </div>
+      </header>
+      <ol class="lineas" id="lineas"></ol>
+      <details class="desplegable">
+        <summary>Cargar otro guion desde acá</summary>
+        <textarea id="guionTexto" rows="8" spellcheck="false" placeholder="NOMBRE: lo que dice&#10;NOVA: lo que responde"></textarea>
+        <div class="fila">
+          <label class="chip chip--archivo">Abrir archivo…<input type="file" id="guionArchivo" accept=".txt,.md,text/plain" /></label>
+          <span class="fila__espacio"></span>
+          <button class="boton" id="guionGuardar" type="button">Mandar al escenario</button>
+        </div>
+      </details>
+    </section>
+
+    <!-- Escena, micrófono y voz. -->
+    <section class="bloque">
+      <header class="bloque__cabeza"><h2>Pantalla</h2></header>
+      <div class="grilla">
+        <button class="boton" data-escena="portada" type="button">Portada</button>
+        <button class="boton" data-escena="charla" type="button">Charla</button>
+        <button class="boton" data-escena="muro" type="button">Muro</button>
+      </div>
+      <div class="grilla">
+        <button class="boton" id="mic" type="button">Micrófono</button>
+        <button class="boton" id="voz" type="button">Voz de NOVA</button>
+        <button class="boton" id="escenario" type="button">Escenario</button>
+      </div>
+      <p class="nota" id="micNota"></p>
+    </section>
+
+    <!-- Turnos y acuerdos. -->
+    <section class="bloque">
+      <header class="bloque__cabeza">
+        <h2>Quién habla</h2>
+        <div class="bloque__acciones">
+          <button class="chip" id="turnoSiguiente" type="button">Siguiente turno</button>
+        </div>
+      </header>
+      <div class="turnos" id="turnos"></div>
+      <div class="fila">
+        <button class="boton" id="fijar" type="button">Fijar la última respuesta en el muro</button>
+        <span class="bloque__cuenta" id="acuerdos"></span>
+      </div>
+    </section>
+
+    <!-- Texto libre. -->
+    <section class="bloque">
+      <header class="bloque__cabeza"><h2>A mano</h2></header>
+      <form class="fila" id="formTexto">
+        <input type="text" id="texto" placeholder="Algo que NOVA tiene que decir ya" autocomplete="off" />
+        <button class="boton" type="submit">Que lo diga</button>
+      </form>
+      <form class="fila" id="formOido">
+        <input type="text" id="oidoTexto" placeholder="Lo que dijo la persona, si el micrófono no lo captó" autocomplete="off" />
+        <button class="boton" type="submit">Como si lo oyera</button>
+      </form>
+    </section>
+
+    <!-- Lo último que pasó. -->
+    <section class="bloque">
+      <header class="bloque__cabeza"><h2>Qué pasó</h2></header>
+      <ul class="eventos" id="eventos"></ul>
+    </section>
+
+  </main>
+
+  <p class="aviso" id="aviso" hidden></p>
+
+  <script type="module" src="./control.js"></script>
+</body>
+</html>

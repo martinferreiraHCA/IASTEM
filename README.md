@@ -1,9 +1,17 @@
 # NOVA · IASTEM
 
-Sistema para una performance en vivo: los estudiantes conversan con una
-inteligencia artificial frente al público, en pantalla gigante. Las letras **se
-materializan en el aire**, la voz de quien habla mueve los visuales, y lo que el
-grupo va definiendo junto a NOVA queda en un muro que se muestra al final.
+Sistema para una performance en vivo: los estudiantes conversan con NOVA, una
+inteligencia artificial de escenario, frente al público y en pantalla gigante.
+Las letras **se materializan en el aire**, la voz de quien habla mueve los
+visuales, y lo que el grupo va definiendo queda en un muro que se muestra al
+final.
+
+NOVA **no improvisa**: todo lo que dice sale de un guion en texto plano que se
+le carga antes de la función. Cuando escucha el pie, contesta con su
+parlamento; y desde un **panel de control**, en otra ventana o en el celular,
+se ve por dónde va y se la maneja a mano. Como opción, un **asistente de
+ubicación** con IA ayuda a reconocer el pie cuando lo dicen con otras palabras,
+sin escribir nunca lo que NOVA responde.
 
 ![modo escenario](docs/escenario.png)
 
@@ -13,119 +21,120 @@ grupo va definiendo junto a NOVA queda en un muro que se muestra al final.
 
 ## Probala ya
 
-No hace falta configurar nada para verla funcionando:
-
 ```bash
 npm start            # → http://localhost:3000
 ```
 
-Sin clave configurada arranca en **modo demo**: NOVA contesta con un guion
-guardado y todo lo demás —las letras, la nube, el micrófono, la voz— funciona
-igual. Sirve para mostrar la página sin gastar un peso.
-
-¿Ni siquiera querés instalar Node? Abrí **`demo/nova-demo.html`** con doble
-clic. Es la misma página en un solo archivo, y anda sin internet.
+No hace falta configurar nada. Sin Node, la página publicada en GitHub Pages
+hace lo mismo; la única diferencia es desde dónde se puede abrir el panel de
+control (ver más abajo).
 
 ## Qué hace
 
 | | |
 |---|---|
+| **Guion** | Se carga un guion en texto plano y NOVA dice sus parlamentos cuando escucha el pie. Nada más, nada menos. |
+| **Panel de control** | En otra ventana o en el celular: muestra por dónde va NOVA, qué oyó y qué dijo, y permite manejarla. |
+| **Asistente de ubicación** | Opcional. Una IA decide a qué pie corresponde lo que se oyó cuando el parecido de palabras no alcanza. Nunca escribe lo que dice NOVA. |
 | **Letras estilo Jumanji** | Cada carácter entra como un glifo extraño que muta hasta encontrar su forma. |
 | **Nube de palabras** | Las palabras importantes flotan de fondo, crecen si se repiten y se disuelven solas. |
-| **Voz en vivo** | Micrófono continuo: el público habla, NOVA escucha, piensa y contesta en voz alta. Si el navegador no reconoce voz, graba y transcribe por la API. |
-| **La voz que se ve** | El volumen real de quien habla mueve el orbe y la nube: se nota que la IA lo está escuchando a él. |
+| **Voz en vivo** | Micrófono continuo: el estudiante habla, NOVA reconoce el pie y contesta en voz alta. |
+| **La voz que se ve** | El volumen real de quien habla mueve el orbe y la nube: se nota que NOVA lo está escuchando a él. |
 | **Turnos** | Cada estudiante tiene nombre y color; la pantalla dice quién habla. |
 | **Muro de acuerdos** | Lo que definen junto a NOVA queda fijado y se muestra todo junto al cierre. |
-| **Guion** | Se carga un guion en texto plano y NOVA dice sus parlamentos cuando escucha el pie. Lo demás lo piensa sola. |
 | **Dos vistas** | *Consola* para operar y *Escenario* a pantalla completa para proyectar. |
-| **Modo demo** | Funciona sin API key, para mostrarla o ensayar. |
 
-## De dónde salen las respuestas
+## El guion
 
-La página se adapta sola a dónde esté corriendo. Hay tres situaciones, y la
-diferencia entre ellas es **dónde vive la API key**:
+En el botón **Guion** se pega un guion en texto plano, como el de una obra, o
+se abre un archivo `.txt`:
 
-| Modo | Cuándo | Dónde queda la clave |
+```
+# Las líneas con numeral son comentarios.
+NOVA?: No te escuché bien. ¿Me lo repetís?
+
+ANA: Hola NOVA, ¿nos escuchás?
+NOVA: Los escucho. Soy NOVA, la inteligencia de esta muestra.
+
+TOMÁS: ¿Y cómo aprendiste a hablar?
+NOVA: Parecido a como aprendiste vos a reconocer perros...
+
+[Un cierre sin pie: se dice a mano]
+NOVA: Gracias por esta noche.
+```
+
+Las reglas son pocas:
+
+- `NOMBRE: texto`, una línea por parlamento. Las líneas de **NOVA** (también
+  vale `IA:`) son lo que ella dice; la línea anterior es su **pie**.
+- Cuando alguien dice algo parecido al pie, por voz o por teclado, NOVA
+  contesta con el parlamento tal cual, letra por letra y en voz alta.
+- `NOVA?: texto` es un **comodín**: lo que dice cuando lo que oye no se parece
+  a ningún pie. Puede haber varios; elige uno al azar. Sin comodines, se queda
+  callada y el panel avisa qué oyó.
+- La comparación es tolerante: ignora mayúsculas, acentos y signos, acepta
+  palabras cambiadas y frases dichas con más o menos vueltas. En el panel se
+  elige cuánto: *estricta*, *normal* o *amplia*. Pies de cuatro o cinco
+  palabras funcionan mejor que un "sí" suelto.
+- El guion tiene orden y **el parlamento que sigue corre con ventaja**: si
+  dos pies se parecen, gana el que toca. La consola y el panel muestran en todo
+  momento qué pie se está esperando.
+- Con la tecla **S**, o desde el panel, NOVA dice el parlamento que sigue sin
+  esperar el pie. Un parlamento sin pie antes (una apertura, un cierre) solo
+  se dice así, o tocándolo en la lista.
+- Las líneas que empiezan con `#`, y las acotaciones entre `[corchetes]` o
+  `(paréntesis)`, se ignoran. Una línea sin nombre continúa la anterior.
+
+En `docs/guion-german-martin.txt` hay un diálogo de ejemplo listo para cargar.
+
+### El asistente de ubicación
+
+El parecido de palabras alcanza cuando los estudiantes dicen más o menos lo
+escrito. Cuando lo dicen con otras palabras ("¿de dónde sacás lo que sabés?"
+en vez de "¿cómo aprendiste?"), o el micrófono transcribe mal, conviene el
+asistente: una IA a la que, cada vez que lo oído no coincide con claridad, se
+le pregunta **a qué pie corresponde**. Contesta un número y una confianza, y
+nada más. **Lo que NOVA dice sigue saliendo del guion, siempre.**
+
+Es opcional y usa una clave de OpenAI (o de cualquier API compatible). La
+clave puede estar en dos lugares:
+
+| Dónde | Cómo | Para qué |
 |---|---|---|
-| **Servidor local** | Corrés `npm start` con un `.env` configurado | En el servidor. El navegador nunca la ve. **La más segura.** |
-| **Directo** | Sitio estático (GitHub Pages) con una clave cargada desde *Conexión* | En el navegador de esa computadora |
-| **Demo** | No hay ni servidor ni clave | No hay clave |
+| **En el servidor** | `OPENAI_API_KEY` en el `.env` (ver `.env.example`) y `npm start`. | Lo más seguro: el navegador nunca la ve. |
+| **En el navegador** | *Guion → Asistente de ubicación*, pegar la clave y guardar. | Para el sitio publicado en Pages, que no tiene servidor. Queda en ese navegador y viaja solo a OpenAI. |
 
-El botón **Conexión** de arriba a la derecha muestra en cuál está y permite
-cambiar de uno a otro.
+Sin clave no pasa nada: NOVA ubica los pies por parecido, como siempre. Con
+clave, el panel de control muestra "con asistente" junto al progreso, y en el
+registro se ve cuándo fue el asistente el que ubicó el pie. Nunca escribas la
+clave en el código del repositorio: si es público, queda expuesta apenas la
+subas.
 
-### Con servidor local (recomendado para la muestra)
+## El panel de control
 
-```bash
-cp .env.example .env      # pegá tu clave en OPENAI_API_KEY
-npm start
-```
+El panel es otra página, `control.html`, que se habla con el escenario. Muestra
+en qué está NOVA (escuchando, hablando, en espera), qué fue lo último que oyó y
+dijo, el guion con la línea que sigue resaltada, y un registro de lo que fue
+pasando. Desde ahí se puede:
 
-Conseguí la clave en [platform.openai.com/api-keys](https://platform.openai.com/api-keys).
-El archivo `.env` está ignorado por git, así que no se sube al repo.
+- decir el parlamento que sigue, o saltar a cualquiera tocándolo;
+- cargar otro guion, volver al principio, apagar el seguimiento;
+- cambiar la pantalla: portada, charla, muro, modo escenario;
+- prender y apagar el micrófono y la voz; cortar un parlamento;
+- pasar el turno al siguiente estudiante y fijar acuerdos en el muro;
+- escribir algo para que NOVA lo diga ya, o escribir lo que dijo una persona
+  si el micrófono no lo captó.
 
-Para la muestra en sí, **esta es la opción que conviene**: la clave se queda en
-la computadora de la presentación y nadie puede sacarla desde el navegador.
+Hay dos maneras de abrirlo, y el botón **Panel** del escenario las explica:
 
-## Publicar en GitHub Pages
+| Dónde | Cómo | Qué hace falta |
+|---|---|---|
+| **En la misma computadora** | *Panel → Abrir en otra ventana.* El escenario va al proyector y el panel queda en la pantalla de la notebook. | Nada: anda hasta en GitHub Pages. |
+| **Desde el celular** | Correr `npm start` en la computadora que proyecta y abrir en el celular la dirección que muestra la consola, algo como `http://192.168.1.20:3000/control.html`. | Node, y que los dos estén en la misma red Wi-Fi. |
 
-Ya está publicado y se actualiza solo: **cada push a la rama por defecto vuelve
-a publicar el sitio**, sin que haya que tocar nada.
-
-```
-https://TU-USUARIO.github.io/IASTEM/
-```
-
-Pages sirve la raíz del repositorio, y la página vive en `public/`. Por eso hay
-un `index.html` en la raíz que lleva ahí: entrás por la dirección de arriba y
-caés en la app. La dirección final incluye `/public/`, que es feo pero funciona.
-
-<details>
-<summary>Si querés la dirección corta, sin el <code>/public/</code></summary>
-
-Andá a **Settings → Pages → Source** y elegí **GitHub Actions**. Eso apaga el
-publicado automático por rama, así que hay que reponer el workflow que lo
-reemplaza: está en el historial de git.
-
-```bash
-git show HEAD~1:.github/workflows/pages.yml > .github/workflows/pages.yml
-git add .github/workflows/pages.yml && git commit -m "Publicar Pages por Actions"
-git push
-```
-
-Ese workflow publica `public/` directamente, así que el sitio queda en la raíz y
-el `index.html` de redirección deja de usarse.
-
-**No pongas los dos mecanismos a la vez.** Si Pages está en modo rama y además
-hay un workflow publicando, los dos despliegan en cada push y gana el que
-termine último: el sitio queda impredecible.
-
-</details>
-
-### Leé esto antes de publicar
-
-GitHub Pages sirve **archivos estáticos**: no puede correr el servidor Node, así
-que ahí no hay dónde esconder una clave. Esto tiene tres consecuencias:
-
-1. **El sitio publicado arranca en modo demo.** Cualquiera que entre ve la
-   página funcionando con el guion guardado, sin consumir tu cuenta. Está bien
-   que sea así.
-
-2. **Para que piense de verdad hay que cargar la clave desde el botón
-   *Conexión*.** Queda guardada en ese navegador, en esa computadora, y viaja
-   únicamente a OpenAI. Hacelo antes de la muestra, en la máquina que vas a
-   proyectar; no en el momento y delante de todos.
-
-3. **Nunca escribas la clave en el código.** Si el repositorio es público, la
-   clave queda expuesta apenas la subas y cualquiera puede gastar tu crédito.
-   OpenAI escanea GitHub y suele revocar las claves que encuentra, pero no
-   cuentes con que llegue a tiempo. Ponele además un límite de gasto a la clave
-   desde el panel de OpenAI.
-
-> Si querés un sitio público que responda de verdad sin exponer la clave,
-> hace falta un intermediario que la guarde: una función serverless en
-> Cloudflare Workers, Vercel o similar. El `server.js` de este repo ya hace
-> exactamente ese trabajo y se adapta con pocos cambios.
+El servidor no guarda nada ni entiende los mensajes: solo releva lo que una
+página dice a las demás. Si el panel pierde la señal, lo dice abajo en rojo y se
+vuelve a enganchar solo cuando el escenario reaparece.
 
 ## Cómo se usa
 
@@ -135,7 +144,7 @@ que ahí no hay dónde esconder una clave. Esto tiene tres consecuencias:
 | Escribirle | Campo de texto, **Enter** para enviar |
 | Proyectar | Botón *Modo escenario*, o tecla **F** |
 | Volver | **Esc** |
-| Cortar una respuesta | Botón *Detener*, o **Esc** mientras responde |
+| Cortar un parlamento | Botón *Detener*, o **Esc** mientras habla |
 | Silenciar a NOVA | Interruptor *Voz de NOVA* (viene encendida) |
 | Empezar de cero | Botón *Limpiar* |
 
@@ -145,38 +154,19 @@ dispare a mitad de la idea.
 
 ### Si el micrófono no transcribe
 
-Hay dos maneras de escuchar, y la página elige sola en *Conexión → Cómo
-escucha*:
+El reconocimiento de voz lo hace el navegador, y **solo Google Chrome y Edge
+lo hacen bien**. En Chromium, Brave u Opera existe pero nunca devuelve nada;
+en Firefox no está. También hace falta internet, porque el reconocimiento de
+Chrome corre en servidores de Google, y HTTPS o `localhost`, porque por HTTP
+desde otra máquina el navegador bloquea el micrófono sin preguntar.
 
-| Cómo | Qué hace | Dónde anda |
-|---|---|---|
-| **El navegador** | Transcribe en vivo, con las palabras apareciendo mientras se habla. Gratis. | **Google Chrome y Edge.** En Chromium, Brave y Opera existe pero falla; en Firefox no está. |
-| **La API de OpenAI** | Graba cada frase, corta en la pausa y la manda a transcribir. Tarda un segundo más. | Cualquier navegador, pero **necesita la clave** (en el servidor o en Conexión). |
-
-En *Automático* usa el navegador si puede y, si ese reconocimiento falla, pasa
-solo a la API y avisa. Cuando algo no anda, el cartel bajo el micrófono y el
-aviso rojo dicen qué fue: el permiso bloqueado, que no hay micrófono, que el
-navegador no reconoce voz, o que falta la clave.
-
-Si la voz no transcribe, en este orden:
-
-1. **Mirá el aviso.** Dice qué falló y qué hacer.
-2. **Permiso.** Tocá el candado en la barra de direcciones y permití el
-   micrófono. Hace falta HTTPS o `localhost`; por HTTP desde otra máquina el
-   navegador lo bloquea sin preguntar.
-3. **Navegador.** Si no es Google Chrome ni Edge, o elegí uno de esos, o
-   cargá la clave para transcribir por la API.
-4. **Internet.** Las dos maneras la necesitan: el reconocimiento de Chrome
-   también corre en servidores de Google.
-
-A la transcripción por la API se le pasan los nombres del plantel, los
-personajes del guion y el pie que se espera, así no inventa palabras raras
-donde iba "NOVA" o "Germán".
+Cuando algo falla, el aviso rojo dice qué fue: el permiso bloqueado, que no
+hay micrófono, que el navegador no reconoce voz, o que capta sonido pero no
+transcribe. Y en todos los casos la función sigue: **desde el panel de control
+se dice cada parlamento a mano**, con el botón grande o tocando la línea, y se
+puede escribir lo que dijo la persona para que NOVA lo reconozca igual.
 
 ## Conducir la función
-
-La página está pensada para una performance con estudiantes frente al público,
-no para que alguien la use solo. Hay cuatro piezas para eso.
 
 ### Los turnos
 
@@ -193,46 +183,6 @@ que la gente se lleva de la noche.
 De respuestas largas se guarda la primera parte, cortada al final de una frase:
 una tarjeta tiene que leerse de lejos, un párrafo entero no.
 
-### El guion
-
-Una función ensayada no puede depender de lo que se le ocurra a un modelo en
-el momento. En el botón **Guion** se pega un guion en texto plano, como el de
-una obra, y NOVA dice sus parlamentos cuando escucha el pie:
-
-```
-ANA: Hola NOVA, ¿nos escuchás?
-NOVA: Los escucho. Soy NOVA, la inteligencia de esta muestra.
-
-TOMÁS: ¿Y cómo aprendiste a hablar?
-NOVA: Parecido a como aprendiste vos a reconocer perros...
-```
-
-Las reglas son pocas:
-
-- `NOMBRE: texto`, una línea por parlamento. Las líneas de **NOVA** (también
-  vale `IA:`) son lo que ella dice; la línea anterior es su **pie**.
-- Cuando alguien dice algo parecido al pie, por voz o por teclado, NOVA
-  contesta con el parlamento tal cual, con las mismas letras y la misma voz
-  que una respuesta pensada. **Lo que no esté en el guion lo sigue pensando
-  sola**, así que no hace falta guionar toda la charla: solo los momentos
-  que tienen que salir bien.
-- La comparación es tolerante: ignora mayúsculas, acentos y signos, acepta
-  palabras cambiadas y frases dichas con más o menos vueltas. En el panel se
-  elige cuánto: *estricta*, *normal* o *amplia*. Pies de cuatro o cinco
-  palabras funcionan mejor que un "sí" suelto.
-- El guion tiene orden y **el parlamento que sigue corre con ventaja**: si
-  dos pies se parecen, gana el que toca. La consola muestra en todo momento
-  qué pie se está esperando.
-- Con la tecla **S** NOVA dice el parlamento que sigue sin esperar el pie,
-  para cuando el micrófono no lo captó. Un parlamento sin pie antes (por
-  ejemplo, un cierre) solo se dice así, o tocándolo en la lista del panel.
-- Las líneas que empiezan con `#`, y las acotaciones entre `[corchetes]` o
-  `(paréntesis)`, se ignoran. Una línea sin nombre continúa la anterior.
-
-Se puede pegar el texto o abrir un archivo `.txt`. En la lista del panel se
-ve por dónde va la función, y *Volver al principio* la reinicia para el
-próximo ensayo.
-
 ### Las teclas
 
 Todo se maneja sin mouse, que en vivo es lo que importa:
@@ -240,26 +190,17 @@ Todo se maneja sin mouse, que en vivo es lo que importa:
 | Tecla | Qué hace |
 |---|---|
 | **Espacio** | Prende y apaga el micrófono |
+| **S** | NOVA dice el siguiente parlamento del guion |
 | **1** … **9** | De quién es el turno |
 | **Tab** | Pasa al siguiente estudiante |
-| **S** | NOVA dice el siguiente parlamento del guion |
 | **A** | Fija la última respuesta en el muro |
 | **M** | Muestra el muro completo, y vuelve |
 | **P** | Muestra la portada, y vuelve |
 | **F** | Entra y sale de pantalla completa |
-| **Esc** | Corta la respuesta, o sale del escenario |
+| **Esc** | Corta el parlamento, o sale del escenario |
 
 Una pregunta nueva vuelve sola a la charla, así que podés dejar el muro puesto
 sin miedo a quedarte trabado ahí.
-
-### La voz que se ve
-
-Mientras el micrófono está abierto, el volumen real de quien habla mueve el orbe,
-las barras y la nube de palabras. Nadie necesita que le expliquen que la IA está
-escuchando a esa persona: se ve.
-
-Si el navegador no deja abrir el micrófono dos veces a la vez, esto se apaga solo
-y todo lo demás sigue funcionando.
 
 ### Todo se guarda
 
@@ -269,25 +210,16 @@ Para empezar de cero, *Función → Borrar todos* y *Guion → Volver al princip
 
 ## Para la muestra
 
-- **Usá Google Chrome o Edge.** Son los que reconocen voz por su cuenta. En
-  cualquier otro navegador la voz funciona igual, pero por la API y con la
-  clave cargada.
-- **El micrófono necesita HTTPS o `localhost`.** GitHub Pages es HTTPS, así que
-  sirve. Si servís desde otra máquina de la red por HTTP, el navegador lo
-  bloquea.
+- **Usá Google Chrome o Edge** en la computadora que proyecta. Son los que
+  reconocen voz. El panel, en cambio, anda en cualquier navegador y celular.
 - **Dale permiso al micrófono con el público entrando**, no en el momento: el
   cartel del navegador arruina cualquier apertura.
 - **Ensayá con los parlantes de la sala.** El micrófono se pausa solo mientras
   NOVA habla para no escucharse a sí misma, pero conviene probarlo.
-- **Pedile respuestas cortas** desde *Conexión → Personalidad*. En pantalla
-  gigante, un párrafo largo tarda en formarse y se pierde el efecto.
-- **Un modelo rápido se siente mejor en vivo.** `gpt-4o-mini` responde casi al
-  instante; los grandes se hacen esperar y en escenario se nota.
-- **Ensayá en modo demo.** Podés probar toda la puesta en escena sin gastar
-  nada, y recién conectar la clave el día de la muestra.
-- **Guioná los momentos clave.** La apertura, el cierre y lo que tiene que
-  decir sí o sí van en el guion; el resto se lo dejás al modelo. En el ensayo
-  mirá qué pies no reconoce y ajustá la tolerancia o la frase.
+- **Ensayá con el panel en la mano.** Mirá qué pies no reconoce y ajustá la
+  tolerancia o la frase. Lo que no reconozca en vivo, lo decís desde ahí.
+- **Poné comodines.** Dos o tres líneas para cuando NOVA no entiende hacen que
+  nunca se quede muda.
 - **Cargá el plantel antes de empezar**, con los nombres como los van a
   escuchar los padres. Escribirlos en vivo se nota.
 - **Arrancá en la portada** (tecla **P**) con la gente entrando, y cerrá con el
@@ -295,45 +227,55 @@ Para empezar de cero, *Función → Borrar todos* y *Guion → Volver al princip
 - **Fijá pocos acuerdos y buenos.** Ocho tarjetas se leen; treinta no se lee
   ninguna.
 
+## Publicar en GitHub Pages
+
+Ya está publicado y se actualiza solo: **cada push a la rama por defecto vuelve
+a publicar el sitio**.
+
+```
+https://TU-USUARIO.github.io/IASTEM/
+```
+
+Pages sirve la raíz del repositorio, y la página vive en `public/`. Por eso hay
+un `index.html` en la raíz que lleva ahí. El panel queda en
+`https://TU-USUARIO.github.io/IASTEM/public/control.html`.
+
+GitHub Pages sirve archivos estáticos, así que ahí no corre el servidor: el
+panel se abre en otra ventana de la misma computadora, no desde el celular.
+Para el celular, `npm start`.
+
 ## Cómo está armado
 
 ```
 public/                  El sitio. Esto es lo que se publica en Pages.
-  index.html             Las dos vistas: consola y escenario
-  styles.css             Estética base: orbe, aurora, chat, panel de conexión
+  index.html             El escenario: las dos vistas, consola y proyección
+  styles.css             Estética base: orbe, aurora, chat, paneles
   stage.css              Modo escenario y el efecto de letras
-  app.js                 Orquestador: une todas las piezas
+  app.js                 Orquestador: une todas las piezas y atiende al panel
+  control.html           El panel de control
+  control.js             Lo que el panel muestra y manda
+  control.css            Su estética, pensada para un celular a oscuras
   js/
-    api.js               Elige de dónde salen las respuestas y lee el streaming
+    guion.js             El guion: pies, parlamentos, comodines y la comparación tolerante
+    enlace.js            El enlace entre escenario y panel: ventana a ventana, o por el servidor
+    arbitro.js           El asistente de ubicación: le pregunta a una IA en qué pie estamos
+    goteo.js             Entrega un texto de a palabras, como si se pensara
     materialize.js       El efecto Jumanji, letra por letra
     wordcloud.js         La nube de palabras en canvas
-    voice.js             Micrófono y voz: el reconocimiento del navegador o
-                         la grabación que se transcribe por la API
+    voice.js             Micrófono y voz (Web Speech API)
     audio.js             Mide el volumen real: la voz que mueve los visuales
     show.js              La función: turnos de estudiantes y acuerdos
-    guion.js             El guion: pies y parlamentos, y la comparación tolerante
-  demo/
-    engine.js            Elige qué contesta NOVA en modo demo
-    replies.json         El guion. Editalo, es texto plano.
 
+docs/guion-german-martin.txt   Un guion de ejemplo
 index.html               Redirección a public/, para que Pages sirva la app
-server.js                Servidor local: archivos estáticos + proxy a la API
-demo/nova-demo.html      La página entera en un archivo, para doble clic
-tools/build-demo.js      Genera ese archivo desde los de arriba
+server.js                Servidor local: archivos estáticos, relevo para el panel y asistente
 ```
 
-Con servidor, el navegador nunca habla con OpenAI: le pide a `/api/chat`, y el
-servidor —el único que conoce la clave— reenvía y devuelve la respuesta en
-streaming. Lo mismo con la voz: el audio va a `/api/transcribe` y el servidor
-lo manda a transcribir. Sin servidor, el navegador llama a OpenAI por su cuenta con la clave
-que tenga guardada. En los dos casos la respuesta llega **de a fragmentos**, y
-por eso las letras pueden empezar a formarse antes de que la frase termine.
-
-Después de tocar algo en `public/`, regenerá el archivo suelto:
-
-```bash
-node tools/build-demo.js
-```
+El escenario y el panel se mandan mensajes chicos. Entre ventanas del mismo
+navegador van por `BroadcastChannel`, sin servidor. Con `npm start`, además
+pasan por el servidor: lo que llega a `POST /api/control` sale por
+`GET /api/eventos` a todas las páginas conectadas, y así el panel se abre desde
+cualquier dispositivo de la red.
 
 ## Ajustes finos
 
@@ -344,23 +286,7 @@ node tools/build-demo.js
 - **Densidad de la nube** — `maxWords` en `wordcloud.js`.
 - **Cuánto duran las palabras** — `decay` en `wordcloud.js` (más chico, duran más).
 - **Palabras a ignorar** — la lista `STOPWORDS` en `wordcloud.js`.
-- **Respuestas del modo demo** — `public/demo/replies.json`.
+- **Qué tan parecido tiene que ser el pie** — `TOLERANCIAS` en `guion.js`.
 - **Colores** — las variables `--cyan`, `--violet`, `--magenta` arriba de `styles.css`.
-
-## Variables del servidor local
-
-Solo aplican a `npm start`; en Pages se configura todo desde *Conexión*.
-
-| Variable | Para qué | Por defecto |
-|---|---|---|
-| `OPENAI_API_KEY` | Tu clave. Sin ella, arranca en modo demo. | — |
-| `OPENAI_MODEL` | Qué modelo usar | `gpt-4o-mini` |
-| `OPENAI_TRANSCRIBE_MODEL` | Con qué transcribir la voz cuando el navegador no puede | `gpt-4o-mini-transcribe` |
-| `OPENAI_BASE_URL` | Endpoint compatible con OpenAI | `https://api.openai.com/v1` |
-| `SYSTEM_PROMPT` | La personalidad de NOVA | NOVA en español rioplatense |
-| `PORT` | Puerto del servidor | `3000` |
-| `DEMO` | Poné `1` para forzar el modo demo aun con clave | — |
-
-Como `OPENAI_BASE_URL` es configurable, el servidor también sirve contra
-cualquier API compatible: Azure OpenAI, OpenRouter, Groq, o un modelo local con
-LM Studio u Ollama.
+- **Puerto del servidor y clave del asistente** — en un archivo `.env` (ver `.env.example`).
+- **Qué se le pregunta al asistente** — `INSTRUCCION` en `arbitro.js`.

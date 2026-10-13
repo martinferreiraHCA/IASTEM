@@ -1,7 +1,7 @@
 /**
  * La función: quiénes participan y qué van definiendo con NOVA.
  *
- * Dos cosas que convierten una demo en una performance:
+ * Dos cosas que convierten una charla en una performance:
  *
  *   turnos    Cada estudiante tiene nombre y color. Cuando le toca, la
  *             pantalla lo dice. Los padres siguen a su hijo, no a un cursor.

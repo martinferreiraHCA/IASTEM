@@ -1,20 +1,26 @@
 /**
- * NOVA — orquestador de la interfaz.
+ * NOVA — orquestador del escenario.
  *
- * Junta las piezas: la API en streaming, las letras que se materializan, la
- * nube de palabras, la voz y el nivel de audio. Maneja dos vistas de lo
- * mismo —la consola, para operar; el escenario, para proyectar— y conduce
- * la función: de quién es el turno, qué va quedando definido y qué dice
- * NOVA cuando escucha un pie del guion.
+ * Junta las piezas: el guion, las letras que se materializan, la nube de
+ * palabras, la voz y el nivel de audio. Maneja dos vistas de lo mismo —la
+ * consola, para operar; el escenario, para proyectar— y conduce la función:
+ * de quién es el turno, qué va quedando definido y qué dice NOVA cuando
+ * escucha un pie del guion.
+ *
+ * NOVA no se conecta a ninguna inteligencia artificial: todo lo que dice
+ * sale del guion que se le carga. Lo que pasa acá se cuenta por el enlace,
+ * para que el panel de control lo vea y pueda mandar.
  */
 
-import { detectMode, streamChat, streamText, transcribe, settings, DEFAULT_MODEL, DEFAULT_PROMPT } from './js/api.js';
+import { gotear } from './js/goteo.js';
 import { Materializer } from './js/materialize.js';
 import { WordCloud } from './js/wordcloud.js';
-import { Listener, RecorderListener, Speaker, makeSentenceSplitter, voiceSupport } from './js/voice.js';
+import { Listener, Speaker, makeSentenceSplitter, voiceSupport } from './js/voice.js';
 import { VoiceMeter } from './js/audio.js';
 import { Show } from './js/show.js';
 import { Guion, parsearGuion, GUION_EJEMPLO } from './js/guion.js';
+import { Enlace } from './js/enlace.js';
+import { Arbitro } from './js/arbitro.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -23,15 +29,6 @@ const el = {
   status: $('status'),
   statusLabel: document.querySelector('.status__label'),
   stageBtn: $('stageBtn'),
-  settingsBtn: $('settingsBtn'),
-  settings: $('settings'),
-  settingsForm: $('settingsForm'),
-  settingsMode: $('settingsMode'),
-  keyInput: $('keyInput'),
-  modelInput: $('modelInput'),
-  promptInput: $('promptInput'),
-  dictadoInput: $('dictadoInput'),
-  dictadoNota: $('dictadoNota'),
   orb: $('orb'),
   sceneOrb: $('sceneOrb'),
   coreCaption: $('coreCaption'),
@@ -39,6 +36,7 @@ const el = {
   micHint: $('micHint'),
   log: $('log'),
   welcome: $('welcome'),
+  welcomeGuion: $('welcomeGuion'),
   composer: $('composer'),
   input: $('input'),
   sendBtn: $('sendBtn'),
@@ -50,6 +48,7 @@ const el = {
   sceneText: $('sceneText'),
   sceneState: $('sceneState'),
   sceneHeard: $('sceneHeard'),
+  sceneHint: $('sceneHint'),
   toast: $('toast'),
 
   // función
@@ -69,7 +68,6 @@ const el = {
   sceneNombre: $('sceneNombre'),
   muroGrilla: $('muroGrilla'),
   muroSub: $('muroSub'),
-  sceneHint: $('sceneHint'),
 
   // guion
   guionBtn: $('guionBtn'),
@@ -88,25 +86,45 @@ const el = {
   guionTira: $('guionTira'),
   guionPie: $('guionPie'),
   guionDecir: $('guionDecir'),
+
+  // asistente de ubicación
+  asistenteEstado: $('asistenteEstado'),
+  asistenteClave: $('asistenteClave'),
+  asistenteModelo: $('asistenteModelo'),
+  asistenteGuardar: $('asistenteGuardar'),
+  asistenteOlvidar: $('asistenteOlvidar'),
+
+  // panel de control
+  panelBtn: $('panelBtn'),
+  panel: $('panel'),
+  panelClose: $('panelClose'),
+  panelAbrir: $('panelAbrir'),
+  panelRed: $('panelRed'),
 };
 
 /* --------------------------------------------------------------- estado */
 
 const state = {
-  messages: [],          // historial que se manda a la API
   busy: false,
-  controller: null,      // para cortar una respuesta a mitad
+  controller: null,      // para cortar un parlamento a mitad
   pendingSpeech: [],     // frases dictadas esperando envío
   silenceTimer: null,
-  mode: 'demo',          // servidor, directo o demo
   escena: 'charla',      // portada, charla o muro
+  modo: 'idle',
+  ultimo: null,          // el último mensaje, para arrancar el escenario con algo
   ultimaPregunta: '',    // para saber de qué trata el último acuerdo
   ultimaRespuesta: '',   // lo que se fija con la tecla A
-  navegadorRoto: false,  // el reconocimiento del navegador falló: se pasa a la API
+  oido: '',              // lo que el micrófono captó por última vez
+  evento: null,          // lo último que pasó, para el panel
   abriendoMic: false,
 };
 
 const SILENCE_MS = 1400;  // pausa que se toma como "terminó de hablar"
+
+// Declarados acá arriba porque init() corre antes de que termine de
+// evaluarse el archivo, y los usa.
+let publicarTimer = null;
+let toastTimer = null;
 
 const cloud = new WordCloud($('cloud'));
 const sceneWriter = new Materializer(el.sceneText, { charsPerSecond: 38 });
@@ -114,43 +132,25 @@ const speaker = new Speaker();
 const meter = new VoiceMeter();
 const show = new Show();
 const guion = new Guion();
+const arbitro = new Arbitro();
 const sentences = makeSentenceSplitter((s) => speaker.say(s));
 
-/**
- * Quien escucha: el reconocimiento del navegador o la grabación que se
- * transcribe por la API. Lo elige montarDictado() según el navegador, la
- * conexión y lo que se haya pedido en Conexión. Los dos avisan igual.
- */
-let listener = null;
+const listener = voiceSupport.listen
+  ? new Listener({
+    onStart: () => setMode('listening'),
+    onPartial: (text) => showHeard(text, false),
+    onFinal: (text) => queueSpeech(text),
+    onError: (msg) => {
+      toast(msg);
+      micApagado();
+    },
+    onEnd: () => {
+      if (!listener.active && !state.busy) setMode('idle');
+    },
+  })
+  : null;
 
-const oidos = {
-  onStart: () => setMode('listening'),
-  onPartial: (text) => showHeard(text, false),
-  onFinal: (text) => queueSpeech(text),
-  onStatus: (msg) => {
-    if (listener?.active) el.micHint.textContent = msg || pistaEscuchando();
-  },
-  onError: (msg, code) => {
-    toast(msg);
-    micApagado();
-    if (code === 'transcribe') listener?.stop();
-
-    // El navegador no puede: si hay con qué, se pasa a transcribir por la
-    // API y se vuelve a abrir el micrófono solo.
-    const navegadorFallo = ['network', 'service-not-allowed', 'language-not-supported', 'unsupported', 'silent'].includes(code);
-    if (navegadorFallo && listener?.nombre === 'navegador') {
-      state.navegadorRoto = true;
-      montarDictado();
-      if (listener?.nombre === 'API' && state.mode !== 'demo') {
-        toast('El navegador no transcribe: NOVA pasa a escuchar por la API de OpenAI.');
-        toggleMic();
-      }
-    }
-  },
-  onEnd: () => {
-    if (!listener?.active && !state.busy) setMode('idle');
-  },
-};
+const enlace = new Enlace('escenario', (mensaje) => recibirComando(mensaje));
 
 /* ---------------------------------------------------------- arranque */
 
@@ -165,7 +165,15 @@ async function init() {
   conectarMedidor();
   verEscena('charla');
 
-  await refreshMode({ announce: true });
+  enlace.onCambio = () => pintarEnlace();
+  pintarEnlace();
+  arbitro.detectar().then(() => pintarAsistente());
+
+  if (!listener) {
+    el.micBtn.disabled = true;
+    el.micBtn.title = 'Este navegador no reconoce voz. Probá con Google Chrome o Edge, o manejá el guion desde el panel.';
+    el.micHint.textContent = 'Voz no disponible';
+  }
   setupVoicePreference();
 
   speaker.onStart = () => {
@@ -176,42 +184,10 @@ async function init() {
     listener?.resumeAfterPlayback();
     if (!state.busy) setMode(listener?.active ? 'listening' : 'idle');
   };
-}
 
-/**
- * Averigua de dónde van a salir las respuestas y lo refleja en pantalla.
- */
-async function refreshMode({ announce = false } = {}) {
-  const found = await detectMode();
-  state.mode = found.mode;
-
-  const shown = {
-    server: ['online', 'En línea'],
-    direct: ['online', 'En línea'],
-    demo: ['demo', 'Modo demo'],
-  }[found.mode];
-  setStatus(shown[0], shown[1]);
-
-  if (announce && found.mode === 'demo') {
-    toast(
-      globalThis.NOVA_SOLO_DEMO
-        ? 'Esta es una demostración: NOVA responde con un guion guardado. La versión completa se conecta a ChatGPT.'
-        : 'Modo demo: NOVA responde con un guion guardado. Para que piense de verdad, cargá tu clave de OpenAI en Conexión.',
-    );
+  if (!guion.tiene) {
+    toast('NOVA responde con un guion. Cargalo en el botón Guion, arriba a la derecha.');
   }
-  describeMode(found);
-  montarDictado();
-  return found;
-}
-
-/** El cartelito de arriba del panel de conexión, en castellano claro. */
-function describeMode(found) {
-  const texto = {
-    server: '<strong>Servidor local.</strong> La clave vive en el servidor y el navegador nunca la ve. Es la forma más segura.',
-    direct: '<strong>Clave en este navegador.</strong> Los mensajes van directo a OpenAI desde esta computadora.',
-    demo: '<strong>Modo demo.</strong> NOVA contesta con respuestas guardadas. Sirve para mostrar la página sin gastar nada.',
-  }[found.mode];
-  el.settingsMode.innerHTML = texto;
 }
 
 /**
@@ -233,6 +209,7 @@ function setVoice(on) {
   el.voiceToggle.setAttribute('aria-pressed', String(on));
   if (!on) speaker.cancel();
   writeStored('nova:voz', on ? 'on' : 'off');
+  publicar();
 }
 
 function readStored(key) {
@@ -249,71 +226,11 @@ function writeStored(key, value) {
   } catch { /* no pasa nada si no se puede guardar */ }
 }
 
-/* ------------------------------------------------------------- dictado */
-
-/**
- * Decide con qué se escucha. El navegador transcribe en vivo y sin costo,
- * pero solo Google Chrome y Edge lo hacen bien; cuando no puede, se graba
- * y se transcribe por la API, que anda en cualquier navegador pero necesita
- * una clave. No se cambia de motor con el micrófono abierto.
- */
-function montarDictado() {
-  if (listener?.active || state.abriendoMic) return;
-
-  const pedido = settings.dictado;
-  const apiPosible = voiceSupport.record && state.mode !== 'demo';
-  let usar;
-  if (pedido === 'navegador') usar = 'navegador';
-  else if (pedido === 'api') usar = 'api';
-  else if (voiceSupport.listen && !state.navegadorRoto) usar = 'navegador';
-  else if (apiPosible) usar = 'api';
-  else usar = voiceSupport.listen ? 'navegador' : 'api';
-
-  if (usar === 'api' && voiceSupport.record) {
-    listener = new RecorderListener(oidos, (blob) => transcribe(blob, { mode: state.mode, prompt: vocabulario() }));
-  } else if (usar === 'navegador' && voiceSupport.listen) {
-    listener = new Listener(oidos);
-  } else {
-    listener = null;
-  }
-
-  // El botón del micrófono y su cartelito cuentan en qué quedó.
-  el.micBtn.disabled = !listener;
-  if (!listener) {
-    el.micBtn.title = 'Este navegador no puede escuchar. Probá con Chrome o Edge.';
-    el.micHint.textContent = 'Voz no disponible';
-  } else if (listener.nombre === 'API' && state.mode === 'demo') {
-    el.micBtn.title = 'Para transcribir por la API hace falta una clave en Conexión.';
-    el.micHint.textContent = 'Para dictar, cargá una clave en Conexión';
-  } else {
-    el.micBtn.title = 'Encender el micrófono (barra espaciadora)';
-    el.micHint.textContent = 'Tocá para hablar';
-  }
-
-  el.dictadoNota.innerHTML = {
-    navegador: '<strong>Ahora escucha con el navegador.</strong> Transcribe en vivo y sin costo. Anda en Google Chrome y Edge; en otros navegadores suele fallar.',
-    api: state.mode === 'demo'
-      ? '<strong>Ahora escucharía por la API</strong>, pero sin clave no puede. Cargá una arriba, o usá Google Chrome o Edge.'
-      : '<strong>Ahora escucha por la API de OpenAI.</strong> Graba cada frase y la transcribe; tarda un segundo más pero anda en cualquier navegador.',
-  }[listener ? (listener.nombre === 'API' ? 'api' : 'navegador') : 'api'];
-}
-
-/** Nombres y pies que ayudan a la transcripción a no inventar palabras. */
-function vocabulario() {
-  const partes = ['NOVA', 'IASTEM', ...show.speakers.map((p) => p.name), ...guion.personajes];
-  const pie = guion.activo ? guion.siguiente?.pies.at(-1) : '';
-  return `${[...new Set(partes)].join(', ')}.${pie ? ` ${pie}` : ''}`.slice(0, 600);
-}
-
-function pistaEscuchando() {
-  return listener?.nombre === 'API' ? 'Escuchando por la API… tocá para cortar' : 'Escuchando… tocá para cortar';
-}
-
 /* ------------------------------------------------------ voz que se ve */
 
 /**
  * Conecta el volumen real del micrófono a los visuales. Es lo que hace que
- * el público entienda, sin explicación, que la IA escucha a esa persona.
+ * el público entienda, sin explicación, que NOVA escucha a esa persona.
  */
 function conectarMedidor() {
   meter.onLevel = (nivel) => {
@@ -321,7 +238,7 @@ function conectarMedidor() {
     el.orb.style.setProperty('--voz', valor);
     el.sceneOrb.style.setProperty('--voz', valor);
     cloud.setEnergy(nivel);
-    listener?.noteSound?.(nivel);
+    listener?.noteSound(nivel);
   };
 }
 
@@ -345,14 +262,13 @@ function wireEvents() {
     }
   });
 
-  el.settingsBtn.addEventListener('click', () => openSettings());
-  el.settingsForm.addEventListener('submit', (event) => applySettings(event.submitter?.value));
-
   el.showBtn.addEventListener('click', () => el.show.showModal());
   el.showClose.addEventListener('click', () => el.show.close());
   wireGuion();
+  wirePanel();
   el.muroBtn.addEventListener('click', () => verEscena(state.escena === 'muro' ? 'charla' : 'muro'));
   el.pinBtn.addEventListener('click', () => fijarAcuerdo());
+  el.welcomeGuion?.addEventListener('click', () => abrirGuion());
 
   el.altaForm.addEventListener('submit', (event) => {
     event.preventDefault();
@@ -377,13 +293,9 @@ function wireEvents() {
     setVoice(!speaker.enabled);
   });
 
-  for (const chip of document.querySelectorAll('.chip')) {
-    chip.addEventListener('click', () => send(chip.dataset.prompt));
-  }
-
   document.addEventListener('keydown', (event) => {
     // Mientras se escribe en un campo, las teclas son texto y nada más.
-    const typing = event.target.matches('input, textarea');
+    const typing = event.target.matches('input, textarea, select');
 
     if (event.code === 'Space' && !typing) {
       event.preventDefault();
@@ -435,35 +347,124 @@ function wireEvents() {
   });
 }
 
-/* ----------------------------------------------------------- conexión */
+/* ---------------------------------------------------- panel de control */
 
-function openSettings() {
-  el.keyInput.value = settings.key;
-  el.modelInput.value = settings.model;
-  el.modelInput.placeholder = DEFAULT_MODEL;
-  el.promptInput.value = settings.prompt;
-  el.promptInput.placeholder = DEFAULT_PROMPT;
-  el.dictadoInput.value = settings.dictado;
-  el.settings.showModal();
+function wirePanel() {
+  el.panelBtn.addEventListener('click', () => abrirPanelInfo());
+  el.panelClose.addEventListener('click', () => el.panel.close());
+  el.panelAbrir.addEventListener('click', () => {
+    window.open('control.html', 'nova-panel', 'width=480,height=820');
+  });
 }
 
-async function applySettings(action) {
-  if (action === 'cancel') return;
+async function abrirPanelInfo() {
+  el.panelRed.innerHTML = '<p class="vacio">Buscando el servidor…</p>';
+  el.panel.showModal();
 
-  if (action === 'forget') {
-    settings.key = '';
-    el.keyInput.value = '';
-    toast('Clave borrada de este navegador. NOVA vuelve al modo demo.');
-  } else if (action === 'save') {
-    settings.key = el.keyInput.value;
-    settings.model = el.modelInput.value;
-    settings.prompt = el.promptInput.value;
-    settings.dictado = el.dictadoInput.value;
-    state.navegadorRoto = false; // se vuelve a probar con lo que se pidió
+  let info = null;
+  try {
+    const res = await fetch('api/health', { cache: 'no-store' });
+    if (res.ok) info = await res.json();
+  } catch { /* sin servidor */ }
+
+  if (!info?.control) {
+    el.panelRed.innerHTML =
+      '<p class="vacio">Esta página está servida sin el servidor de NOVA, así que el panel ' +
+      'solo se puede abrir en otra ventana de esta misma computadora. Para manejarla desde ' +
+      'el celular, corré <code>npm start</code> y abrí la página desde ahí.</p>';
+    return;
   }
 
-  const found = await refreshMode();
-  if (action === 'save' && found.mode === 'direct') toast('Listo: NOVA ya responde con tu clave de OpenAI.');
+  const puerto = location.port ? `:${location.port}` : '';
+  const direcciones = (info.direcciones || []).map((ip) => `http://${ip}${puerto}/control.html`);
+  if (!direcciones.length) {
+    el.panelRed.innerHTML = '<p class="vacio">El servidor está corriendo, pero esta máquina no tiene una dirección de red visible.</p>';
+    return;
+  }
+  el.panelRed.innerHTML =
+    '<p class="sheet__note">Desde un celular o una computadora <strong>en la misma red Wi-Fi</strong>, abrí una de estas direcciones:</p>' +
+    direcciones.map((d) => `<p class="panel__direccion"><a href="${escapar(d)}" target="_blank" rel="noopener">${escapar(d)}</a></p>`).join('');
+}
+
+/**
+ * Cuenta por el enlace todo lo que el panel necesita para ver por dónde
+ * va la función. Se manda entero y seguido: es chico y así nunca queda
+ * desactualizado.
+ */
+function publicar() {
+  clearTimeout(publicarTimer);
+  publicarTimer = setTimeout(() => {
+    enlace.enviar({
+      tipo: 'estado',
+      estado: {
+        escena: state.escena,
+        modo: state.modo,
+        escenario: isStage(),
+        mic: !listener ? 'no disponible' : listener.active ? 'escuchando' : 'apagado',
+        voz: speaker.enabled,
+        oido: state.oido,
+        ultimaRespuesta: state.ultimaRespuesta,
+        evento: state.evento,
+        guion: guion.resumen(),
+        asistente: arbitro.modo,
+        turno: show.current,
+        plantel: show.speakers,
+        acuerdos: show.agreements.length,
+        enlace: enlace.servidor,
+      },
+    });
+  }, 80);
+}
+
+/** Algo que al panel le sirve saber: queda como último evento y se cuenta. */
+function anotar(texto) {
+  state.evento = { t: Date.now(), texto };
+  publicar();
+}
+
+/** Lo que manda el panel. */
+function recibirComando(mensaje) {
+  if (mensaje.tipo !== 'comando') return;
+  const { accion } = mensaje;
+
+  switch (accion) {
+    case 'hola': publicar(); break;
+    case 'decir': decirDelGuion(Number(mensaje.indice)); break;
+    case 'siguiente': decirSiguiente(); break;
+    case 'reiniciar': guion.reiniciar(); anotar('El guion vuelve al principio.'); break;
+    case 'activo': guion.setActivo(Boolean(mensaje.on)); break;
+    case 'tolerancia': guion.setTolerancia(String(mensaje.nombre)); break;
+    case 'cargar': {
+      const cuantos = guion.cargar(String(mensaje.texto || ''));
+      anotar(cuantos ? `Guion cargado desde el panel: ${cuantos} parlamentos.` : 'Guion quitado desde el panel.');
+      toast(cuantos ? `Guion cargado desde el panel: ${cuantos} parlamentos.` : 'Guion quitado desde el panel.');
+      break;
+    }
+    case 'escena': verEscena(['portada', 'charla', 'muro'].includes(mensaje.nombre) ? mensaje.nombre : 'charla'); break;
+    case 'escenario': setStageMode(Boolean(mensaje.on)); break;
+    case 'mic': {
+      if (!listener) return anotar('Este navegador no reconoce voz: el micrófono no se puede encender.');
+      if (Boolean(mensaje.on) !== listener.active) toggleMic();
+      break;
+    }
+    case 'voz': setVoice(Boolean(mensaje.on)); break;
+    case 'turno': show.setCurrent(String(mensaje.id)); break;
+    case 'turno-siguiente': show.next(); break;
+    case 'fijar': fijarAcuerdo(); break;
+    case 'detener': abort(); break;
+    case 'texto': decirTexto(String(mensaje.texto || '')); break;
+    case 'oido': send(String(mensaje.texto || '').trim()); break;
+    default: break;
+  }
+}
+
+function pintarEnlace() {
+  const servidor = enlace.servidor === 'conectado';
+  setStatus(servidor ? 'online' : 'local', servidor ? 'Panel por red' : 'Panel solo acá');
+  el.status.title = servidor
+    ? 'Hay servidor: el panel de control se puede abrir desde otro dispositivo de la red.'
+    : 'Sin servidor: el panel de control solo se abre en otra ventana de esta computadora.';
+  publicar();
 }
 
 /* ------------------------------------------------------------- el guion */
@@ -476,7 +477,7 @@ function wireGuion() {
   el.guionQuitar.addEventListener('click', () => {
     guion.quitar();
     el.guionTexto.value = '';
-    toast('Guion quitado. NOVA vuelve a pensar todas las respuestas.');
+    toast('Guion quitado. NOVA no tiene nada que decir hasta que cargues otro.');
   });
   el.guionEjemplo.addEventListener('click', () => {
     el.guionTexto.value = GUION_EJEMPLO;
@@ -504,6 +505,34 @@ function wireGuion() {
     toast('El guion vuelve al principio.');
   });
   el.guionDecir.addEventListener('click', () => decirSiguiente());
+
+  // Asistente de ubicación: la clave vive solo en este navegador.
+  el.asistenteGuardar.addEventListener('click', async () => {
+    arbitro.clave = el.asistenteClave.value;
+    arbitro.modelo = el.asistenteModelo.value;
+    await arbitro.detectar();
+    pintarAsistente();
+    toast(arbitro.disponible ? 'Asistente de ubicación listo.' : 'Sin clave: NOVA ubica los pies por parecido, como siempre.');
+  });
+  el.asistenteOlvidar.addEventListener('click', async () => {
+    arbitro.clave = '';
+    el.asistenteClave.value = '';
+    await arbitro.detectar();
+    pintarAsistente();
+    toast('Clave borrada de este navegador.');
+  });
+}
+
+/** Qué asistente hay, en el panel del guion y para el panel de control. */
+function pintarAsistente() {
+  el.asistenteClave.value = arbitro.clave;
+  el.asistenteModelo.value = arbitro.modelo;
+  el.asistenteEstado.innerHTML = {
+    servidor: '<strong>Asistente activo por el servidor.</strong> La clave está en el <code>.env</code> de la computadora que corre NOVA.',
+    directo: '<strong>Asistente activo con la clave de este navegador.</strong> Cuando lo que se oye no coincide con un pie, se le pregunta a qué pie corresponde.',
+    ninguno: '<strong>Sin asistente.</strong> NOVA ubica los pies por parecido de palabras, que alcanza si los estudiantes dicen más o menos lo escrito.',
+  }[arbitro.modo];
+  publicar();
 }
 
 function abrirGuion() {
@@ -518,6 +547,7 @@ function guardarGuion() {
     return toast('No encontré parlamentos de NOVA. Las líneas tienen que empezar con "NOVA:".');
   }
   toast(cuantos ? `Guion cargado: ${cuantos} ${cuantos === 1 ? 'parlamento' : 'parlamentos'}.` : 'Guion vacío.');
+  anotar(cuantos ? `Guion cargado: ${cuantos} parlamentos.` : 'Guion vacío.');
 }
 
 /** El renglón bajo el texto: cuántos parlamentos y de quiénes son los pies. */
@@ -526,11 +556,12 @@ function describirGuion(texto, { borrador = false } = {}) {
     el.guionResumen.textContent = 'Sin guion. Podés pegarlo acá o abrir un archivo de texto.';
     return;
   }
-  const { entradas, personajes } = parsearGuion(texto);
+  const { entradas, comodines, personajes } = parsearGuion(texto);
   const sinPie = entradas.filter((e) => !e.pies.length).length;
   const partes = [`${entradas.length} ${entradas.length === 1 ? 'parlamento' : 'parlamentos'} de NOVA`];
   if (personajes.length) partes.push(`pies de ${personajes.join(', ')}`);
   if (sinPie) partes.push(`${sinPie} sin pie (se ${sinPie === 1 ? 'dice' : 'dicen'} con la tecla S)`);
+  if (comodines.length) partes.push(`${comodines.length} ${comodines.length === 1 ? 'comodín' : 'comodines'}`);
   el.guionResumen.textContent = `${partes.join(' · ')}${borrador ? ' — sin guardar' : ''}.`;
   if (!entradas.length) {
     el.guionResumen.textContent = 'No hay líneas de NOVA. Cada parlamento tiene que empezar con "NOVA:".';
@@ -572,7 +603,7 @@ function pintarGuion() {
   el.guionDecir.disabled = !siguiente;
   if (enUso) {
     if (!siguiente) {
-      el.guionPie.innerHTML = '<em>Fin del guion.</em> Lo que sigue lo piensa NOVA.';
+      el.guionPie.innerHTML = '<em>Fin del guion.</em> Solo quedan los comodines.';
     } else if (siguiente.pies.length) {
       el.guionPie.innerHTML = `${siguiente.indice + 1}/${guion.entradas.length} · se espera: <strong>${escapar(siguiente.pies.at(-1))}</strong>`;
     } else {
@@ -583,6 +614,8 @@ function pintarGuion() {
   el.sceneHint.textContent = enUso
     ? 'Espacio: micrófono · S: guion · A: fijar acuerdo · M: muro · F: salir'
     : 'Espacio: micrófono · A: fijar acuerdo · M: muro · F: salir';
+
+  publicar();
 }
 
 /** Tecla S: NOVA dice el parlamento que sigue, sin esperar el pie. */
@@ -598,16 +631,28 @@ async function decirDelGuion(indice) {
   const entrada = guion.entradas[indice];
   if (!entrada || state.busy) return;
 
+  prepararRespuesta();
+  guion.marcar(indice);
+  // Si después se fija como acuerdo, el pie sirve de título.
+  state.ultimaPregunta = entrada.pies.at(-1) || '';
+  anotar(`Dice el parlamento ${indice + 1} a pedido.`);
+  await responder(entrada.parlamento, { origen: 'guion' });
+}
+
+/** NOVA dice un texto que el operador escribió en el momento. */
+async function decirTexto(texto) {
+  if (!texto.trim() || state.busy) return;
+  prepararRespuesta();
+  anotar('Dice un texto escrito desde el panel.');
+  await responder(texto.trim(), { origen: 'libre' });
+}
+
+function prepararRespuesta() {
   speaker.cancel();
   sentences.reset();
   el.welcome?.remove();
   if (state.escena !== 'charla') verEscena('charla');
   showHeard('', false);
-
-  guion.marcar(indice);
-  // Si después se fija como acuerdo, el pie sirve de título.
-  state.ultimaPregunta = entrada.pies.at(-1) || '';
-  await responder((onDelta, signal) => streamText(entrada.parlamento, onDelta, signal), { delGuion: true });
 }
 
 /* --------------------------------------------------------- la función */
@@ -682,6 +727,7 @@ function pintarFuncion() {
   });
 
   pintarMuro();
+  publicar();
 }
 
 /** El muro que se proyecta: todo lo definido, junto. */
@@ -724,6 +770,7 @@ function fijarAcuerdo() {
   el.scene.classList.add('acuerdo-fijado');
   setTimeout(() => el.scene.classList.remove('acuerdo-fijado'), 900);
   toast('Acuerdo fijado en el muro.');
+  anotar('Acuerdo fijado en el muro.');
 }
 
 /**
@@ -760,6 +807,7 @@ function verEscena(nombre) {
   el.body.dataset.escena = nombre;
   if (nombre === 'muro') pintarMuro();
   el.muroBtn.textContent = nombre === 'muro' ? 'Volver a la charla' : 'Mostrar el muro';
+  publicar();
 }
 
 /**
@@ -776,17 +824,14 @@ function escapar(texto) {
 /* -------------------------------------------------------------- micro */
 
 async function toggleMic() {
-  if (!listener) return toast('Este navegador no reconoce voz. Probá con Chrome o Edge.');
+  if (!listener) return toast('Este navegador no reconoce voz. Probá con Google Chrome o Edge, o manejá el guion desde el panel.');
   if (state.abriendoMic) return;
 
   if (listener.active) {
     listener.stop();
     micApagado();
+    anotar('Micrófono apagado.');
     return;
-  }
-
-  if (listener.nombre === 'API' && state.mode === 'demo') {
-    return toast('Para dictar en este navegador hace falta una clave de OpenAI. Cargala en Conexión, o usá Google Chrome o Edge.');
   }
 
   state.abriendoMic = true;
@@ -800,12 +845,12 @@ async function toggleMic() {
     micApagado();
     return;
   }
-  el.micHint.textContent = pistaEscuchando();
+  el.micHint.textContent = 'Escuchando… tocá para cortar';
+  anotar('Micrófono encendido.');
 
-  // El nivel de voz es lo que mueve los visuales. Si el micrófono ya está
-  // abierto se comparte; si el navegador no deja abrirlo dos veces, la
-  // página sigue andando sin reaccionar.
-  meter.start(listener.stream || undefined).then((bien) => {
+  // El nivel de voz es lo que mueve los visuales. Si el navegador no deja
+  // abrir el micrófono dos veces, la página sigue andando sin reaccionar.
+  meter.start().then((bien) => {
     if (!bien) console.info('NOVA: sin medidor de voz; los visuales no reaccionan al volumen.');
   });
 }
@@ -819,6 +864,7 @@ function micApagado() {
   setMicActive(false);
   el.micHint.textContent = 'Tocá para hablar';
   if (!state.busy) setMode('idle');
+  publicar();
 }
 
 function setMicActive(active) {
@@ -834,40 +880,37 @@ function queueSpeech(text) {
   showHeard(state.pendingSpeech.join(' '), true);
 
   clearTimeout(state.silenceTimer);
-  const esperar = () => {
-    state.silenceTimer = setTimeout(() => {
-      // Si hay una frase a medio grabar o transcribir, se le da tiempo a llegar.
-      if (listener?.busy) return esperar();
-      const full = state.pendingSpeech.join(' ').trim();
-      state.pendingSpeech.length = 0;
-      if (full) send(full, { fromVoice: true });
-    }, listener?.silenceMs ?? SILENCE_MS);
-  };
-  esperar();
+  state.silenceTimer = setTimeout(() => {
+    const full = state.pendingSpeech.join(' ').trim();
+    state.pendingSpeech.length = 0;
+    if (full) send(full, { fromVoice: true });
+  }, SILENCE_MS);
 }
 
 function showHeard(text, isFinal) {
   el.sceneHeard.textContent = text;
   el.sceneHeard.classList.toggle('is-live', Boolean(text));
   el.sceneHeard.style.opacity = text ? (isFinal ? '1' : '0.72') : '0';
+  if (text) state.oido = text;
+  publicar();
 }
 
 /* ---------------------------------------------------------- conversar */
 
+/**
+ * Alguien dijo algo, por voz o por teclado. Si se parece a un pie del
+ * guion, NOVA contesta con ese parlamento. Si no, con un comodín; y si el
+ * guion no tiene comodines, se queda callada y el panel avisa qué oyó.
+ */
 async function send(text, { fromVoice = false } = {}) {
   if (!text || state.busy) return;
 
-  // Si NOVA estaba hablando, se calla para escuchar lo nuevo.
-  speaker.cancel();
-  sentences.reset();
-  el.welcome?.remove();
-  if (state.escena !== 'charla') verEscena('charla');
-
-  showHeard('', false);
+  prepararRespuesta();
+  state.oido = text;
 
   addBubble('user', text, { animate: fromVoice });
   cloud.absorb(text, 'user');
-  state.messages.push({ role: 'user', content: text });
+  state.ultimo = { role: 'user', content: text };
   state.ultimaPregunta = text;
 
   // En el escenario primero se ve lo que dijo la persona…
@@ -878,26 +921,49 @@ async function send(text, { fromVoice = false } = {}) {
     sceneWriter.push(text);
   }
 
-  // Si lo dicho es un pie del guion, NOVA contesta con su parlamento.
-  // Si no, piensa la respuesta como siempre.
-  const hallado = guion.buscar(text);
+  let hallado = guion.buscar(text);
+
+  // Si el parecido no alcanza, o es flojo, el asistente decide a qué pie
+  // corresponde. Mientras tanto NOVA "piensa", que es exactamente lo que pasa.
+  if (arbitro.disponible && guion.activo && guion.tiene && (!hallado || hallado.puntaje < 0.9)) {
+    setMode('thinking');
+    const veredicto = await arbitro.ubicar({ oido: text, cursor: guion.cursor, entradas: guion.entradas });
+    if (veredicto?.indice != null && veredicto.confianza >= 0.6 && guion.entradas[veredicto.indice]?.pies.length) {
+      hallado = { entrada: guion.entradas[veredicto.indice], puntaje: veredicto.confianza, porAsistente: true };
+    } else if (veredicto?.error) {
+      anotar(`El asistente no respondió: ${veredicto.error}`);
+    }
+  }
+
   if (hallado) {
     guion.marcar(hallado.entrada.indice);
-    await responder((onDelta, signal) => streamText(hallado.entrada.parlamento, onDelta, signal), { delGuion: true });
-  } else {
-    await responder((onDelta, signal) => streamChat(state.messages, onDelta, { mode: state.mode, signal }));
+    anotar(`${hallado.porAsistente ? 'El asistente ubicó' : 'Reconoció'} el pie ${hallado.entrada.indice + 1}: «${text}».`);
+    await responder(hallado.entrada.parlamento, { origen: 'guion' });
+    return;
   }
+
+  const comodin = guion.tiene ? guion.comodin : null;
+  if (comodin) {
+    anotar(`No reconoció «${text}»: contesta con un comodín.`);
+    await responder(comodin, { origen: 'comodin' });
+    return;
+  }
+
+  anotar(guion.tiene ? `No reconoció «${text}» y no hay comodines.` : `Oyó «${text}», pero no hay guion cargado.`);
+  addNota(guion.tiene
+    ? 'No se parece a ningún pie del guion. Con la tecla S, NOVA dice lo que sigue.'
+    : 'No hay guion cargado: NOVA no tiene nada que decir.');
+  if (!listener?.active) setMode('idle');
 }
 
 /**
- * Produce y muestra una respuesta de NOVA, venga de donde venga: de la API,
- * del modo demo o del guion. Maneja el goteo de letras, la voz, el historial
- * y los cortes; `producir` solo tiene que entregar los fragmentos.
+ * NOVA dice un texto: lo deja caer letra por letra, lo lee en voz alta y
+ * lo recuerda por si se fija en el muro.
  *
- * @param {(onDelta:(delta:string)=>void, signal:AbortSignal) => Promise<string>} producir
- * @param {{delGuion?: boolean}} [opts]
+ * @param {string} texto
+ * @param {{origen: 'guion'|'comodin'|'libre'}} opts
  */
-async function responder(producir, { delGuion = false } = {}) {
+async function responder(texto, { origen }) {
   state.busy = true;
   el.stopBtn.hidden = false;
   el.sendBtn.disabled = true;
@@ -907,10 +973,8 @@ async function responder(producir, { delGuion = false } = {}) {
   setMode('thinking');
 
   const bubble = addBubble('ai', '', { pending: true });
-  if (delGuion) {
-    bubble.closest('.msg')?.classList.add('msg--guion');
-    bubble.title = 'Dicho según el guion';
-  }
+  bubble.closest('.msg')?.classList.add(`msg--${origen}`);
+  bubble.title = { guion: 'Dicho según el guion', comodin: 'Comodín: no reconoció el pie', libre: 'Escrito desde el panel' }[origen];
   const bubbleWriter = new Materializer(bubble, { charsPerSecond: 46 });
   let firstChunk = true;
   let answer = '';
@@ -918,7 +982,8 @@ async function responder(producir, { delGuion = false } = {}) {
   state.controller = new AbortController();
 
   try {
-    answer = await producir(
+    answer = await gotear(
+      texto,
       (delta) => {
         if (firstChunk) {
           firstChunk = false;
@@ -944,31 +1009,22 @@ async function responder(producir, { delGuion = false } = {}) {
     bubbleWriter.flush();
     bubble.classList.remove('is-streaming');
 
-    if (answer.trim()) {
-      state.messages.push({ role: 'assistant', content: answer });
-      cloud.absorb(answer, 'ai');
-      state.ultimaRespuesta = answer.trim();
-      el.pinBtn.disabled = false;
-    } else {
-      bubble.textContent = '(sin respuesta)';
-    }
+    state.ultimo = { role: 'assistant', content: answer };
+    cloud.absorb(answer, 'ai');
+    state.ultimaRespuesta = answer.trim();
+    el.pinBtn.disabled = false;
   } catch (err) {
     bubbleWriter.flush();
     bubble.classList.remove('is-streaming', 'is-pending');
-
     if (err.name === 'AbortError') {
       // Corte pedido por la persona: dejamos lo que alcanzó a decir.
       bubble.textContent = bubble.textContent || '(interrumpido)';
-      if (bubble.textContent.trim() && bubble.textContent !== '(interrumpido)') {
-        state.messages.push({ role: 'assistant', content: bubble.textContent });
-      }
+      anotar('Parlamento interrumpido.');
     } else {
       bubble.closest('.msg')?.classList.add('msg--error');
       bubble.textContent = err.message;
       setMode('error');
       toast(err.message);
-      // No dejamos el turno colgado en el historial.
-      if (state.messages.at(-1)?.role === 'user') state.messages.pop();
     }
   } finally {
     state.busy = false;
@@ -981,7 +1037,7 @@ async function responder(producir, { delGuion = false } = {}) {
     const rest = () => {
       if (el.orb.dataset.state === 'error') return;
       if (speaker.enabled && speaker.speaking) setMode('speaking');
-      else setMode(listener.active ? 'listening' : 'idle');
+      else setMode(listener?.active ? 'listening' : 'idle');
     };
 
     const writer = sceneWriter.isBusy ? sceneWriter : bubbleWriter.isBusy ? bubbleWriter : null;
@@ -994,6 +1050,7 @@ async function responder(producir, { delGuion = false } = {}) {
     } else {
       rest();
     }
+    publicar();
   }
 }
 
@@ -1005,14 +1062,16 @@ function abort() {
 
 function reset() {
   abort();
-  state.messages.length = 0;
   state.pendingSpeech.length = 0;
   clearTimeout(state.silenceTimer);
+  state.ultimo = null;
+  state.oido = '';
   el.log.innerHTML = '';
   sceneWriter.clear();
   showHeard('', false);
   cloud.clear();
-  setMode(listener.active ? 'listening' : 'idle');
+  setMode(listener?.active ? 'listening' : 'idle');
+  anotar('Charla limpia.');
 }
 
 /* ------------------------------------------------------------ burbujas */
@@ -1052,6 +1111,15 @@ function addBubble(who, text, { pending = false, animate = false } = {}) {
   return bubble;
 }
 
+/** Una nota de la consola, para el operador: no es algo que NOVA diga. */
+function addNota(texto) {
+  const nota = document.createElement('p');
+  nota.className = 'nota';
+  nota.textContent = texto;
+  el.log.appendChild(nota);
+  scrollLog();
+}
+
 /** "Ana María" queda en AM; "Tomás", en TO. */
 function iniciales(nombre) {
   const partes = nombre.trim().split(/\s+/);
@@ -1076,10 +1144,12 @@ const CAPTIONS = {
 };
 
 function setMode(mode) {
+  state.modo = mode;
   el.orb.dataset.state = mode === 'answering' ? 'thinking' : mode;
   el.sceneOrb.dataset.state = mode === 'answering' ? 'thinking' : mode;
   el.coreCaption.textContent = CAPTIONS[mode] || '';
   el.sceneState.textContent = CAPTIONS[mode] || '';
+  publicar();
 }
 
 function setStatus(stateName, label) {
@@ -1105,7 +1175,7 @@ function setStageMode(on) {
       // Algunos navegadores lo rechazan sin gesto directo: el modo igual funciona.
     });
     // Arrancamos el escenario con el último mensaje que haya, para no dejarlo vacío.
-    const last = state.messages.at(-1);
+    const last = state.ultimo;
     if (last && !sceneWriter.isBusy && !el.sceneText.textContent) {
       el.scene.dataset.speaker = last.role === 'user' ? 'human' : 'ai';
       el.sceneLabel.textContent = last.role === 'user' ? 'VOS' : 'NOVA';
@@ -1118,11 +1188,11 @@ function setStageMode(on) {
   // En el escenario, las palabras dejan libre el centro donde va el texto grande.
   cloud.setClearZone(on ? { rx: 0.24, ry: 0.3 } : null);
   cloud.resize();
+  publicar();
 }
 
 /* ---------------------------------------------------------------- varios */
 
-let toastTimer = null;
 function toast(message) {
   el.toast.textContent = message;
   el.toast.hidden = false;

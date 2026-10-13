@@ -11,8 +11,12 @@
  *
  * Las líneas de NOVA son sus parlamentos. Lo que viene justo antes es el
  * pie: cuando alguien dice algo parecido —por voz o por teclado— NOVA
- * contesta con el parlamento en vez de pensar. Lo que no esté en el guion
- * sigue yendo a la API (o al modo demo), así que la charla no se traba.
+ * contesta con el parlamento. Si lo que escucha no se parece a ningún pie,
+ * contesta con un comodín, si el guion los tiene:
+ *
+ *   NOVA?: No te escuché bien. ¿Me lo repetís?
+ *
+ * y si no, se queda callada y el panel de control avisa qué oyó.
  *
  * La comparación es tolerante a propósito: el reconocimiento de voz no es
  * perfecto y nadie dice una frase exactamente igual dos veces. Además el
@@ -40,6 +44,10 @@ export const TOLERANCIAS = {
 /** Un guion corto para ver el formato andando. */
 export const GUION_EJEMPLO = `# Guion de ejemplo. Las líneas con numeral son comentarios.
 # Las líneas de NOVA son lo que dice. La línea anterior es su pie.
+# Las líneas "NOVA?:" son comodines: lo que dice si no reconoce nada.
+
+NOVA?: No te escuché bien. ¿Me lo podés repetir?
+NOVA?: Eso no lo tengo preparado. Preguntame otra cosa.
 
 ANA: Hola NOVA, ¿nos escuchás?
 NOVA: Los escucho. Soy NOVA, la inteligencia de esta muestra. Estoy formándome letra por letra en la pantalla mientras hablamos.
@@ -66,9 +74,10 @@ NOVA: Gracias por esta noche. Lo que definimos juntos queda en el muro.
  *     línea en blanco en el medio: ahí es una línea nueva, de nadie.
  *   - `#`, `[acotación]` y `(acotación)` se ignoran.
  *   - Un parlamento de NOVA sin pie antes solo se dice a mano.
+ *   - `NOVA?: texto` es un comodín: se dice cuando nada se parece.
  *
  * @param {string} texto
- * @returns {{entradas: Array<{indice:number, pies:string[], parlamento:string}>, personajes: string[]}}
+ * @returns {{entradas: Array<{indice:number, pies:string[], parlamento:string}>, comodines: string[], personajes: string[]}}
  */
 export function parsearGuion(texto) {
   const lineas = [];
@@ -97,12 +106,15 @@ export function parsearGuion(texto) {
   }
 
   const entradas = [];
+  const comodines = [];
   const personajes = new Set();
   let pies = [];
 
   for (const { quien, texto: dicho } of lineas) {
     if (!dicho) continue;
-    if (ALIAS_NOVA.has(normalizar(quien))) {
+    if (esComodin(quien)) {
+      comodines.push(dicho);
+    } else if (ALIAS_NOVA.has(normalizar(quien))) {
       entradas.push({ indice: entradas.length, pies, parlamento: dicho });
       pies = [];
     } else {
@@ -111,7 +123,13 @@ export function parsearGuion(texto) {
     }
   }
 
-  return { entradas, personajes: [...personajes] };
+  return { entradas, comodines, personajes: [...personajes] };
+}
+
+/** "NOVA?" rotula un comodín: lo que dice cuando no reconoce el pie. */
+function esComodin(quien) {
+  const limpio = normalizar(quien).replace(/\s*\?$/, '');
+  return /\?$/.test(quien.trim()) && ALIAS_NOVA.has(limpio);
 }
 
 /**
@@ -122,7 +140,7 @@ export function parsearGuion(texto) {
  */
 function esNombre(candidato, vistos) {
   if (!candidato || /^https?$/i.test(candidato)) return false;
-  if (vistos.has(normalizar(candidato)) || ALIAS_NOVA.has(normalizar(candidato))) return true;
+  if (vistos.has(normalizar(candidato)) || ALIAS_NOVA.has(normalizar(candidato)) || esComodin(candidato)) return true;
 
   const partes = candidato.split(/\s+/);
   if (partes.length > 3) return false;
@@ -212,6 +230,7 @@ export class Guion {
   constructor() {
     this.texto = '';
     this.entradas = [];
+    this.comodines = [];
     this.personajes = [];
     this.activo = true;
     this.tolerancia = 'normal';
@@ -222,9 +241,10 @@ export class Guion {
 
   /** Carga un guion nuevo y vuelve al principio. Devuelve cuántos parlamentos tiene. */
   cargar(texto) {
-    const { entradas, personajes } = parsearGuion(texto);
+    const { entradas, comodines, personajes } = parsearGuion(texto);
     this.texto = String(texto || '');
     this.entradas = entradas;
+    this.comodines = comodines;
     this.personajes = personajes;
     this.cursor = -1;
     this.#save();
@@ -246,6 +266,25 @@ export class Guion {
   /** El parlamento que viene según el orden del guion. */
   get siguiente() {
     return this.entradas[this.cursor + 1] || null;
+  }
+
+  /** Un comodín al azar, para cuando nada se parece. */
+  get comodin() {
+    if (!this.comodines.length) return null;
+    return this.comodines[(Math.random() * this.comodines.length) | 0];
+  }
+
+  /** Todo lo que el panel de control necesita saber, listo para mandar. */
+  resumen() {
+    return {
+      activo: this.activo,
+      tolerancia: this.tolerancia,
+      cursor: this.cursor,
+      total: this.entradas.length,
+      comodines: this.comodines.length,
+      personajes: this.personajes,
+      entradas: this.entradas.map((e) => ({ indice: e.indice, pie: e.pies.at(-1) || '', parlamento: e.parlamento })),
+    };
   }
 
   setActivo(on) {
@@ -335,9 +374,10 @@ export class Guion {
     }
     if (!guardado) return;
 
-    const { entradas, personajes } = parsearGuion(guardado.texto);
+    const { entradas, comodines, personajes } = parsearGuion(guardado.texto);
     this.texto = typeof guardado.texto === 'string' ? guardado.texto : '';
     this.entradas = entradas;
+    this.comodines = comodines;
     this.personajes = personajes;
     this.activo = guardado.activo !== false;
     this.tolerancia = guardado.tolerancia in TOLERANCIAS ? guardado.tolerancia : 'normal';

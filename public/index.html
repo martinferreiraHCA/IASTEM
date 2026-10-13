@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>NOVA · IASTEM</title>
-  <meta name="description" content="Interfaz conversacional en vivo conectada a la API de ChatGPT." />
+  <meta name="description" content="NOVA: una inteligencia artificial de escenario que responde con el guion de la función, manejada desde un panel de control." />
   <meta name="theme-color" content="#05060c" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='38' fill='none' stroke='%237af5ff' stroke-width='7'/><circle cx='50' cy='50' r='13' fill='%23a37bff'/></svg>" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -45,8 +45,8 @@
       <button class="ghost" id="guionBtn" type="button" title="Parlamentos preparados que NOVA dice al escuchar su pie">
         Guion
       </button>
-      <button class="ghost" id="settingsBtn" type="button" title="Elegir de dónde salen las respuestas">
-        Conexión
+      <button class="ghost" id="panelBtn" type="button" title="Abrir el panel de control, acá o en el celular">
+        Panel
       </button>
       <button class="ghost" id="stageBtn" type="button" title="Pantalla completa para proyectar (F)">
         Modo escenario
@@ -87,11 +87,9 @@
       <div class="log" id="log" role="log" aria-live="polite" aria-relevant="additions text">
         <div class="welcome" id="welcome">
           <h1>Hablá con <span>NOVA</span></h1>
-          <p>Encendé el micrófono y hablale, o escribile acá abajo. Responde en vivo por la API de ChatGPT.</p>
+          <p>NOVA responde con el guion de la función. Cargalo, encendé el micrófono y decí un pie, o escribilo acá abajo. Desde el panel de control la manejás a mano.</p>
           <div class="chips">
-            <button class="chip" type="button" data-prompt="Explicame qué es una API como si tuviera 12 años.">¿Qué es una API?</button>
-            <button class="chip" type="button" data-prompt="Dame tres ideas de proyecto STEM para presentar en la escuela.">Ideas de proyecto STEM</button>
-            <button class="chip" type="button" data-prompt="Contame un dato curioso de física que casi nadie conoce.">Un dato curioso</button>
+            <button class="chip" type="button" id="welcomeGuion">Cargar el guion</button>
           </div>
         </div>
       </div>
@@ -236,7 +234,8 @@
         una línea por parlamento. Las líneas de <strong>NOVA</strong> son lo que ella
         responde; la línea anterior es su <strong>pie</strong>. Cuando alguien dice algo
         parecido al pie, por voz o por teclado, NOVA contesta con el parlamento tal cual.
-        Lo que no esté en el guion lo sigue pensando sola.
+        Las líneas <code>NOVA?:</code> son <strong>comodines</strong>: lo que dice cuando
+        no reconoce nada. Todo lo que NOVA dice sale de acá.
       </p>
 
       <div class="sheet__field">
@@ -284,62 +283,57 @@
           <button class="ghost" id="guionReiniciar" type="button">Volver al principio</button>
         </div>
       </section>
+
+      <section class="bloque">
+        <h3 class="bloque__titulo">Asistente de ubicación (opcional)</h3>
+        <p class="sheet__mode" id="asistenteEstado">Detectando…</p>
+        <p class="sheet__note">
+          Una IA que <strong>no escribe lo que dice NOVA</strong>: solo decide a qué pie
+          corresponde lo que se oyó, cuando el parecido de palabras no alcanza. Entiende
+          que "¿de dónde sacás lo que sabés?" y "¿cómo aprendiste?" pueden ser el mismo pie.
+          Usa una clave de OpenAI. Se guarda solo en este navegador; con <code>npm start</code>
+          conviene ponerla en el <code>.env</code> del servidor.
+        </p>
+        <div class="alta">
+          <input type="password" id="asistenteClave" placeholder="Clave de OpenAI (sk-…)" autocomplete="off" spellcheck="false" aria-label="Clave de OpenAI" />
+          <input type="text" id="asistenteModelo" placeholder="gpt-4o-mini" autocomplete="off" spellcheck="false" aria-label="Modelo" style="flex: 0 1 150px" />
+        </div>
+        <div class="sheet__foot">
+          <button class="ghost" id="asistenteOlvidar" type="button">Borrar la clave</button>
+          <span class="toolbar__spacer"></span>
+          <button class="primary" id="asistenteGuardar" type="button">Guardar</button>
+        </div>
+      </section>
     </div>
   </dialog>
 
-  <!-- ===================================================== conexión -->
-  <dialog class="sheet" id="settings">
-    <form method="dialog" class="sheet__form" id="settingsForm">
+  <!-- ===================================================== panel -->
+  <dialog class="sheet" id="panel">
+    <div class="sheet__form">
       <header class="sheet__head">
-        <h2>Conexión</h2>
-        <button class="sheet__close" value="cancel" type="submit" aria-label="Cerrar">×</button>
+        <h2>Panel de control</h2>
+        <button class="sheet__close" id="panelClose" type="button" aria-label="Cerrar">×</button>
       </header>
 
-      <p class="sheet__mode" id="settingsMode">Detectando…</p>
+      <p class="sheet__note">
+        El panel muestra por dónde va NOVA y permite manejarla: decir el parlamento que
+        sigue, saltar a otro, cambiar de escena, prender el micrófono, pasar el turno.
+        Sirve para dejar esta pantalla proyectada y operar desde otro lado.
+      </p>
 
-      <div class="sheet__field">
-        <label for="keyInput">Clave de OpenAI</label>
-        <input
-          type="password"
-          id="keyInput"
-          placeholder="sk-…"
-          autocomplete="off"
-          spellcheck="false" />
-        <p class="sheet__note">
-          Se guarda solo en este navegador y viaja únicamente a OpenAI. Dejala vacía
-          para usar el modo demo. <strong>Nunca la escribas en el código del repo:</strong>
-          si el repositorio es público, queda expuesta apenas la subas.
-        </p>
-      </div>
+      <section class="bloque">
+        <h3 class="bloque__titulo">En esta computadora</h3>
+        <p class="sheet__note">Se abre en otra ventana. Ponela en la pantalla de la notebook y el escenario en el proyector.</p>
+        <div class="sheet__foot">
+          <button class="primary" id="panelAbrir" type="button">Abrir el panel en otra ventana</button>
+        </div>
+      </section>
 
-      <div class="sheet__field">
-        <label for="modelInput">Modelo</label>
-        <input type="text" id="modelInput" placeholder="gpt-4o-mini" autocomplete="off" spellcheck="false" />
-        <p class="sheet__note">Para hablar en vivo conviene uno rápido: la espera se nota en pantalla.</p>
-      </div>
-
-      <div class="sheet__field">
-        <label for="promptInput">Personalidad de NOVA</label>
-        <textarea id="promptInput" rows="4"></textarea>
-      </div>
-
-      <div class="sheet__field">
-        <label for="dictadoInput">Cómo escucha</label>
-        <select id="dictadoInput">
-          <option value="auto">Automático: el navegador si puede, si no la API</option>
-          <option value="navegador">El navegador (Google Chrome o Edge)</option>
-          <option value="api">La API de OpenAI (cualquier navegador, usa la clave)</option>
-        </select>
-        <p class="sheet__note" id="dictadoNota">Detectando…</p>
-      </div>
-
-      <footer class="sheet__foot">
-        <button class="ghost" type="submit" value="forget" id="forgetBtn">Borrar la clave</button>
-        <span class="toolbar__spacer"></span>
-        <button class="ghost" type="submit" value="cancel">Cancelar</button>
-        <button class="primary" type="submit" value="save">Guardar</button>
-      </footer>
-    </form>
+      <section class="bloque">
+        <h3 class="bloque__titulo">Desde el celular</h3>
+        <div id="panelRed"></div>
+      </section>
+    </div>
   </dialog>
 
   <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>

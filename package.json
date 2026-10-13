@@ -1,7 +1,7 @@
 {
   "name": "iastem-nova",
   "version": "1.0.0",
-  "description": "Interfaz conversacional para proyectar: habla en vivo con ChatGPT, letras que se materializan y nube de palabras.",
+  "description": "NOVA: una inteligencia artificial de escenario que responde con el guion de la función y se maneja desde un panel de control.",
   "private": true,
   "type": "commonjs",
   "main": "server.js",
