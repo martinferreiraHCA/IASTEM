@@ -36,6 +36,7 @@ export class WordCloud {
     this.zonaCache = null;        // la última zona medida, en píxeles
     this.zonaMedida = 0;          // cuándo se midió
     this.energy = 0;              // volumen de la voz, de 0 a 1
+    this.escenario = false;       // proyectada: palabras más grandes, más vivas y que duran más
     this.running = false;
     this.lastFrame = 0;
 
@@ -48,11 +49,12 @@ export class WordCloud {
    * Deja un hueco para que el texto grande se lea limpio.
    *
    * Puede ser una elipse fija en el centro, `{rx, ry}` como fracción del
-   * ancho y el alto, o una función que devuelve dónde está el texto en este
-   * momento, `{cx, cy, hw, hh}` en píxeles (centro y medios lados): así el
-   * hueco sigue al texto cuando crece, se achica o se corre.
+   * ancho y el alto, o una función que devuelve dónde está lo que hay que
+   * esquivar en este momento: una zona `{cx, cy, hw, hh}` en píxeles
+   * (centro y medios lados) o una lista de zonas, la primera la principal.
+   * Así el hueco sigue al texto cuando crece, se achica o se corre.
    *
-   * @param {{rx:number, ry:number} | (() => {cx:number, cy:number, hw:number, hh:number} | null) | null} zone
+   * @param {{rx:number, ry:number} | (() => object | object[] | null) | null} zone
    */
   setClearZone(zone) {
     this.clearZone = zone;
@@ -60,18 +62,33 @@ export class WordCloud {
     this.zonaMedida = 0;
   }
 
-  /** La zona de ahora, en píxeles. Se vuelve a medir cada tanto, no en cada cuadro. */
-  #zona() {
-    if (!this.clearZone) return null;
+  /** Las zonas de ahora, en píxeles. Se vuelven a medir cada tanto, no en cada cuadro. */
+  #zonas() {
+    if (!this.clearZone) return [];
     if (typeof this.clearZone !== 'function') {
-      return { cx: this.w / 2, cy: this.h / 2, hw: this.w * this.clearZone.rx, hh: this.h * this.clearZone.ry, blanda: true };
+      return [{ cx: this.w / 2, cy: this.h / 2, hw: this.w * this.clearZone.rx, hh: this.h * this.clearZone.ry, blanda: true }];
     }
     const ahora = performance.now();
     if (ahora - this.zonaMedida > 120) {
       this.zonaMedida = ahora;
-      this.zonaCache = this.clearZone() || null;
+      const medido = this.clearZone();
+      this.zonaCache = (Array.isArray(medido) ? medido : [medido]).filter(Boolean);
     }
-    return this.zonaCache;
+    return this.zonaCache || [];
+  }
+
+  /** La zona principal: donde va el texto grande. */
+  #zona() {
+    return this.#zonas()[0] || null;
+  }
+
+  /**
+   * En el escenario la nube se ve a diez metros: las palabras salen más
+   * grandes y más nítidas, y se quedan más tiempo.
+   */
+  setEscenario(on) {
+    this.escenario = Boolean(on);
+    for (const p of this.words) p.targetSize = sizeFor(p.weight, this.h, this.escenario);
   }
 
   /** El volumen de quien habla: las palabras brillan y se agitan con la voz. */
@@ -85,14 +102,32 @@ export class WordCloud {
    * el borde ya está encima del texto.
    */
   #intrusion(x, y, ew = 0, eh = 0) {
-    const zona = this.#zona();
-    if (!zona) return 0;
-    const dx = Math.abs(x - zona.cx) / (zona.hw + ew + 24);
-    const dy = Math.abs(y - zona.cy) / (zona.hh + eh + 18);
-    // Una elipse si la zona es la fija de siempre; un rectángulo redondeado
-    // si sigue al texto, que es rectangular.
-    const d = zona.blanda ? Math.hypot(dx, dy) : Math.max(dx, dy, Math.hypot(dx, dy) / 1.25);
-    return d >= 1 ? 0 : 1 - d;
+    let peor = 0;
+    for (const zona of this.#zonas()) {
+      const dx = Math.abs(x - zona.cx) / (zona.hw + ew + 24);
+      const dy = Math.abs(y - zona.cy) / (zona.hh + eh + 18);
+      // Una elipse si la zona es la fija de siempre; un rectángulo redondeado
+      // si sigue a un elemento de la pantalla, que es rectangular.
+      const d = zona.blanda ? Math.hypot(dx, dy) : Math.max(dx, dy, Math.hypot(dx, dy) / 1.25);
+      if (d < 1) peor = Math.max(peor, 1 - d);
+    }
+    return peor;
+  }
+
+  /** De qué zona hay que alejarse: la más invadida. */
+  #zonaMasCercana(x, y, ew = 0, eh = 0) {
+    let mejor = null;
+    let peor = 0;
+    for (const zona of this.#zonas()) {
+      const dx = Math.abs(x - zona.cx) / (zona.hw + ew + 24);
+      const dy = Math.abs(y - zona.cy) / (zona.hh + eh + 18);
+      const d = zona.blanda ? Math.hypot(dx, dy) : Math.max(dx, dy, Math.hypot(dx, dy) / 1.25);
+      if (d < 1 && 1 - d > peor) {
+        peor = 1 - d;
+        mejor = zona;
+      }
+    }
+    return mejor;
   }
 
   resize() {
@@ -122,7 +157,7 @@ export class WordCloud {
         existing.life = 1;
         existing.age = Math.max(existing.age, 0.8);
         existing.weight = weight;
-        existing.targetSize = sizeFor(weight, this.h);
+        existing.targetSize = sizeFor(weight, this.h, this.escenario);
         existing.pulse = 1;
         continue;
       }
@@ -166,7 +201,7 @@ export class WordCloud {
     // Distribución radial suave: densa en el centro, dispersa en los bordes.
     const angle = Math.random() * Math.PI * 2;
     const radius = Math.sqrt(Math.random()) * Math.min(this.w, this.h) * 0.52;
-    const size = sizeFor(weight, this.h);
+    const size = sizeFor(weight, this.h, this.escenario);
     const colors = PALETTE[tone] || PALETTE.ai;
 
     let x = this.w / 2 + Math.cos(angle) * radius;
@@ -195,7 +230,7 @@ export class WordCloud {
       targetSize: size,
       age: 0,                             // segundos desde que apareció
       life: 1,                            // 1 = recién nacida, 0 = disuelta
-      decay: 0.019 + Math.random() * 0.013,
+      decay: (0.019 + Math.random() * 0.013) * (this.escenario ? 0.55 : 1),
       color: colors[(Math.random() * colors.length) | 0],
       phase: Math.random() * Math.PI * 2,
       rot: (Math.random() - 0.5) * 0.1,
@@ -227,8 +262,10 @@ export class WordCloud {
 
       // El texto manda: las palabras se apartan si se le acercan, y rápido
       // si ya están encima, que pasa cuando el texto crece de golpe.
-      const zona = this.#zona();
-      const push = this.#intrusion(p.x, p.y, p.text.length * p.size * 0.29, p.size * 0.62);
+      const ew = p.text.length * p.size * 0.29;
+      const eh = p.size * 0.62;
+      const push = this.#intrusion(p.x, p.y, ew, eh);
+      const zona = push > 0 ? this.#zonaMasCercana(p.x, p.y, ew, eh) : null;
       if (push > 0 && zona) {
         const dx = p.x - zona.cx;
         const dy = (p.y - zona.cy) * (zona.hw / Math.max(1, zona.hh)); // salir por el lado más corto
@@ -293,7 +330,7 @@ export class WordCloud {
     for (const p of this.words) {
       // Entra desvaneciéndose y se va igual: opacidad en forma de campana.
       const fadeIn = Math.min(1, p.age / 0.8);
-      const alpha = Math.min(fadeIn, p.life * 1.6) * 0.95;
+      const alpha = Math.min(fadeIn, p.life * 1.6) * (this.escenario ? 1 : 0.95);
       if (alpha <= 0.01) continue;
 
       ctx.save();
@@ -304,7 +341,8 @@ export class WordCloud {
       const respira = 1 + p.pulse * 0.12 + this.energy * 0.07;
       ctx.font = `${600 + Math.min(200, p.weight * 60)} ${p.size * respira}px "Inter", system-ui, sans-serif`;
       ctx.shadowColor = p.color;
-      ctx.shadowBlur = 18 + p.weight * 5 + p.pulse * 22 + this.energy * 30;
+      // Con poco brillo las letras quedan nítidas; el halo crece con la voz.
+      ctx.shadowBlur = (this.escenario ? 8 : 18) + p.weight * 4 + p.pulse * 18 + this.energy * 26;
       ctx.fillText(p.text, 0, 0);
       ctx.restore();
     }
@@ -313,8 +351,8 @@ export class WordCloud {
 
 /* ---------------------------------------------------------------- utils */
 
-function sizeFor(weight, viewportHeight) {
-  const base = Math.max(15, viewportHeight * 0.022);
+function sizeFor(weight, viewportHeight, escenario = false) {
+  const base = escenario ? Math.max(24, viewportHeight * 0.036) : Math.max(15, viewportHeight * 0.022);
   return base * (1 + Math.min(weight - 1, 5) * 0.32);
 }
 
