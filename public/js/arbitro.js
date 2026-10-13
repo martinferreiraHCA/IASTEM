@@ -6,8 +6,8 @@
  * Entiende paráfrasis y errores del reconocimiento de voz mucho mejor que
  * el parecido de palabras, así que la función se traba menos.
  *
- * Es opcional. Funciona con cualquier API compatible con la de OpenAI, y
- * la clave puede vivir en dos lugares:
+ * Es opcional. Funciona con la API de Claude (Anthropic) o con la de
+ * OpenAI, y la clave puede vivir en dos lugares:
  *
  *   servidor  En el .env de la computadora que corre `npm start`. El
  *             navegador nunca la ve. Es lo más seguro.
@@ -17,9 +17,16 @@
 
 const STORE_CLAVE = 'nova:asistente-clave';
 const STORE_MODELO = 'nova:asistente-modelo';
+const STORE_PROVEEDOR = 'nova:asistente-proveedor';
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
-const MODELO_POR_DEFECTO = 'gpt-4o-mini';
+const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 const ESPERA_MS = 4000; // más que esto y la función se nota trabada
+
+/** Con quién se puede hablar, y qué modelo usa cada uno si no se dice otro. */
+export const PROVEEDORES = {
+  anthropic: { nombre: 'Claude (Anthropic)', modelo: 'claude-opus-5-5', pista: 'sk-ant-…' },
+  openai: { nombre: 'OpenAI', modelo: 'gpt-4o-mini', pista: 'sk-…' },
+};
 
 /** Lo que se le pide. Devuelve JSON, nada más. */
 export const INSTRUCCION =
@@ -33,6 +40,7 @@ export const INSTRUCCION =
 export class Arbitro {
   constructor() {
     this.modo = 'ninguno'; // ninguno, servidor o directo
+    this.conQuien = '';    // con qué API habla el servidor, cuando es el servidor
   }
 
   get clave() {
@@ -44,13 +52,22 @@ export class Arbitro {
     limpio ? guardar(STORE_CLAVE, limpio) : borrar(STORE_CLAVE);
   }
 
+  get proveedor() {
+    const guardado = leer(STORE_PROVEEDOR);
+    return guardado in PROVEEDORES ? guardado : 'anthropic';
+  }
+
+  set proveedor(valor) {
+    valor in PROVEEDORES ? guardar(STORE_PROVEEDOR, valor) : borrar(STORE_PROVEEDOR);
+  }
+
   get modelo() {
-    return leer(STORE_MODELO) || MODELO_POR_DEFECTO;
+    return leer(STORE_MODELO) || PROVEEDORES[this.proveedor].modelo;
   }
 
   set modelo(valor) {
     const limpio = (valor || '').trim();
-    limpio && limpio !== MODELO_POR_DEFECTO ? guardar(STORE_MODELO, limpio) : borrar(STORE_MODELO);
+    limpio && limpio !== PROVEEDORES[this.proveedor].modelo ? guardar(STORE_MODELO, limpio) : borrar(STORE_MODELO);
   }
 
   get disponible() {
@@ -67,7 +84,11 @@ export class Arbitro {
     if (location.protocol === 'file:') return this.modo;
     try {
       const res = await fetch('api/health', { cache: 'no-store' });
-      if (res.ok && (await res.json()).asistente) this.modo = 'servidor';
+      const info = res.ok ? await res.json() : null;
+      if (info?.asistente) {
+        this.modo = 'servidor';
+        this.conQuien = PROVEEDORES[info.asistente]?.nombre || String(info.asistente);
+      }
     } catch { /* sin servidor */ }
     return this.modo;
   }
@@ -85,9 +106,12 @@ export class Arbitro {
     const control = new AbortController();
     const limite = setTimeout(() => control.abort(), ESPERA_MS);
     try {
+      const datos = { oido, cursor, pies };
       const veredicto = this.modo === 'servidor'
-        ? await porServidor({ oido, cursor, pies }, control.signal)
-        : await porOpenAI({ oido, cursor, pies }, this.clave, this.modelo, control.signal);
+        ? await porServidor(datos, control.signal)
+        : this.proveedor === 'anthropic'
+          ? await porAnthropic(datos, this.clave, this.modelo, control.signal)
+          : await porOpenAI(datos, this.clave, this.modelo, control.signal);
       return validar(veredicto, entradas.length);
     } catch (err) {
       return { indice: null, confianza: 0, error: err.name === 'AbortError' ? 'tardó demasiado' : err.message };
@@ -109,6 +133,20 @@ export function armarPregunta({ oido, cursor, pies }) {
   );
 }
 
+/**
+ * El veredicto llega como texto con JSON adentro, a veces entre comillas de
+ * código. Se saca el primer objeto que haya; si no hay, es "ninguno".
+ */
+export function extraerJson(texto) {
+  const match = /\{[\s\S]*?\}/.exec(String(texto || ''));
+  if (!match) return {};
+  try {
+    return JSON.parse(match[0]);
+  } catch {
+    return {};
+  }
+}
+
 /** Deja el veredicto en algo que se pueda usar, venga como venga. */
 export function validar(crudo, total) {
   const indice = Number.isInteger(crudo?.indice) && crudo.indice >= 0 && crudo.indice < total ? crudo.indice : null;
@@ -126,6 +164,59 @@ async function porServidor(datos, signal) {
   const info = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(info.error || `el servidor respondió ${res.status}`);
   return info;
+}
+
+/**
+ * Lo que se le manda a la API de Claude. Lo usan el navegador y el
+ * servidor por igual, así los dos preguntan exactamente lo mismo.
+ * Opus 5.5 piensa siempre; con esfuerzo bajo contesta rápido, que es lo
+ * que importa en escena. `fallbacks` hace que, si un filtro de seguridad
+ * rechazara el pedido, lo atienda otro modelo en la misma llamada.
+ */
+export function cuerpoAnthropic(datos, modelo) {
+  return {
+    model: modelo,
+    max_tokens: 256,
+    system: INSTRUCCION,
+    messages: [{ role: 'user', content: armarPregunta(datos) }],
+    output_config: { effort: 'low' },
+    fallbacks: 'default',
+  };
+}
+
+/** Saca el texto de una respuesta de la API de Claude; sin texto, no hay veredicto. */
+export function leerAnthropic(info) {
+  if (info?.stop_reason === 'refusal') return {};
+  const texto = (info?.content || [])
+    .filter((b) => b.type === 'text')
+    .map((b) => b.text)
+    .join('\n');
+  return extraerJson(texto);
+}
+
+async function porAnthropic(datos, clave, modelo, signal) {
+  let res;
+  try {
+    res = await fetch(ANTHROPIC_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': clave,
+        'anthropic-version': '2023-06-01',
+        'anthropic-beta': 'server-side-fallback-2026-07-01',
+        // La API de Claude solo acepta llamadas desde un navegador si se lo pide así.
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify(cuerpoAnthropic(datos, modelo)),
+      signal,
+    });
+  } catch (err) {
+    if (err.name === 'AbortError') throw err;
+    throw new Error('no se pudo contactar a la API de Claude');
+  }
+  if (res.status === 401) throw new Error('la API de Claude rechazó la clave');
+  if (!res.ok) throw new Error(`la API de Claude respondió ${res.status}`);
+  return leerAnthropic(await res.json());
 }
 
 async function porOpenAI(datos, clave, modelo, signal) {
@@ -153,7 +244,7 @@ async function porOpenAI(datos, clave, modelo, signal) {
   if (res.status === 401) throw new Error('la API rechazó la clave');
   if (!res.ok) throw new Error(`la API respondió ${res.status}`);
   const info = await res.json();
-  return JSON.parse(info.choices?.[0]?.message?.content || '{}');
+  return extraerJson(info.choices?.[0]?.message?.content || '');
 }
 
 function leer(k) {

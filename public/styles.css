@@ -585,6 +585,7 @@ body {
 }
 
 .alta { display: flex; gap: 10px; }
+.alta select { font: inherit; font-size: 14px; color: var(--ink); padding: 11px 12px; border-radius: 12px; border: 1px solid var(--line); background: rgba(6, 9, 20, 0.8); cursor: pointer; }
 .alta input {
   flex: 1;
   min-width: 0;

@@ -292,12 +292,16 @@
           Una IA que <strong>no escribe lo que dice NOVA</strong>: solo decide a qué pie
           corresponde lo que se oyó, cuando el parecido de palabras no alcanza. Entiende
           que "¿de dónde sacás lo que sabés?" y "¿cómo aprendiste?" pueden ser el mismo pie.
-          Usa una clave de OpenAI. Se guarda solo en este navegador; con <code>npm start</code>
-          conviene ponerla en el <code>.env</code> del servidor.
+          Usa una clave de Claude (Anthropic) o de OpenAI. Se guarda solo en este navegador;
+          con <code>npm start</code> conviene ponerla en el <code>.env</code> del servidor.
         </p>
         <div class="alta">
-          <input type="password" id="asistenteClave" placeholder="Clave de OpenAI (sk-…)" autocomplete="off" spellcheck="false" aria-label="Clave de OpenAI" />
-          <input type="text" id="asistenteModelo" placeholder="gpt-4o-mini" autocomplete="off" spellcheck="false" aria-label="Modelo" style="flex: 0 1 150px" />
+          <select id="asistenteProveedor" aria-label="Con quién" style="flex: 0 1 190px">
+            <option value="anthropic">Claude (Anthropic)</option>
+            <option value="openai">OpenAI</option>
+          </select>
+          <input type="password" id="asistenteClave" placeholder="Clave (sk-ant-…)" autocomplete="off" spellcheck="false" aria-label="Clave" />
+          <input type="text" id="asistenteModelo" placeholder="claude-opus-5-5" autocomplete="off" spellcheck="false" aria-label="Modelo" style="flex: 0 1 170px" />
         </div>
         <div class="sheet__foot">
           <button class="ghost" id="asistenteOlvidar" type="button">Borrar la clave</button>

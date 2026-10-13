@@ -22,9 +22,15 @@ const path = require('node:path');
 loadDotEnv(path.join(__dirname, '.env'));
 
 const PORT = Number(process.env.PORT) || 3000;
-const API_KEY = process.env.OPENAI_API_KEY || '';
-const BASE_URL = (process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1').replace(/\/+$/, '');
-const MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+// El asistente de ubicación habla con Claude si hay clave de Anthropic, y
+// si no con OpenAI. Las claves viven acá y el navegador nunca las ve.
+const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY || '';
+const ANTHROPIC_URL = (process.env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com').replace(/\/+$/, '');
+const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || 'claude-opus-5-5';
+const OPENAI_KEY = process.env.OPENAI_API_KEY || '';
+const OPENAI_URL = (process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1').replace(/\/+$/, '');
+const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+const ASISTENTE = ANTHROPIC_KEY ? 'anthropic' : OPENAI_KEY ? 'openai' : '';
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const MAX_BODY_BYTES = 256 * 1024; // un estado completo con un guion largo pesa menos
 
@@ -53,7 +59,7 @@ const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
 
     if (url.pathname === '/api/health') {
-      return sendJson(res, 200, { ok: true, control: true, asistente: Boolean(API_KEY), direcciones: direcciones() });
+      return sendJson(res, 200, { ok: true, control: true, asistente: ASISTENTE || false, direcciones: direcciones() });
     }
 
     if (url.pathname === '/api/eventos') {
@@ -90,9 +96,11 @@ server.listen(PORT, () => {
     console.log('  Panel de control:  http://%s:%d/control.html', ip, PORT);
   }
   console.log('  (el panel se abre desde cualquier dispositivo de la misma red)');
-  console.log(API_KEY
-    ? `  Asistente de ubicación: activo (${MODEL}).\n`
-    : '  Asistente de ubicación: apagado. Para prenderlo, poné OPENAI_API_KEY en .env.\n');
+  console.log({
+    anthropic: `  Asistente de ubicación: activo con Claude (${ANTHROPIC_MODEL}).\n`,
+    openai: `  Asistente de ubicación: activo con OpenAI (${OPENAI_MODEL}).\n`,
+    '': '  Asistente de ubicación: apagado. Para prenderlo, poné ANTHROPIC_API_KEY u OPENAI_API_KEY en .env.\n',
+  }[ASISTENTE]);
 });
 
 /* --------------------------------------------------------------- ubicar */
@@ -103,7 +111,7 @@ let arbitro = null;
 const cargarArbitro = () => (arbitro ||= import('./public/js/arbitro.js'));
 
 async function ubicar(req, res) {
-  if (!API_KEY) return sendJson(res, 503, { error: 'El servidor no tiene clave: el asistente está apagado.' });
+  if (!ASISTENTE) return sendJson(res, 503, { error: 'El servidor no tiene clave: el asistente está apagado.' });
 
   let datos;
   try {
@@ -113,26 +121,46 @@ async function ubicar(req, res) {
     return sendJson(res, 400, { error: err.message || 'JSON inválido.' });
   }
 
-  const { INSTRUCCION, armarPregunta, validar } = await cargarArbitro();
+  const { INSTRUCCION, armarPregunta, cuerpoAnthropic, leerAnthropic, extraerJson, validar } = await cargarArbitro();
   const pies = datos.pies.slice(0, 200).map((p) => ({
     indice: Number(p.indice),
     pie: String(p.pie || '').slice(0, 300),
     parlamento: String(p.parlamento || '').slice(0, 80),
   }));
+  const pregunta = { oido: datos.oido.slice(0, 1000), cursor: Number(datos.cursor), pies };
 
-  const upstream = await fetch(`${BASE_URL}/chat/completions`, {
+  const pedido = ASISTENTE === 'anthropic'
+    ? {
+      url: `${ANTHROPIC_URL}/v1/messages`,
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': ANTHROPIC_KEY,
+        'anthropic-version': '2023-06-01',
+        'anthropic-beta': 'server-side-fallback-2026-07-01',
+      },
+      body: cuerpoAnthropic(pregunta, ANTHROPIC_MODEL),
+      leer: leerAnthropic,
+    }
+    : {
+      url: `${OPENAI_URL}/chat/completions`,
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${OPENAI_KEY}` },
+      body: {
+        model: OPENAI_MODEL,
+        temperature: 0,
+        max_tokens: 60,
+        response_format: { type: 'json_object' },
+        messages: [
+          { role: 'system', content: INSTRUCCION },
+          { role: 'user', content: armarPregunta(pregunta) },
+        ],
+      },
+      leer: (info) => extraerJson(info.choices?.[0]?.message?.content || ''),
+    };
+
+  const upstream = await fetch(pedido.url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${API_KEY}` },
-    body: JSON.stringify({
-      model: MODEL,
-      temperature: 0,
-      max_tokens: 60,
-      response_format: { type: 'json_object' },
-      messages: [
-        { role: 'system', content: INSTRUCCION },
-        { role: 'user', content: armarPregunta({ oido: datos.oido.slice(0, 1000), cursor: Number(datos.cursor), pies }) },
-      ],
-    }),
+    headers: pedido.headers,
+    body: JSON.stringify(pedido.body),
     signal: AbortSignal.timeout(8000),
   }).catch((err) => {
     console.error('No se pudo contactar la API:', err.message);
@@ -144,14 +172,13 @@ async function ubicar(req, res) {
     const detail = await upstream.text().catch(() => '');
     console.error(`La API respondió ${upstream.status}:`, detail.slice(0, 300));
     return sendJson(res, upstream.status, {
-      error: upstream.status === 401 ? 'La API rechazó la clave (401). Revisá OPENAI_API_KEY en .env.' : `La API respondió ${upstream.status}.`,
+      error: upstream.status === 401 ? 'La API rechazó la clave (401). Revisá la clave en .env.' : `La API respondió ${upstream.status}.`,
     });
   }
 
   let crudo = {};
   try {
-    const info = await upstream.json();
-    crudo = JSON.parse(info.choices?.[0]?.message?.content || '{}');
+    crudo = pedido.leer(await upstream.json());
   } catch { /* respuesta rara: se devuelve "ninguno" */ }
   return sendJson(res, 200, validar(crudo, Math.max(...pies.map((p) => p.indice), -1) + 1));
 }

@@ -96,13 +96,18 @@ asistente: una IA a la que, cada vez que lo oído no coincide con claridad, se
 le pregunta **a qué pie corresponde**. Contesta un número y una confianza, y
 nada más. **Lo que NOVA dice sigue saliendo del guion, siempre.**
 
-Es opcional y usa una clave de OpenAI (o de cualquier API compatible). La
+Es opcional y funciona con **Claude (Anthropic)** o con **OpenAI**. La
 clave puede estar en dos lugares:
 
 | Dónde | Cómo | Para qué |
 |---|---|---|
-| **En el servidor** | `OPENAI_API_KEY` en el `.env` (ver `.env.example`) y `npm start`. | Lo más seguro: el navegador nunca la ve. |
-| **En el navegador** | *Guion → Asistente de ubicación*, pegar la clave y guardar. | Para el sitio publicado en Pages, que no tiene servidor. Queda en ese navegador y viaja solo a OpenAI. |
+| **En el servidor** | `ANTHROPIC_API_KEY` u `OPENAI_API_KEY` en el `.env` (ver `.env.example`) y `npm start`. Si están las dos, gana Claude. | Lo más seguro: el navegador nunca la ve. |
+| **En el navegador** | *Guion → Asistente de ubicación*, elegir con quién, pegar la clave y guardar. | Para el sitio publicado en Pages, que no tiene servidor. Queda en ese navegador y viaja solo a esa API. |
+
+Con Claude usa `claude-opus-5-5` con esfuerzo bajo, que contesta en un segundo
+o dos; `claude-haiku-5-5` es más rápido y más barato si se nota la espera. El
+modelo se cambia en el mismo lugar que la clave. Cada consulta cuesta una
+fracción de centavo y solo se hace cuando el parecido no alcanza.
 
 Sin clave no pasa nada: NOVA ubica los pies por parecido, como siempre. Con
 clave, el panel de control muestra "con asistente" junto al progreso, y en el
@@ -301,5 +306,5 @@ cualquier dispositivo de la red.
 - **Palabras a ignorar** — la lista `STOPWORDS` en `wordcloud.js`.
 - **Qué tan parecido tiene que ser el pie** — `TOLERANCIAS` en `guion.js`.
 - **Colores** — las variables `--cyan`, `--violet`, `--magenta` arriba de `styles.css`.
-- **Puerto del servidor y clave del asistente** — en un archivo `.env` (ver `.env.example`).
+- **Puerto del servidor y claves del asistente** — en un archivo `.env` (ver `.env.example`).
 - **Qué se le pregunta al asistente** — `INSTRUCCION` en `arbitro.js`.

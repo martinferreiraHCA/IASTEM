@@ -20,7 +20,7 @@ import { VoiceMeter } from './js/audio.js';
 import { Show } from './js/show.js';
 import { Guion, parsearGuion, puntaje, GUION_EJEMPLO } from './js/guion.js';
 import { Enlace } from './js/enlace.js';
-import { Arbitro } from './js/arbitro.js';
+import { Arbitro, PROVEEDORES } from './js/arbitro.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -90,6 +90,7 @@ const el = {
 
   // asistente de ubicación
   asistenteEstado: $('asistenteEstado'),
+  asistenteProveedor: $('asistenteProveedor'),
   asistenteClave: $('asistenteClave'),
   asistenteModelo: $('asistenteModelo'),
   asistenteGuardar: $('asistenteGuardar'),
@@ -559,7 +560,14 @@ function wireGuion() {
   el.guionDecir.addEventListener('click', () => decirSiguiente());
 
   // Asistente de ubicación: la clave vive solo en este navegador.
+  el.asistenteProveedor.addEventListener('change', () => {
+    const quien = PROVEEDORES[el.asistenteProveedor.value];
+    el.asistenteClave.placeholder = `Clave (${quien.pista})`;
+    el.asistenteModelo.placeholder = quien.modelo;
+    if (el.asistenteModelo.value in Object.fromEntries(Object.values(PROVEEDORES).map((p) => [p.modelo, 1]))) el.asistenteModelo.value = '';
+  });
   el.asistenteGuardar.addEventListener('click', async () => {
+    arbitro.proveedor = el.asistenteProveedor.value;
     arbitro.clave = el.asistenteClave.value;
     arbitro.modelo = el.asistenteModelo.value;
     await arbitro.detectar();
@@ -577,11 +585,15 @@ function wireGuion() {
 
 /** Qué asistente hay, en el panel del guion y para el panel de control. */
 function pintarAsistente() {
+  const quien = PROVEEDORES[arbitro.proveedor];
+  el.asistenteProveedor.value = arbitro.proveedor;
   el.asistenteClave.value = arbitro.clave;
+  el.asistenteClave.placeholder = `Clave (${quien.pista})`;
   el.asistenteModelo.value = arbitro.modelo;
+  el.asistenteModelo.placeholder = quien.modelo;
   el.asistenteEstado.innerHTML = {
-    servidor: '<strong>Asistente activo por el servidor.</strong> La clave está en el <code>.env</code> de la computadora que corre NOVA.',
-    directo: '<strong>Asistente activo con la clave de este navegador.</strong> Cuando lo que se oye no coincide con un pie, se le pregunta a qué pie corresponde.',
+    servidor: `<strong>Asistente activo por el servidor, con ${escapar(arbitro.conQuien)}.</strong> La clave está en el <code>.env</code> de la computadora que corre NOVA.`,
+    directo: `<strong>Asistente activo con ${escapar(quien.nombre)}, con la clave de este navegador.</strong> Cuando lo que se oye no coincide con un pie, se le pregunta a qué pie corresponde.`,
     ninguno: '<strong>Sin asistente.</strong> NOVA ubica los pies por parecido de palabras, que alcanza si los estudiantes dicen más o menos lo escrito.',
   }[arbitro.modo];
   publicar();
