@@ -447,27 +447,76 @@ async function conversarPorServidor(datos, onDelta, signal) {
   }, onDelta);
 }
 
-async function conversarPorAnthropic(datos, clave, modelo, onDelta, signal) {
-  let res;
+/**
+ * Los parámetros opcionales del pedido a Claude: el respaldo automático y
+ * el esfuerzo. Si la cuenta no los acepta (un 400 que los nombra), se
+ * vuelve a pedir sin ellos y se recuerda para la próxima.
+ */
+let anthropicSinExtras = false;
+
+export function cuerpoMinimoAnthropic(cuerpo) {
+  const { fallbacks, output_config: _config, ...resto } = cuerpo;
+  return resto;
+}
+
+export function cabecerasAnthropic(clave, { navegador = false, extras = true } = {}) {
+  const h = { 'Content-Type': 'application/json', 'x-api-key': clave, 'anthropic-version': '2023-06-01' };
+  if (extras) h['anthropic-beta'] = 'server-side-fallback-2026-07-01';
+  if (navegador) h['anthropic-dangerous-direct-browser-access'] = 'true'; // sin esto la API no acepta pedidos desde un navegador
+  return h;
+}
+
+/** Qué le decimos a la persona cuando la API de Claude contesta con error. */
+export async function describirErrorAnthropic(res) {
+  let detalle = '';
   try {
-    res = await fetch(ANTHROPIC_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': clave,
-        'anthropic-version': '2023-06-01',
-        'anthropic-beta': 'server-side-fallback-2026-07-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
-      body: JSON.stringify(cuerpoConversarAnthropic(datos, modelo)),
-      signal,
-    });
-  } catch (err) {
-    if (err.name === 'AbortError') throw err;
-    throw new Error('no se pudo contactar a la API de Claude');
+    detalle = (await res.json())?.error?.message || '';
+  } catch { /* sin cuerpo */ }
+  if (res.status === 401) return 'la API de Claude rechazó la clave';
+  if (res.status === 404) return `la API de Claude no encuentra el modelo${detalle ? ` (${detalle})` : ''}`;
+  if (res.status === 429) return 'la API de Claude está limitando los pedidos: esperá un momento';
+  if (res.status === 400) return `la API de Claude rechazó el pedido${detalle ? `: ${detalle}` : ''}`;
+  return `la API de Claude respondió ${res.status}${detalle ? `: ${detalle}` : ''}`;
+}
+
+/** ¿El 400 se queja de algo que podemos sacar? */
+function culpaDeLosExtras(mensaje) {
+  return /fallback|output_config|effort|beta|unexpected|unknown|not (?:a )?(?:valid|supported)|extra/i.test(mensaje || '');
+}
+
+/**
+ * Manda un pedido a Claude. Primero con todo; si un 400 culpa a los
+ * extras, de nuevo sin ellos. Devuelve la respuesta ya aceptada.
+ */
+export async function pedirAnthropic(url, cuerpo, clave, { navegador = false, signal } = {}) {
+  const intento = async (extras) => {
+    try {
+      return await fetch(url, {
+        method: 'POST',
+        headers: cabecerasAnthropic(clave, { navegador, extras }),
+        body: JSON.stringify(extras ? cuerpo : cuerpoMinimoAnthropic(cuerpo)),
+        signal,
+      });
+    } catch (err) {
+      if (err.name === 'AbortError') throw err;
+      throw new Error('no se pudo contactar a la API de Claude');
+    }
+  };
+
+  let res = await intento(!anthropicSinExtras);
+  if (res.status === 400 && !anthropicSinExtras) {
+    const mensaje = await res.clone().json().then((j) => j?.error?.message || '').catch(() => '');
+    if (culpaDeLosExtras(mensaje) || !mensaje) {
+      anthropicSinExtras = true;
+      res = await intento(false);
+    }
   }
-  if (res.status === 401) throw new Error('la API de Claude rechazó la clave');
-  if (!res.ok) throw new Error(`la API de Claude respondió ${res.status}`);
+  if (!res.ok) throw new Error(await describirErrorAnthropic(res));
+  return res;
+}
+
+async function conversarPorAnthropic(datos, clave, modelo, onDelta, signal) {
+  const res = await pedirAnthropic(ANTHROPIC_URL, cuerpoConversarAnthropic(datos, modelo), clave, { navegador: true, signal });
   return consumirSSE(res, sacarAnthropic, onDelta);
 }
 
@@ -500,27 +549,7 @@ export function leerAnthropic(info) {
 }
 
 async function porAnthropic(datos, clave, modelo, signal) {
-  let res;
-  try {
-    res = await fetch(ANTHROPIC_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': clave,
-        'anthropic-version': '2023-06-01',
-        'anthropic-beta': 'server-side-fallback-2026-07-01',
-        // La API de Claude solo acepta llamadas desde un navegador si se lo pide así.
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
-      body: JSON.stringify(cuerpoAnthropic(datos, modelo)),
-      signal,
-    });
-  } catch (err) {
-    if (err.name === 'AbortError') throw err;
-    throw new Error('no se pudo contactar a la API de Claude');
-  }
-  if (res.status === 401) throw new Error('la API de Claude rechazó la clave');
-  if (!res.ok) throw new Error(`la API de Claude respondió ${res.status}`);
+  const res = await pedirAnthropic(ANTHROPIC_URL, cuerpoAnthropic(datos, modelo), clave, { navegador: true, signal });
   return leerAnthropic(await res.json());
 }
 

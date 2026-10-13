@@ -127,7 +127,7 @@ async function ubicar(req, res) {
     return sendJson(res, 400, { error: err.message || 'JSON inválido.' });
   }
 
-  const { INSTRUCCION, armarPregunta, cuerpoAnthropic, leerAnthropic, extraerJson, validar } = await cargarArbitro();
+  const { INSTRUCCION, armarPregunta, cuerpoAnthropic, leerAnthropic, extraerJson, validar, pedirAnthropic } = await cargarArbitro();
   const pies = datos.pies.slice(0, 200).map((p) => ({
     indice: Number(p.indice),
     pie: String(p.pie || '').slice(0, 300),
@@ -135,57 +135,37 @@ async function ubicar(req, res) {
   }));
   const pregunta = { oido: datos.oido.slice(0, 1000), cursor: Number(datos.cursor), pies };
 
-  const pedido = ASISTENTE === 'anthropic'
-    ? {
-      url: `${ANTHROPIC_URL}/v1/messages`,
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': ANTHROPIC_KEY,
-        'anthropic-version': '2023-06-01',
-        'anthropic-beta': 'server-side-fallback-2026-07-01',
-      },
-      body: cuerpoAnthropic(pregunta, ANTHROPIC_MODEL),
-      leer: leerAnthropic,
-    }
-    : {
-      url: `${OPENAI_URL}/chat/completions`,
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${OPENAI_KEY}` },
-      body: {
-        model: OPENAI_MODEL,
-        temperature: 0,
-        max_tokens: 60,
-        response_format: { type: 'json_object' },
-        messages: [
-          { role: 'system', content: INSTRUCCION },
-          { role: 'user', content: armarPregunta(pregunta) },
-        ],
-      },
-      leer: (info) => extraerJson(info.choices?.[0]?.message?.content || ''),
-    };
-
-  const upstream = await fetch(pedido.url, {
-    method: 'POST',
-    headers: pedido.headers,
-    body: JSON.stringify(pedido.body),
-    signal: AbortSignal.timeout(8000),
-  }).catch((err) => {
-    console.error('No se pudo contactar la API:', err.message);
-    return null;
-  });
-
-  if (!upstream) return sendJson(res, 502, { error: 'No se pudo contactar la API. ¿Hay internet?' });
-  if (!upstream.ok) {
-    const detail = await upstream.text().catch(() => '');
-    console.error(`La API respondió ${upstream.status}:`, detail.slice(0, 300));
-    return sendJson(res, upstream.status, {
-      error: upstream.status === 401 ? 'La API rechazó la clave (401). Revisá la clave en .env.' : `La API respondió ${upstream.status}.`,
-    });
-  }
-
   let crudo = {};
   try {
-    crudo = pedido.leer(await upstream.json());
-  } catch { /* respuesta rara: se devuelve "ninguno" */ }
+    if (ASISTENTE === 'anthropic') {
+      const upstream = await pedirAnthropic(`${ANTHROPIC_URL}/v1/messages`, cuerpoAnthropic(pregunta, ANTHROPIC_MODEL), ANTHROPIC_KEY, { signal: AbortSignal.timeout(8000) });
+      crudo = leerAnthropic(await upstream.json());
+    } else {
+      const upstream = await fetch(`${OPENAI_URL}/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${OPENAI_KEY}` },
+        body: JSON.stringify({
+          model: OPENAI_MODEL,
+          temperature: 0,
+          max_tokens: 60,
+          response_format: { type: 'json_object' },
+          messages: [
+            { role: 'system', content: INSTRUCCION },
+            { role: 'user', content: armarPregunta(pregunta) },
+          ],
+        }),
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!upstream.ok) {
+        const detail = await upstream.text().catch(() => '');
+        throw new Error(upstream.status === 401 ? 'la API rechazó la clave (401): revisá la clave en .env' : `la API respondió ${upstream.status}: ${detail.slice(0, 200)}`);
+      }
+      crudo = extraerJson((await upstream.json()).choices?.[0]?.message?.content || '');
+    }
+  } catch (err) {
+    console.error('Ubicar falló:', err.message);
+    return sendJson(res, 502, { error: err.message });
+  }
   return sendJson(res, 200, validar(crudo, Math.max(...pies.map((p) => p.indice), -1) + 1));
 }
 
@@ -205,7 +185,7 @@ async function conversar(req, res) {
     return sendJson(res, 400, { error: err.message || 'JSON inválido.' });
   }
 
-  const { cuerpoConversarAnthropic, cuerpoConversarOpenAI, consumirSSE, sacarAnthropic, sacarOpenAI } = await cargarArbitro();
+  const { cuerpoConversarAnthropic, cuerpoConversarOpenAI, consumirSSE, sacarAnthropic, sacarOpenAI, pedirAnthropic } = await cargarArbitro();
   const pregunta = {
     oido: datos.oido.slice(0, 1000),
     cursor: Number(datos.cursor),
@@ -218,48 +198,32 @@ async function conversar(req, res) {
     personalidad: String(datos.personalidad || '').slice(0, 2000),
   };
 
-  const pedido = ASISTENTE === 'anthropic'
-    ? {
-      url: `${ANTHROPIC_URL}/v1/messages`,
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': ANTHROPIC_KEY,
-        'anthropic-version': '2023-06-01',
-        'anthropic-beta': 'server-side-fallback-2026-07-01',
-      },
-      body: cuerpoConversarAnthropic(pregunta, ANTHROPIC_MODEL),
-      sacar: sacarAnthropic,
-    }
-    : {
-      url: `${OPENAI_URL}/chat/completions`,
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${OPENAI_KEY}` },
-      body: cuerpoConversarOpenAI(pregunta, OPENAI_MODEL),
-      sacar: sacarOpenAI,
-    };
-
   const control = new AbortController();
   req.on('close', () => control.abort());
 
-  const upstream = await fetch(pedido.url, {
-    method: 'POST',
-    headers: pedido.headers,
-    body: JSON.stringify(pedido.body),
-    signal: control.signal,
-  }).catch((err) => {
-    if (err.name !== 'AbortError') console.error('No se pudo contactar la API:', err.message);
-    return null;
-  });
-
-  if (!upstream) {
-    if (!control.signal.aborted) sendJson(res, 502, { error: 'No se pudo contactar la API. ¿Hay internet?' });
-    return;
-  }
-  if (!upstream.ok) {
-    const detail = await upstream.text().catch(() => '');
-    console.error(`La API respondió ${upstream.status}:`, detail.slice(0, 300));
-    return sendJson(res, upstream.status, {
-      error: upstream.status === 401 ? 'La API rechazó la clave (401). Revisá la clave en .env.' : `La API respondió ${upstream.status}.`,
-    });
+  let upstream;
+  let sacar;
+  try {
+    if (ASISTENTE === 'anthropic') {
+      upstream = await pedirAnthropic(`${ANTHROPIC_URL}/v1/messages`, cuerpoConversarAnthropic(pregunta, ANTHROPIC_MODEL), ANTHROPIC_KEY, { signal: control.signal });
+      sacar = sacarAnthropic;
+    } else {
+      upstream = await fetch(`${OPENAI_URL}/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${OPENAI_KEY}` },
+        body: JSON.stringify(cuerpoConversarOpenAI(pregunta, OPENAI_MODEL)),
+        signal: control.signal,
+      });
+      if (!upstream.ok) {
+        const detail = await upstream.text().catch(() => '');
+        throw new Error(upstream.status === 401 ? 'la API rechazó la clave (401): revisá la clave en .env' : `la API respondió ${upstream.status}: ${detail.slice(0, 200)}`);
+      }
+      sacar = sacarOpenAI;
+    }
+  } catch (err) {
+    if (control.signal.aborted) return;
+    console.error('Conversar falló:', err.message);
+    return sendJson(res, 502, { error: err.message });
   }
 
   res.writeHead(200, {
@@ -270,7 +234,7 @@ async function conversar(req, res) {
   });
 
   try {
-    await consumirSSE(upstream, pedido.sacar, (delta) => {
+    await consumirSSE(upstream, sacar, (delta) => {
       if (!res.writableEnded) res.write(`data: ${JSON.stringify({ delta })}\n\n`);
     });
     if (!res.writableEnded) {
