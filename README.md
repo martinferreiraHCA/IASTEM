@@ -102,7 +102,7 @@ clave puede estar en dos lugares:
 | Dónde | Cómo | Para qué |
 |---|---|---|
 | **En el servidor** | `ANTHROPIC_API_KEY` u `OPENAI_API_KEY` en el `.env` (ver `.env.example`) y `npm start`. Si están las dos, gana Claude. | Lo más seguro: el navegador nunca la ve. |
-| **En el navegador** | *Guion → Asistente de ubicación*, elegir con quién, pegar la clave y guardar. | Para el sitio publicado en Pages, que no tiene servidor. Queda en ese navegador y viaja solo a esa API. |
+| **En el navegador** | Botón **Asistente**, arriba a la derecha: elegir con quién, pegar la clave, *Probar* y guardar. | Para el sitio publicado en Pages, que no tiene servidor. Queda en ese navegador y viaja solo a esa API. |
 
 Con Claude usa `claude-opus-5-5` con esfuerzo bajo, que contesta en un segundo
 o dos; `claude-haiku-5-5` es más rápido y más barato si se nota la espera. El

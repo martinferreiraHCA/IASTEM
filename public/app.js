@@ -89,6 +89,10 @@ const el = {
   guionDecir: $('guionDecir'),
 
   // asistente de ubicación
+  asistenteBtn: $('asistenteBtn'),
+  asistente: $('asistente'),
+  asistenteClose: $('asistenteClose'),
+  asistenteProbar: $('asistenteProbar'),
   asistenteEstado: $('asistenteEstado'),
   asistenteProveedor: $('asistenteProveedor'),
   asistenteClave: $('asistenteClave'),
@@ -560,9 +564,15 @@ function wireGuion() {
   el.guionDecir.addEventListener('click', () => decirSiguiente());
 
   // Asistente de ubicación: la clave vive solo en este navegador.
+  el.asistenteBtn.addEventListener('click', () => {
+    pintarAsistente();
+    el.asistente.showModal();
+  });
+  el.asistenteClose.addEventListener('click', () => el.asistente.close());
+  el.asistenteProbar.addEventListener('click', () => probarAsistente());
   el.asistenteProveedor.addEventListener('change', () => {
     const quien = PROVEEDORES[el.asistenteProveedor.value];
-    el.asistenteClave.placeholder = `Clave (${quien.pista})`;
+    el.asistenteClave.placeholder = quien.pista;
     el.asistenteModelo.placeholder = quien.modelo;
     if (el.asistenteModelo.value in Object.fromEntries(Object.values(PROVEEDORES).map((p) => [p.modelo, 1]))) el.asistenteModelo.value = '';
   });
@@ -583,12 +593,44 @@ function wireGuion() {
   });
 }
 
-/** Qué asistente hay, en el panel del guion y para el panel de control. */
+/**
+ * Una consulta de verdad, con un guion mínimo, para saber si la clave anda
+ * antes de la función. Cuesta una fracción de centavo.
+ */
+async function probarAsistente() {
+  arbitro.proveedor = el.asistenteProveedor.value;
+  arbitro.clave = el.asistenteClave.value;
+  arbitro.modelo = el.asistenteModelo.value;
+  await arbitro.detectar();
+  pintarAsistente();
+  if (!arbitro.disponible) return toast('No hay clave guardada ni servidor con clave: no hay qué probar.');
+
+  el.asistenteProbar.disabled = true;
+  el.asistenteProbar.textContent = 'Probando…';
+  const desde = Date.now();
+  const veredicto = await arbitro.ubicar({
+    oido: 'hola nova, ¿nos estás escuchando?',
+    cursor: -1,
+    entradas: [
+      { indice: 0, pies: ['Hola NOVA, ¿nos escuchás bien?'], parlamento: 'Los escucho perfecto.' },
+      { indice: 1, pies: ['¿Te podés equivocar?'], parlamento: 'Todo el tiempo.' },
+    ],
+  });
+  el.asistenteProbar.disabled = false;
+  el.asistenteProbar.textContent = 'Probar';
+
+  const tardo = ((Date.now() - desde) / 1000).toFixed(1);
+  if (veredicto.error) toast(`El asistente no respondió: ${veredicto.error}.`);
+  else if (veredicto.indice === 0) toast(`Funciona: ubicó el pie correcto en ${tardo} s.`);
+  else toast(`Respondió en ${tardo} s, pero no ubicó el pie esperado (dijo ${veredicto.indice === null ? 'ninguno' : veredicto.indice + 1}).`);
+}
+
+/** Qué asistente hay, en su panel y para el panel de control. */
 function pintarAsistente() {
   const quien = PROVEEDORES[arbitro.proveedor];
   el.asistenteProveedor.value = arbitro.proveedor;
   el.asistenteClave.value = arbitro.clave;
-  el.asistenteClave.placeholder = `Clave (${quien.pista})`;
+  el.asistenteClave.placeholder = quien.pista;
   el.asistenteModelo.value = arbitro.modelo;
   el.asistenteModelo.placeholder = quien.modelo;
   el.asistenteEstado.innerHTML = {

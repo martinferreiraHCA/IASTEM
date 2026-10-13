@@ -45,6 +45,9 @@
       <button class="ghost" id="guionBtn" type="button" title="Parlamentos preparados que NOVA dice al escuchar su pie">
         Guion
       </button>
+      <button class="ghost" id="asistenteBtn" type="button" title="La IA que ubica en qué pie estamos: pegá acá tu clave">
+        Asistente
+      </button>
       <button class="ghost" id="panelBtn" type="button" title="Abrir el panel de control, acá o en el celular">
         Panel
       </button>
@@ -285,30 +288,57 @@
         </div>
       </section>
 
-      <section class="bloque">
-        <h3 class="bloque__titulo">Asistente de ubicación (opcional)</h3>
-        <p class="sheet__mode" id="asistenteEstado">Detectando…</p>
+    </div>
+  </dialog>
+
+  <!-- ===================================================== asistente -->
+  <dialog class="sheet" id="asistente">
+    <div class="sheet__form">
+      <header class="sheet__head">
+        <h2>Asistente de ubicación</h2>
+        <button class="sheet__close" id="asistenteClose" type="button" aria-label="Cerrar">×</button>
+      </header>
+
+      <p class="sheet__mode" id="asistenteEstado">Detectando…</p>
+
+      <p class="sheet__note">
+        Una IA que <strong>no escribe lo que dice NOVA</strong>: solo decide a qué pie
+        corresponde lo que se oyó, cuando el parecido de palabras no alcanza. Entiende
+        que "¿de dónde sacás lo que sabés?" y "¿cómo aprendiste?" pueden ser el mismo pie.
+        Es opcional: sin clave, NOVA ubica los pies por parecido.
+      </p>
+
+      <div class="sheet__field">
+        <label for="asistenteProveedor">Con quién</label>
+        <select id="asistenteProveedor">
+          <option value="anthropic">Claude (Anthropic)</option>
+          <option value="openai">OpenAI</option>
+        </select>
+      </div>
+
+      <div class="sheet__field">
+        <label for="asistenteClave">Clave</label>
+        <input type="password" id="asistenteClave" placeholder="sk-ant-…" autocomplete="off" spellcheck="false" />
         <p class="sheet__note">
-          Una IA que <strong>no escribe lo que dice NOVA</strong>: solo decide a qué pie
-          corresponde lo que se oyó, cuando el parecido de palabras no alcanza. Entiende
-          que "¿de dónde sacás lo que sabés?" y "¿cómo aprendiste?" pueden ser el mismo pie.
-          Usa una clave de Claude (Anthropic) o de OpenAI. Se guarda solo en este navegador;
-          con <code>npm start</code> conviene ponerla en el <code>.env</code> del servidor.
+          Pegala tal cual te la dieron. Se guarda <strong>solo en este navegador</strong> y viaja
+          únicamente a esa API. Nunca la escribas en el código del repo: si es público, queda
+          expuesta apenas la subas. Con <code>npm start</code> conviene ponerla en el
+          <code>.env</code> del servidor, y entonces acá no hace falta nada.
         </p>
-        <div class="alta">
-          <select id="asistenteProveedor" aria-label="Con quién" style="flex: 0 1 190px">
-            <option value="anthropic">Claude (Anthropic)</option>
-            <option value="openai">OpenAI</option>
-          </select>
-          <input type="password" id="asistenteClave" placeholder="Clave (sk-ant-…)" autocomplete="off" spellcheck="false" aria-label="Clave" />
-          <input type="text" id="asistenteModelo" placeholder="claude-opus-5-5" autocomplete="off" spellcheck="false" aria-label="Modelo" style="flex: 0 1 170px" />
-        </div>
-        <div class="sheet__foot">
-          <button class="ghost" id="asistenteOlvidar" type="button">Borrar la clave</button>
-          <span class="toolbar__spacer"></span>
-          <button class="primary" id="asistenteGuardar" type="button">Guardar</button>
-        </div>
-      </section>
+      </div>
+
+      <div class="sheet__field">
+        <label for="asistenteModelo">Modelo</label>
+        <input type="text" id="asistenteModelo" placeholder="claude-opus-5-5" autocomplete="off" spellcheck="false" />
+        <p class="sheet__note">Dejalo vacío para usar el de siempre. Si se nota la espera, <code>claude-haiku-5-5</code> es más rápido.</p>
+      </div>
+
+      <footer class="sheet__foot">
+        <button class="ghost" id="asistenteOlvidar" type="button">Borrar la clave</button>
+        <span class="toolbar__spacer"></span>
+        <button class="ghost" id="asistenteProbar" type="button">Probar</button>
+        <button class="primary" id="asistenteGuardar" type="button">Guardar</button>
+      </footer>
     </div>
   </dialog>
 
