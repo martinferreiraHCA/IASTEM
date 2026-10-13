@@ -32,6 +32,9 @@ const el = {
   voz: $('voz'),
   escenario: $('escenario'),
   micNota: $('micNota'),
+  camara: $('camara'),
+  imagen: $('imagen'),
+  imagenNota: $('imagenNota'),
   turnoSiguiente: $('turnoSiguiente'),
   turnos: $('turnos'),
   fijar: $('fijar'),
@@ -111,6 +114,8 @@ function wire() {
   el.mic.addEventListener('click', () => mandar('mic', { on: estado?.mic !== 'escuchando' }));
   el.voz.addEventListener('click', () => mandar('voz', { on: !estado?.voz }));
   el.escenario.addEventListener('click', () => mandar('escenario', { on: !estado?.escenario }));
+  el.camara.addEventListener('click', () => mandar('camara', { on: !estado?.camara }));
+  el.imagen.addEventListener('click', () => mandar('imagen', { on: !estado?.imagenVisible }));
 
   el.turnoSiguiente.addEventListener('click', () => mandar('turno-siguiente'));
   el.fijar.addEventListener('click', () => mandar('fijar'));
@@ -191,9 +196,10 @@ function pintar() {
     fila.className = 'linea';
     fila.classList.toggle('is-dicho', entrada.indice <= guion.cursor);
     fila.classList.toggle('is-siguiente', entrada.indice === guion.cursor + 1);
+    const marcas = [entrada.imagen ? `<span class="linea__marca">imagen ${entrada.segundos || ''}s</span>` : '', entrada.camara ? `<span class="linea__marca">cámara: ${entrada.camara}</span>` : ''].join('');
     fila.innerHTML = `
       <span class="linea__numero">${entrada.indice + 1}</span>
-      <span class="linea__pie">${entrada.pie ? escapar(entrada.pie) : '<em>sin pie</em>'}</span>
+      <span class="linea__pie">${entrada.pie ? escapar(entrada.pie) : '<em>sin pie</em>'}${marcas}</span>
       <span class="linea__parlamento">${escapar(entrada.parlamento)}</span>`;
     fila.addEventListener('click', () => mandar('decir', { indice: entrada.indice }));
     el.lineas.appendChild(fila);
@@ -217,6 +223,12 @@ function pintar() {
   el.voz.textContent = estado.voz ? 'Voz de NOVA: encendida' : 'Voz de NOVA: apagada';
   el.escenario.setAttribute('aria-pressed', String(estado.escenario));
   el.escenario.textContent = estado.escenario ? 'Escenario: proyectando' : 'Escenario: consola';
+  el.camara.setAttribute('aria-pressed', String(estado.camara));
+  el.camara.textContent = estado.camara ? 'Cámara: en pantalla' : 'Cámara del público';
+  el.imagen.disabled = !estado.imagen;
+  el.imagen.setAttribute('aria-pressed', String(Boolean(estado.imagen && estado.imagenVisible)));
+  el.imagen.textContent = !estado.imagen ? 'Imagen: no hay' : estado.imagenVisible ? 'Imagen: sacar ya' : 'Imagen: mostrar de nuevo';
+  el.imagenNota.textContent = estado.imagen ? `Imagen de este momento: ${estado.imagen.pie || estado.imagen.src}` : '';
 
   // Turnos.
   el.turnos.innerHTML = '';

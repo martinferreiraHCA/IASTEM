@@ -52,6 +52,16 @@ const el = {
   sceneHint: $('sceneHint'),
   toast: $('toast'),
 
+  // cámara e imágenes
+  camara: $('camara'),
+  camaraDispositivo: $('camaraDispositivo'),
+  camaraProbar: $('camaraProbar'),
+  camaraPrueba: $('camaraPrueba'),
+  camaraNota: $('camaraNota'),
+  sceneImagen: $('sceneImagen'),
+  sceneImagenImg: $('sceneImagenImg'),
+  sceneImagenPie: $('sceneImagenPie'),
+
   // función
   showBtn: $('showBtn'),
   show: $('show'),
@@ -125,6 +135,11 @@ const state = {
   oido: '',              // lo que el micrófono captó por última vez
   anticipado: null,      // {texto, t}: un pie reconocido antes de que terminara la frase
   historial: [],         // la charla, para que la IA la siga cuando improvisa
+  camara: false,         // la cámara del público está en pantalla
+  camaraStream: null,
+  imagen: null,          // {src, pie, segundos}: la imagen que el guion sugirió para este momento
+  imagenVisible: false,
+  imagenTimer: null,
   evento: null,          // lo último que pasó, para el panel
   abriendoMic: false,
   micQuerido: false,     // el micrófono tiene que estar encendido: se vuelve a prender solo
@@ -343,6 +358,7 @@ function wireEvents() {
   });
 
   el.micBtn.addEventListener('click', () => toggleMic());
+  wireCamara();
   el.stageBtn.addEventListener('click', () => toggleStage());
   el.stopBtn.addEventListener('click', () => abort());
   el.clearBtn.addEventListener('click', () => reset());
@@ -385,6 +401,14 @@ function wireEvents() {
       event.preventDefault();
       decirSiguiente();
     }
+    if ((event.key === 'c' || event.key === 'C') && !typing) {
+      event.preventDefault();
+      verCamara(!state.camara);
+    }
+    if ((event.key === 'i' || event.key === 'I') && !typing) {
+      event.preventDefault();
+      alternarImagen();
+    }
     if (event.key === 'Tab' && !typing && show.speakers.length) {
       event.preventDefault();
       show.next();
@@ -403,6 +427,165 @@ function wireEvents() {
     // Si se sale de pantalla completa con F11 o Esc del navegador, volvemos a la consola.
     if (!document.fullscreenElement && el.body.dataset.mode === 'stage') setStageMode(false);
   });
+}
+
+/* --------------------------------------------------- cámara e imágenes */
+
+function wireCamara() {
+  el.camaraDispositivo.addEventListener('change', () => {
+    writeStored('nova:camara', el.camaraDispositivo.value);
+    if (state.camara) {
+      verCamara(false).then(() => verCamara(true));
+    }
+  });
+  el.camaraProbar.addEventListener('click', () => probarCamara());
+  el.show.addEventListener('close', () => {
+    // La prueba del panel no deja la cámara abierta por su cuenta.
+    el.camaraPrueba.srcObject?.getTracks().forEach((t) => t.stop());
+    el.camaraPrueba.srcObject = null;
+    el.camaraPrueba.hidden = true;
+  });
+  listarCamaras();
+  navigator.mediaDevices?.addEventListener?.('devicechange', () => listarCamaras());
+}
+
+/** Las cámaras conectadas, para elegir una. Los nombres aparecen recién con permiso. */
+async function listarCamaras() {
+  if (!navigator.mediaDevices?.enumerateDevices) return;
+  let dispositivos = [];
+  try {
+    dispositivos = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'videoinput');
+  } catch { /* nada */ }
+  const elegida = readStored('nova:camara') || '';
+  el.camaraDispositivo.innerHTML = '<option value="">La cámara de siempre</option>';
+  dispositivos.forEach((d, i) => {
+    const opcion = document.createElement('option');
+    opcion.value = d.deviceId;
+    opcion.textContent = d.label || `Cámara ${i + 1}`;
+    el.camaraDispositivo.appendChild(opcion);
+  });
+  el.camaraDispositivo.value = dispositivos.some((d) => d.deviceId === elegida) ? elegida : '';
+  if (!dispositivos.length) {
+    el.camaraNota.textContent = 'No se encontró ninguna cámara, o el navegador todavía no dio permiso. Tocá Probar.';
+  }
+}
+
+async function abrirCamara() {
+  const id = readStored('nova:camara') || '';
+  const video = id ? { deviceId: { exact: id }, width: { ideal: 1920 }, height: { ideal: 1080 } } : { facingMode: 'user', width: { ideal: 1920 }, height: { ideal: 1080 } };
+  return navigator.mediaDevices.getUserMedia({ video, audio: false });
+}
+
+function describirErrorCamara(err) {
+  if (err?.name === 'NotAllowedError') return 'El navegador bloqueó la cámara. Tocá el candado de la barra de direcciones y permitila.';
+  if (err?.name === 'NotFoundError' || err?.name === 'OverconstrainedError') return 'No se encontró esa cámara. Revisá que esté conectada, o elegí otra en Función.';
+  if (err?.name === 'NotReadableError') return 'La cámara está en uso por otro programa.';
+  return `No se pudo abrir la cámara: ${err?.message || err?.name || 'error'}.`;
+}
+
+/** Una vista chica dentro del panel Función, para saber que la cámara anda. */
+async function probarCamara() {
+  if (!navigator.mediaDevices?.getUserMedia) return toast('Este navegador no puede abrir la cámara.');
+  try {
+    const stream = await abrirCamara();
+    el.camaraPrueba.srcObject = stream;
+    el.camaraPrueba.hidden = false;
+    await el.camaraPrueba.play().catch(() => {});
+    el.camaraNota.textContent = 'La cámara anda. En el escenario se prende con la tecla C o desde el panel.';
+    listarCamaras(); // ahora sí con los nombres
+  } catch (err) {
+    el.camaraNota.textContent = describirErrorCamara(err);
+  }
+}
+
+/** La gente en la pantalla grande, o no. */
+async function verCamara(on) {
+  if (Boolean(on) === state.camara) return;
+  if (on) {
+    if (!navigator.mediaDevices?.getUserMedia) return toast('Este navegador no puede abrir la cámara.');
+    try {
+      state.camaraStream = await abrirCamara();
+    } catch (err) {
+      toast(describirErrorCamara(err));
+      anotar(`Cámara: ${describirErrorCamara(err)}`);
+      return;
+    }
+    el.camara.srcObject = state.camaraStream;
+    await el.camara.play().catch(() => {});
+    state.camara = true;
+    el.body.dataset.camara = 'on';
+    anotar('Cámara del público en pantalla.');
+  } else {
+    state.camaraStream?.getTracks().forEach((t) => t.stop());
+    state.camaraStream = null;
+    el.camara.srcObject = null;
+    state.camara = false;
+    delete el.body.dataset.camara;
+    anotar('Cámara del público apagada.');
+  }
+  cloud.resize();
+  publicar();
+}
+
+/**
+ * Muestra una imagen que el guion sugirió: toma toda la pantalla el tiempo
+ * pedido y después se va sola, y vuelve lo que había.
+ */
+function mostrarImagen(imagen) {
+  if (!imagen?.src) return;
+  clearTimeout(state.imagenTimer);
+  const segundos = Number(imagen.segundos) > 0 ? Number(imagen.segundos) : 8;
+  state.imagen = { src: imagen.src, pie: imagen.pie || '', segundos };
+  state.imagenVisible = true;
+  el.sceneImagen.classList.remove('se-va');
+  el.sceneImagenImg.src = imagen.src;
+  el.sceneImagenImg.alt = imagen.pie || '';
+  el.sceneImagenPie.textContent = imagen.pie || '';
+  el.sceneImagen.style.setProperty('--segundos', `${segundos}s`);
+  el.scene.dataset.imagen = 'on';
+  state.imagenTimer = setTimeout(() => ocultarImagen(), segundos * 1000);
+  anotar(`Imagen en pantalla ${segundos} s: ${imagen.pie || imagen.src}.`);
+  publicar();
+}
+
+function ocultarImagen({ olvidar = false } = {}) {
+  clearTimeout(state.imagenTimer);
+  state.imagenTimer = null;
+  if (!state.imagenVisible && !olvidar) return;
+  state.imagenVisible = false;
+  if (olvidar) state.imagen = null;
+  if (el.scene.dataset.imagen === 'on') {
+    // Se desvanece y recién ahí se saca, para que no corte de golpe.
+    el.sceneImagen.classList.add('se-va');
+    setTimeout(() => {
+      if (!state.imagenVisible) {
+        delete el.scene.dataset.imagen;
+        el.sceneImagen.classList.remove('se-va');
+      }
+    }, 500);
+  }
+  publicar();
+}
+
+/** Tecla I: saca la imagen antes de tiempo, o la vuelve a mostrar. */
+function alternarImagen() {
+  if (!state.imagen) return toast('No hay ninguna imagen para este momento. Se sugieren desde el guion, con IMAGEN: dirección | pie | 10s.');
+  if (state.imagenVisible) ocultarImagen();
+  else mostrarImagen(state.imagen);
+}
+
+/**
+ * Lo que el guion pide para la pantalla cuando NOVA dice un parlamento:
+ * su imagen (o ninguna: la anterior se va), y prender o apagar la cámara.
+ * También deja lista la imagen del parlamento que sigue.
+ */
+function aplicarPantalla(entrada) {
+  if (entrada.imagenes?.length) mostrarImagen(entrada.imagenes[0]);
+  if (entrada.camara === 'encender') verCamara(true);
+  if (entrada.camara === 'apagar') verCamara(false);
+
+  const proxima = guion.entradas[entrada.indice + 1]?.imagenes?.[0];
+  if (proxima?.src) new Image().src = proxima.src;
 }
 
 /* ---------------------------------------------------- panel de control */
@@ -462,6 +645,9 @@ function publicar() {
         micDiag: state.micDiag,
         micQuerido: state.micQuerido,
         voz: speaker.enabled,
+        camara: state.camara,
+        imagen: state.imagen,
+        imagenVisible: state.imagenVisible,
         oido: state.oido,
         ultimaRespuesta: state.ultimaRespuesta,
         evento: state.evento,
@@ -509,6 +695,18 @@ function recibirComando(mensaje) {
       break;
     }
     case 'voz': setVoice(Boolean(mensaje.on)); break;
+    case 'camara': verCamara(Boolean(mensaje.on)); break;
+    case 'imagen': {
+      if (Number.isInteger(mensaje.indice)) {
+        const imagen = guion.entradas[mensaje.indice]?.imagenes?.[0];
+        if (imagen) mostrarImagen(imagen);
+      } else if (mensaje.on === false) {
+        ocultarImagen();
+      } else {
+        alternarImagen();
+      }
+      break;
+    }
     case 'turno': show.setCurrent(String(mensaje.id)); break;
     case 'turno-siguiente': show.next(); break;
     case 'fijar': fijarAcuerdo(); break;
@@ -729,8 +927,8 @@ function pintarGuion() {
   }
 
   el.sceneHint.textContent = enUso
-    ? 'Espacio: micrófono · S: guion · A: fijar acuerdo · M: muro · F: salir'
-    : 'Espacio: micrófono · A: fijar acuerdo · M: muro · F: salir';
+    ? 'Espacio: micrófono · S: guion · C: cámara · I: imagen · A: fijar acuerdo · M: muro · F: salir'
+    : 'Espacio: micrófono · C: cámara · A: fijar acuerdo · M: muro · F: salir';
 
   publicar();
 }
@@ -750,6 +948,7 @@ async function decirDelGuion(indice) {
 
   prepararRespuesta();
   guion.marcar(indice);
+  aplicarPantalla(entrada);
   // Si después se fija como acuerdo, el pie sirve de título.
   state.ultimaPregunta = entrada.pies.at(-1) || '';
   anotar(`Dice el parlamento ${indice + 1} a pedido.`);
@@ -1113,6 +1312,7 @@ async function send(text, { fromVoice = false } = {}) {
 
   if (hallado) {
     guion.marcar(hallado.entrada.indice);
+    aplicarPantalla(hallado.entrada);
     anotar(`${hallado.porAsistente ? 'El asistente ubicó' : 'Reconoció'} el pie ${hallado.entrada.indice + 1}: «${text}».`);
     await responder(hallado.entrada.parlamento, { origen: 'guion' });
     return;
@@ -1148,6 +1348,7 @@ function conversarConIA(text) {
     if (veredicto.indice != null && guion.entradas[veredicto.indice]?.pies.length) {
       const entrada = guion.entradas[veredicto.indice];
       guion.marcar(entrada.indice);
+      aplicarPantalla(entrada);
       marcar('guion');
       anotar(`La IA ubicó el pie ${entrada.indice + 1}: «${text}».`);
       return gotear(entrada.parlamento, onDelta, signal);

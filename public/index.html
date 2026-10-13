@@ -153,13 +153,24 @@
       <p class="scene__state" id="sceneState">En espera</p>
     </div>
 
+    <!-- La cámara del público, detrás de todo, cuando se la prende. -->
+    <video class="scene__camara" id="camara" autoplay muted playsinline aria-hidden="true"></video>
+    <div class="scene__velo" aria-hidden="true"></div>
+
     <div class="scene__body">
-      <div class="scene__quien" id="sceneQuien">
-        <span class="scene__punto" aria-hidden="true"></span>
-        <p class="scene__nombre" id="sceneNombre"></p>
+      <!-- Una imagen que el guion sugiere para este momento. -->
+      <figure class="scene__imagen" id="sceneImagen">
+        <img id="sceneImagenImg" alt="" />
+        <figcaption id="sceneImagenPie"></figcaption>
+      </figure>
+      <div class="scene__habla">
+        <div class="scene__quien" id="sceneQuien">
+          <span class="scene__punto" aria-hidden="true"></span>
+          <p class="scene__nombre" id="sceneNombre"></p>
+        </div>
+        <p class="scene__label" id="sceneLabel">NOVA</p>
+        <div class="scene__text" id="sceneText"></div>
       </div>
-      <p class="scene__label" id="sceneLabel">NOVA</p>
-      <div class="scene__text" id="sceneText"></div>
     </div>
 
     <!-- Placa de apertura: lo que se ve antes de que empiece la función. -->
@@ -206,6 +217,21 @@
           <button class="primary" type="submit">Agregar</button>
         </form>
         <ul class="plantel" id="plantel"></ul>
+      </section>
+
+      <section class="bloque">
+        <h3 class="bloque__titulo">Cámara del público</h3>
+        <p class="sheet__note">
+          Con la tecla <strong>C</strong>, o desde el panel, la gente se ve en la pantalla
+          grande. El guion también puede prenderla en un momento dado con una línea
+          <code>CÁMARA: encender</code>. Elegí acá qué cámara usar.
+        </p>
+        <div class="alta">
+          <select id="camaraDispositivo" aria-label="Cámara"><option value="">La cámara de siempre</option></select>
+          <button class="ghost" id="camaraProbar" type="button">Probar</button>
+        </div>
+        <video class="camara-prueba" id="camaraPrueba" autoplay muted playsinline hidden></video>
+        <p class="sheet__note" id="camaraNota"></p>
       </section>
 
       <section class="bloque">

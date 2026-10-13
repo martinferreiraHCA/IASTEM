@@ -694,6 +694,9 @@ body {
 }
 .mic__diag:empty { display: none; }
 
+/* La prueba de la cámara dentro del panel Función. */
+.camara-prueba { width: 100%; max-height: 220px; border-radius: 12px; background: #000; object-fit: cover; transform: scaleX(-1); }
+
 /* =============================================================== guion */
 
 /* Tira en la consola: el pie que se espera y el botón para decirlo a mano. */

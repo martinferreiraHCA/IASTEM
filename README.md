@@ -84,6 +84,13 @@ Las reglas son pocas:
   se dice así, o tocándolo en la lista.
 - Las líneas que empiezan con `#`, y las acotaciones entre `[corchetes]` o
   `(paréntesis)`, se ignoran. Una línea sin nombre continúa la anterior.
+- El guion también sugiere qué se ve en pantalla. `IMAGEN: dirección | pie
+  de foto | 10s`, justo antes de un parlamento de NOVA, hace que esa imagen
+  **tome toda la pantalla** cuando NOVA lo dice, el tiempo indicado (8
+  segundos si no se dice), y después vuelve la vista normal. `CÁMARA:
+  encender` o `CÁMARA: apagar` prende o apaga la cámara del público en ese
+  momento. Las imágenes van en `public/imagenes/` (ver el `LEEME.txt` de
+  ahí) o se enlazan con su dirección completa.
 
 En `docs/guion-german-martin.txt` hay un diálogo de ejemplo listo para cargar.
 
@@ -145,6 +152,8 @@ pasando. Desde ahí se puede:
 - cargar otro guion, volver al principio, apagar el seguimiento;
 - cambiar la pantalla: portada, charla, muro, modo escenario;
 - prender y apagar el micrófono y la voz; cortar un parlamento;
+- poner la cámara del público en pantalla, y esconder o mostrar la imagen
+  de este momento;
 - pasar el turno al siguiente estudiante y fijar acuerdos en el muro;
 - escribir algo para que NOVA lo diga ya, o escribir lo que dijo una persona
   si el micrófono no lo captó.
@@ -206,6 +215,24 @@ En **Función → Quiénes participan** cargás a los estudiantes. Cada uno reci
 color. Cuando le toca hablar, la pantalla grande muestra su nombre en ese color:
 los padres siguen a su hijo, no a un cursor.
 
+### La cámara del público
+
+Con la tecla **C**, o desde el panel, la gente que está mirando aparece en la
+pantalla grande, como en un espejo, y NOVA les sigue hablando encima. Se usa
+en los momentos que decidas: una bienvenida, el cierre, un "mírense". En
+**Función → Cámara del público** se elige qué cámara usar y se prueba. El guion
+también puede prenderla sola en un momento dado, con `CÁMARA: encender`.
+
+### Las imágenes
+
+Cuando el guion sugiere una imagen para un parlamento, al decirlo NOVA la
+imagen toma toda la pantalla, con su pie de foto y una línea abajo que
+muestra cuánto falta, durante el tiempo que el guion pide; después se
+desvanece y vuelve la vista normal, con el texto que NOVA siguió diciendo
+mientras tanto. Con la tecla **I** se saca antes de tiempo o se vuelve a
+mostrar; en el panel, lo mismo con el botón Imagen, y las líneas que traen
+imagen o cámara están marcadas con su tiempo.
+
 ### Los acuerdos
 
 Lo que el grupo va definiendo junto a NOVA se fija como tarjeta, con el nombre de
@@ -223,6 +250,8 @@ Todo se maneja sin mouse, que en vivo es lo que importa:
 |---|---|
 | **Espacio** | Apaga el micrófono, y lo vuelve a prender |
 | **S** | NOVA dice el siguiente parlamento del guion |
+| **C** | Pone y saca la cámara del público en pantalla |
+| **I** | Esconde y vuelve a mostrar la imagen de este momento |
 | **1** … **9** | De quién es el turno |
 | **Tab** | Pasa al siguiente estudiante |
 | **A** | Fija la última respuesta en el muro |

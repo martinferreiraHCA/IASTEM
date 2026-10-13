@@ -1,0 +1,9 @@
+Acá van las imágenes que el guion sugiere. En el guion se usan así, antes
+del parlamento de NOVA en el que tienen que aparecer:
+
+    IMAGEN: imagenes/panel-solar.jpg | Un panel solar en el techo del instituto
+    NOVA: Este es el panel que instalaron ustedes...
+
+También sirve una dirección completa (https://...). El pie de foto, después
+de la barra, es opcional. Las imágenes de esta carpeta se publican con el
+sitio: subilas al repositorio y listo.

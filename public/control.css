@@ -170,6 +170,8 @@ button { cursor: pointer; }
 .bloque__acciones { display: flex; gap: 8px; }
 
 .grilla { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.grilla--dos { grid-template-columns: repeat(2, 1fr); }
+.linea__marca { font-family: var(--mono); font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--cyan); margin-left: 8px; }
 .fila { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .fila input[type="text"] {
   flex: 1; min-width: 0;

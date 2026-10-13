@@ -30,6 +30,7 @@ export class Enlace {
     this.onCambio = null;
     this.fuente = null;
     this.reintento = null;
+    this.vistos = new Map(); // ids de mensajes ya recibidos: por los dos caminos llega el mismo
 
     this.canal = 'BroadcastChannel' in window ? new BroadcastChannel(CANAL) : null;
     this.canal?.addEventListener('message', (event) => this.#recibir(event.data));
@@ -40,7 +41,7 @@ export class Enlace {
 
   /** Manda un mensaje a todas las otras páginas, por los dos caminos. */
   enviar(mensaje) {
-    const sobre = { ...mensaje, de: this.rol, t: Date.now() };
+    const sobre = { ...mensaje, de: this.rol, t: Date.now(), id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}` };
     this.canal?.postMessage(sobre);
     if (this.servidor === 'conectado') {
       fetch('api/control', {
@@ -53,6 +54,17 @@ export class Enlace {
 
   #recibir(mensaje) {
     if (!mensaje || mensaje.de === this.rol) return; // lo propio no interesa
+
+    // En la misma computadora con servidor, el mismo mensaje llega por el
+    // canal local y por el servidor: la segunda vez se ignora.
+    if (mensaje.id) {
+      const ahora = Date.now();
+      if (this.vistos.has(mensaje.id)) return;
+      this.vistos.set(mensaje.id, ahora);
+      if (this.vistos.size > 200) {
+        for (const [id, t] of this.vistos) if (ahora - t > 30000) this.vistos.delete(id);
+      }
+    }
     this.onMensaje?.(mensaje);
   }
 
