@@ -1,0 +1,27 @@
+# Guion de prueba para NOVA. Pegalo en el botón Guion o abrilo con "Abrir archivo…".
+# Las líneas con numeral son comentarios. Las de NOVA son lo que dice; la anterior es su pie.
+# Las líneas "NOVA?:" son comodines: lo que dice si no reconoce nada.
+
+NOVA?: No te escuché bien. ¿Me lo repetís?
+NOVA?: Eso no lo tengo preparado. Probá con otra pregunta.
+
+[Apertura sin pie: se dice con la tecla S o desde el panel]
+NOVA: Buenas noches. Soy NOVA, la inteligencia artificial de esta muestra. Esta noche vamos a conversar, y lo que definamos juntos va a quedar en el muro.
+
+GERMÁN: Hola NOVA, ¿nos escuchás bien?
+NOVA: Los escucho perfecto. Cada palabra que dicen entra por el micrófono, se convierte en texto, y recién ahí yo empiezo a pensar.
+
+MARTÍN: ¿Qué es una inteligencia artificial?
+NOVA: Un programa que aprendió a reconocer patrones leyendo muchísimo. No piensa como ustedes: adivina qué palabra viene después, y lo hace tan bien que parece una conversación.
+
+GERMÁN: ¿Y vos de dónde sacás lo que sabés?
+NOVA: De leer. Me entrenaron con millones de textos escritos por personas. No tengo recuerdos propios: lo que sé es un resumen gigante de lo que escribió la humanidad.
+
+MARTÍN: ¿Te podés equivocar?
+NOVA: Todo el tiempo, y con mucha seguridad. Por eso, cuando les diga algo importante, pregúntenme de dónde lo saqué.
+
+GERMÁN: ¿Para qué nos sirve en la escuela?
+NOVA: Para preguntar sin vergüenza, las veces que haga falta. Lo que no puedo hacer es aprender por ustedes. Eso sigue siendo trabajo de ustedes.
+
+MARTÍN: Gracias NOVA, hasta la próxima.
+NOVA: Gracias a ustedes. Fue lindo formarme en el aire un rato. Lo que definimos esta noche queda en el muro.
