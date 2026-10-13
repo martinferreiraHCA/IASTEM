@@ -179,7 +179,8 @@ function pintar() {
       : 'Fin del guion';
 
   // Guion.
-  el.progreso.textContent = `${guion.total ? `${Math.max(0, guion.cursor + 1)}/${guion.total}` : ''}${estado.asistente && estado.asistente !== 'ninguno' ? ' · con asistente' : ''}`;
+  const conAsistente = estado.asistente && estado.asistente !== 'ninguno';
+  el.progreso.textContent = `${guion.total ? `${Math.max(0, guion.cursor + 1)}/${guion.total}` : ''}${conAsistente ? (estado.asistenteConversa ? ' · con IA que conversa' : ' · con asistente') : ''}`;
   el.activo.setAttribute('aria-pressed', String(guion.activo));
   el.lineas.innerHTML = '';
   if (!guion.total) {

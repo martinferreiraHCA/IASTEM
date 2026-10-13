@@ -302,11 +302,19 @@
       <p class="sheet__mode" id="asistenteEstado">Detectando…</p>
 
       <p class="sheet__note">
-        Una IA que <strong>no escribe lo que dice NOVA</strong>: solo decide a qué pie
-        corresponde lo que se oyó, cuando el parecido de palabras no alcanza. Entiende
-        que "¿de dónde sacás lo que sabés?" y "¿cómo aprendiste?" pueden ser el mismo pie.
-        Es opcional: sin clave, NOVA ubica los pies por parecido.
+        Una IA que ayuda a seguir la función. Cuando lo que se oye no coincide por
+        palabras con un pie, decide a qué pie corresponde; y si no corresponde a ninguno,
+        puede <strong>conversar como NOVA</strong>, siguiendo el hilo y el espíritu del guion.
+        Es opcional: sin clave, NOVA ubica los pies por parecido y contesta con comodines.
       </p>
+
+      <div class="sheet__field">
+        <label for="asistenteUso">Qué hace</label>
+        <select id="asistenteUso">
+          <option value="conversar">Ubicar el pie, y conversar cuando no hay pie</option>
+          <option value="ubicar">Solo ubicar el pie: NOVA dice únicamente el guion</option>
+        </select>
+      </div>
 
       <div class="sheet__field">
         <label for="asistenteProveedor">Con quién</label>
@@ -331,6 +339,12 @@
         <label for="asistenteModelo">Modelo</label>
         <input type="text" id="asistenteModelo" placeholder="claude-opus-5-5" autocomplete="off" spellcheck="false" />
         <p class="sheet__note">Dejalo vacío para usar el de siempre. Si se nota la espera, <code>claude-haiku-5-5</code> es más rápido.</p>
+      </div>
+
+      <div class="sheet__field">
+        <label for="asistentePersonalidad">Quién es NOVA cuando improvisa</label>
+        <textarea id="asistentePersonalidad" rows="4"></textarea>
+        <p class="sheet__note">Cómo habla y qué sabe de la función. Dejalo vacío para usar la descripción de siempre.</p>
       </div>
 
       <footer class="sheet__foot">

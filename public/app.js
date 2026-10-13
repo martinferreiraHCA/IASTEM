@@ -94,6 +94,8 @@ const el = {
   asistenteClose: $('asistenteClose'),
   asistenteProbar: $('asistenteProbar'),
   asistenteEstado: $('asistenteEstado'),
+  asistenteUso: $('asistenteUso'),
+  asistentePersonalidad: $('asistentePersonalidad'),
   asistenteProveedor: $('asistenteProveedor'),
   asistenteClave: $('asistenteClave'),
   asistenteModelo: $('asistenteModelo'),
@@ -122,6 +124,7 @@ const state = {
   ultimaRespuesta: '',   // lo que se fija con la tecla A
   oido: '',              // lo que el micrófono captó por última vez
   anticipado: null,      // {texto, t}: un pie reconocido antes de que terminara la frase
+  historial: [],         // la charla, para que la IA la siga cuando improvisa
   evento: null,          // lo último que pasó, para el panel
   abriendoMic: false,
   micQuerido: false,     // el micrófono tiene que estar encendido: se vuelve a prender solo
@@ -464,6 +467,7 @@ function publicar() {
         evento: state.evento,
         guion: guion.resumen(),
         asistente: arbitro.modo,
+        asistenteConversa: arbitro.conversa,
         turno: show.current,
         plantel: show.speakers,
         acuerdos: show.agreements.length,
@@ -580,6 +584,8 @@ function wireGuion() {
     arbitro.proveedor = el.asistenteProveedor.value;
     arbitro.clave = el.asistenteClave.value;
     arbitro.modelo = el.asistenteModelo.value;
+    arbitro.uso = el.asistenteUso.value;
+    arbitro.personalidad = el.asistentePersonalidad.value;
     await arbitro.detectar();
     pintarAsistente();
     toast(arbitro.disponible ? 'Asistente de ubicación listo.' : 'Sin clave: NOVA ubica los pies por parecido, como siempre.');
@@ -601,6 +607,8 @@ async function probarAsistente() {
   arbitro.proveedor = el.asistenteProveedor.value;
   arbitro.clave = el.asistenteClave.value;
   arbitro.modelo = el.asistenteModelo.value;
+  arbitro.uso = el.asistenteUso.value;
+  arbitro.personalidad = el.asistentePersonalidad.value;
   await arbitro.detectar();
   pintarAsistente();
   if (!arbitro.disponible) return toast('No hay clave guardada ni servidor con clave: no hay qué probar.');
@@ -633,9 +641,12 @@ function pintarAsistente() {
   el.asistenteClave.placeholder = quien.pista;
   el.asistenteModelo.value = arbitro.modelo;
   el.asistenteModelo.placeholder = quien.modelo;
+  el.asistenteUso.value = arbitro.uso;
+  el.asistentePersonalidad.value = arbitro.personalidad;
+  const hace = arbitro.uso === 'conversar' ? 'Ubica el pie y, si no hay, conversa como NOVA.' : 'Solo ubica el pie: NOVA dice únicamente el guion.';
   el.asistenteEstado.innerHTML = {
-    servidor: `<strong>Asistente activo por el servidor, con ${escapar(arbitro.conQuien)}.</strong> La clave está en el <code>.env</code> de la computadora que corre NOVA.`,
-    directo: `<strong>Asistente activo con ${escapar(quien.nombre)}, con la clave de este navegador.</strong> Cuando lo que se oye no coincide con un pie, se le pregunta a qué pie corresponde.`,
+    servidor: `<strong>Asistente activo por el servidor, con ${escapar(arbitro.conQuien)}.</strong> ${hace} La clave está en el <code>.env</code> de la computadora que corre NOVA.`,
+    directo: `<strong>Asistente activo con ${escapar(quien.nombre)}, con la clave de este navegador.</strong> ${hace}`,
     ninguno: '<strong>Sin asistente.</strong> NOVA ubica los pies por parecido de palabras, que alcanza si los estudiantes dicen más o menos lo escrito.',
   }[arbitro.modo];
   publicar();
@@ -1068,6 +1079,7 @@ async function send(text, { fromVoice = false } = {}) {
   cloud.absorb(text, 'user');
   state.ultimo = { role: 'user', content: text };
   state.ultimaPregunta = text;
+  recordar('user', text);
 
   // En el escenario primero se ve lo que dijo la persona…
   if (isStage()) {
@@ -1078,6 +1090,14 @@ async function send(text, { fromVoice = false } = {}) {
   }
 
   let hallado = guion.buscar(text);
+
+  // Sin pie por parecido y con una IA que conversa: una sola consulta decide
+  // si era un pie (y NOVA dice el guion) o si NOVA improvisa, en streaming.
+  if (!hallado && arbitro.conversa && guion.tiene) {
+    anotar(`No reconoció «${text}» por parecido: consulta a la IA.`);
+    await responder(conversarConIA(text), { origen: 'ia' });
+    return;
+  }
 
   // Solo si el parecido no alcanza, el asistente decide a qué pie
   // corresponde. Mientras tanto NOVA "piensa", que es exactamente lo que pasa.
@@ -1113,13 +1133,51 @@ async function send(text, { fromVoice = false } = {}) {
 }
 
 /**
+ * Lo que produce la IA cuando conversa: si resulta ser un pie, NOVA dice
+ * el parlamento del guion por el mismo canal; si no, deja pasar lo que la IA
+ * va diciendo. Devuelve la función que responder() ejecuta.
+ */
+function conversarConIA(text) {
+  return async (onDelta, signal, marcar) => {
+    const veredicto = await arbitro.conversar(
+      { oido: text, cursor: guion.cursor, entradas: guion.entradas, historial: state.historial },
+      onDelta,
+      signal,
+    );
+
+    if (veredicto.indice != null && guion.entradas[veredicto.indice]?.pies.length) {
+      const entrada = guion.entradas[veredicto.indice];
+      guion.marcar(entrada.indice);
+      marcar('guion');
+      anotar(`La IA ubicó el pie ${entrada.indice + 1}: «${text}».`);
+      return gotear(entrada.parlamento, onDelta, signal);
+    }
+
+    if (veredicto.texto) {
+      anotar('NOVA improvisa con la IA.');
+      return veredicto.texto;
+    }
+
+    // La IA no pudo: comodín si hay, y si no, se dice qué pasó.
+    anotar(veredicto.error ? `La IA no respondió: ${veredicto.error}.` : 'La IA no dijo nada.');
+    const comodin = guion.comodin;
+    if (comodin) {
+      marcar('comodin');
+      return gotear(comodin, onDelta, signal);
+    }
+    throw new Error(veredicto.error ? `La IA no respondió: ${veredicto.error}.` : 'La IA no dijo nada.');
+  };
+}
+
+/**
  * NOVA dice un texto: lo deja caer letra por letra, lo lee en voz alta y
  * lo recuerda por si se fija en el muro.
  *
- * @param {string} texto
- * @param {{origen: 'guion'|'comodin'|'libre'}} opts
+ * @param {string | ((onDelta:(d:string)=>void, signal:AbortSignal, marcar:(o:string)=>void) => Promise<string>)} fuente
+ *   el texto, o quien lo va entregando de a pedazos
+ * @param {{origen: 'guion'|'comodin'|'libre'|'ia'}} opts
  */
-async function responder(texto, { origen }) {
+async function responder(fuente, { origen }) {
   state.busy = true;
   el.stopBtn.hidden = false;
   el.sendBtn.disabled = true;
@@ -1129,8 +1187,14 @@ async function responder(texto, { origen }) {
   setMode('thinking');
 
   const bubble = addBubble('ai', '', { pending: true });
-  bubble.closest('.msg')?.classList.add(`msg--${origen}`);
-  bubble.title = { guion: 'Dicho según el guion', comodin: 'Comodín: no reconoció el pie', libre: 'Escrito desde el panel' }[origen];
+  const TITULOS = { guion: 'Dicho según el guion', comodin: 'Comodín: no reconoció el pie', libre: 'Escrito desde el panel', ia: 'Improvisado con la IA' };
+  const marcar = (nuevo) => {
+    bubble.closest('.msg')?.classList.remove(`msg--${origen}`);
+    origen = nuevo;
+    bubble.closest('.msg')?.classList.add(`msg--${origen}`);
+    bubble.title = TITULOS[origen];
+  };
+  marcar(origen);
   const bubbleWriter = new Materializer(bubble, { charsPerSecond: 70 });
   let firstChunk = true;
   let answer = '';
@@ -1138,8 +1202,8 @@ async function responder(texto, { origen }) {
   state.controller = new AbortController();
 
   try {
-    answer = await gotear(
-      texto,
+    const entregar = typeof fuente === 'function' ? fuente : (onDelta, signal) => gotear(fuente, onDelta, signal);
+    answer = await entregar(
       (delta) => {
         if (firstChunk) {
           firstChunk = false;
@@ -1159,6 +1223,7 @@ async function responder(texto, { origen }) {
         scrollLog();
       },
       state.controller.signal,
+      marcar,
     );
 
     sentences.flush();
@@ -1166,6 +1231,7 @@ async function responder(texto, { origen }) {
     bubble.classList.remove('is-streaming');
 
     state.ultimo = { role: 'assistant', content: answer };
+    recordar('assistant', answer);
     cloud.absorb(answer, 'ai');
     state.ultimaRespuesta = answer.trim();
     el.pinBtn.disabled = false;
@@ -1216,8 +1282,17 @@ function abort() {
   sceneWriter.flush();
 }
 
+/** La charla que la IA tiene en cuenta cuando improvisa. */
+function recordar(role, content) {
+  const limpio = (content || '').trim();
+  if (!limpio) return;
+  state.historial.push({ role, content: limpio });
+  if (state.historial.length > 24) state.historial.splice(0, state.historial.length - 24);
+}
+
 function reset() {
   abort();
+  state.historial.length = 0;
   state.pendingSpeech.length = 0;
   clearTimeout(state.silenceTimer);
   state.ultimo = null;

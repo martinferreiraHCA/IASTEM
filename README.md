@@ -87,14 +87,30 @@ Las reglas son pocas:
 
 En `docs/guion-german-martin.txt` hay un diálogo de ejemplo listo para cargar.
 
-### El asistente de ubicación
+### El asistente
 
 El parecido de palabras alcanza cuando los estudiantes dicen más o menos lo
 escrito. Cuando lo dicen con otras palabras ("¿de dónde sacás lo que sabés?"
 en vez de "¿cómo aprendiste?"), o el micrófono transcribe mal, conviene el
 asistente: una IA a la que, cada vez que lo oído no coincide con claridad, se
-le pregunta **a qué pie corresponde**. Contesta un número y una confianza, y
-nada más. **Lo que NOVA dice sigue saliendo del guion, siempre.**
+le pregunta **a qué pie corresponde**.
+
+El asistente tiene dos usos, que se eligen en su panel:
+
+- **Solo ubicar el pie.** Contesta un número y nada más. Lo que NOVA dice
+  sale del guion, siempre; si no hay pie, comodín o silencio.
+- **Ubicar y conversar** (el que viene elegido). Si lo oído no corresponde a
+  ningún pie, la IA **improvisa como NOVA**: breve, en el espíritu del guion,
+  siguiendo el hilo de la conversación y, si viene al caso, encaminando hacia
+  lo que sigue en el guion. Es una sola consulta que decide las dos cosas, y
+  la respuesta llega de a pedazos para que las letras arranquen enseguida. En
+  el panel se escribe quién es NOVA cuando improvisa: cómo habla y qué sabe de
+  la función.
+
+En los dos casos el guion manda: un pie reconocido siempre gana, y la IA solo
+habla cuando el guion no tiene nada preparado. Las respuestas improvisadas se
+distinguen en la consola con un borde violeta, y el panel de control las
+anota.
 
 Es opcional y funciona con **Claude (Anthropic)** o con **OpenAI**. La
 clave puede estar en dos lugares:
@@ -307,4 +323,5 @@ cualquier dispositivo de la red.
 - **Qué tan parecido tiene que ser el pie** — `TOLERANCIAS` en `guion.js`.
 - **Colores** — las variables `--cyan`, `--violet`, `--magenta` arriba de `styles.css`.
 - **Puerto del servidor y claves del asistente** — en un archivo `.env` (ver `.env.example`).
-- **Qué se le pregunta al asistente** — `INSTRUCCION` en `arbitro.js`.
+- **Qué se le pide al asistente** — `INSTRUCCION`, `instruccionConversar` y
+  `PERSONALIDAD` en `arbitro.js`.

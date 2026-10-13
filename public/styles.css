@@ -715,6 +715,7 @@ body {
 .msg--guion .msg__bubble { border-left: 3px solid rgba(255, 199, 107, 0.65); }
 .msg--comodin .msg__bubble { border-left: 3px solid rgba(154, 163, 199, 0.5); border-style: solid solid solid dashed; }
 .msg--libre .msg__bubble { border-left: 3px solid rgba(122, 245, 255, 0.6); }
+.msg--ia .msg__bubble { border-left: 3px solid rgba(163, 123, 255, 0.7); }
 
 /* Una nota para el operador, dentro de la charla. */
 .nota {

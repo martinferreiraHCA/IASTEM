@@ -7,10 +7,11 @@
  *      control se pueda abrir desde otra computadora o un celular de la
  *      misma red. No guarda nada ni entiende los mensajes: lo que llega por
  *      POST /api/control sale por GET /api/eventos a todos los demás.
- *   3. Si hay una clave en .env, atiende POST /api/ubicar: le pregunta a una
- *      IA a qué pie del guion corresponde lo que se oyó. La IA no escribe lo
- *      que dice NOVA, eso sale siempre del guion; solo ubica. La clave vive
- *      acá y el navegador nunca la ve.
+ *   3. Si hay una clave en .env, atiende POST /api/ubicar (le pregunta a una
+ *      IA a qué pie del guion corresponde lo que se oyó) y POST /api/conversar
+ *      (lo mismo, pero si no es un pie, la IA improvisa como NOVA y la
+ *      respuesta se reenvía en streaming). La clave vive acá y el navegador
+ *      nunca la ve.
  */
 
 const http = require('node:http');
@@ -75,6 +76,11 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/ubicar') {
       if (req.method !== 'POST') return sendJson(res, 405, { error: 'Usá POST.' });
       return await ubicar(req, res);
+    }
+
+    if (url.pathname === '/api/conversar') {
+      if (req.method !== 'POST') return sendJson(res, 405, { error: 'Usá POST.' });
+      return await conversar(req, res);
     }
 
     if (req.method !== 'GET' && req.method !== 'HEAD') {
@@ -181,6 +187,104 @@ async function ubicar(req, res) {
     crudo = pedido.leer(await upstream.json());
   } catch { /* respuesta rara: se devuelve "ninguno" */ }
   return sendJson(res, 200, validar(crudo, Math.max(...pies.map((p) => p.indice), -1) + 1));
+}
+
+/**
+ * Conversar: la misma consulta que en el navegador, pero con la clave de
+ * acá. La respuesta de la API llega en streaming y se reenvía igual, un
+ * evento por pedazo de texto, para que las letras arranquen enseguida.
+ */
+async function conversar(req, res) {
+  if (!ASISTENTE) return sendJson(res, 503, { error: 'El servidor no tiene clave: el asistente está apagado.' });
+
+  let datos;
+  try {
+    datos = JSON.parse((await readBody(req)).toString('utf8'));
+    if (typeof datos.oido !== 'string' || !Array.isArray(datos.pies)) throw new Error('Faltan datos.');
+  } catch (err) {
+    return sendJson(res, 400, { error: err.message || 'JSON inválido.' });
+  }
+
+  const { cuerpoConversarAnthropic, cuerpoConversarOpenAI, consumirSSE, sacarAnthropic, sacarOpenAI } = await cargarArbitro();
+  const pregunta = {
+    oido: datos.oido.slice(0, 1000),
+    cursor: Number(datos.cursor),
+    pies: datos.pies.slice(0, 200).map((p) => ({
+      indice: Number(p.indice),
+      pie: String(p.pie || '').slice(0, 300),
+      parlamento: String(p.parlamento || '').slice(0, 600),
+    })),
+    historial: Array.isArray(datos.historial) ? datos.historial.slice(-16) : [],
+    personalidad: String(datos.personalidad || '').slice(0, 2000),
+  };
+
+  const pedido = ASISTENTE === 'anthropic'
+    ? {
+      url: `${ANTHROPIC_URL}/v1/messages`,
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': ANTHROPIC_KEY,
+        'anthropic-version': '2023-06-01',
+        'anthropic-beta': 'server-side-fallback-2026-07-01',
+      },
+      body: cuerpoConversarAnthropic(pregunta, ANTHROPIC_MODEL),
+      sacar: sacarAnthropic,
+    }
+    : {
+      url: `${OPENAI_URL}/chat/completions`,
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${OPENAI_KEY}` },
+      body: cuerpoConversarOpenAI(pregunta, OPENAI_MODEL),
+      sacar: sacarOpenAI,
+    };
+
+  const control = new AbortController();
+  req.on('close', () => control.abort());
+
+  const upstream = await fetch(pedido.url, {
+    method: 'POST',
+    headers: pedido.headers,
+    body: JSON.stringify(pedido.body),
+    signal: control.signal,
+  }).catch((err) => {
+    if (err.name !== 'AbortError') console.error('No se pudo contactar la API:', err.message);
+    return null;
+  });
+
+  if (!upstream) {
+    if (!control.signal.aborted) sendJson(res, 502, { error: 'No se pudo contactar la API. ¿Hay internet?' });
+    return;
+  }
+  if (!upstream.ok) {
+    const detail = await upstream.text().catch(() => '');
+    console.error(`La API respondió ${upstream.status}:`, detail.slice(0, 300));
+    return sendJson(res, upstream.status, {
+      error: upstream.status === 401 ? 'La API rechazó la clave (401). Revisá la clave en .env.' : `La API respondió ${upstream.status}.`,
+    });
+  }
+
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream; charset=utf-8',
+    'Cache-Control': 'no-cache, no-transform',
+    Connection: 'keep-alive',
+    'X-Accel-Buffering': 'no',
+  });
+
+  try {
+    await consumirSSE(upstream, pedido.sacar, (delta) => {
+      if (!res.writableEnded) res.write(`data: ${JSON.stringify({ delta })}\n\n`);
+    });
+    if (!res.writableEnded) {
+      res.write('event: done\ndata: {}\n\n');
+      res.end();
+    }
+  } catch (err) {
+    if (control.signal.aborted) return;
+    console.error('Se cortó la respuesta:', err.message);
+    if (!res.writableEnded) {
+      res.write(`event: error\ndata: ${JSON.stringify({ error: 'Se interrumpió la respuesta.' })}\n\n`);
+      res.end();
+    }
+  }
 }
 
 /* ------------------------------------------------------------------ relevo */
