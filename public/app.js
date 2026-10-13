@@ -18,7 +18,7 @@ import { WordCloud } from './js/wordcloud.js';
 import { Listener, Speaker, makeSentenceSplitter, voiceSupport } from './js/voice.js';
 import { VoiceMeter } from './js/audio.js';
 import { Show } from './js/show.js';
-import { Guion, parsearGuion, GUION_EJEMPLO } from './js/guion.js';
+import { Guion, parsearGuion, puntaje, GUION_EJEMPLO } from './js/guion.js';
 import { Enlace } from './js/enlace.js';
 import { Arbitro } from './js/arbitro.js';
 
@@ -116,6 +116,7 @@ const state = {
   ultimaPregunta: '',    // para saber de qué trata el último acuerdo
   ultimaRespuesta: '',   // lo que se fija con la tecla A
   oido: '',              // lo que el micrófono captó por última vez
+  anticipado: null,      // {texto, t}: un pie reconocido antes de que terminara la frase
   evento: null,          // lo último que pasó, para el panel
   abriendoMic: false,
   micQuerido: false,     // el micrófono tiene que estar encendido: se vuelve a prender solo
@@ -123,7 +124,8 @@ const state = {
   micDiag: '',           // diagnóstico del micrófono, para la consola y el panel
 };
 
-const SILENCE_MS = 1400;  // pausa que se toma como "terminó de hablar"
+const SILENCE_MS = 700;   // pausa tras la última frase antes de contestar
+const ANTICIPO_MS = 5000; // una frase anticipada tapa su versión final por este tiempo
 
 // Declarados acá arriba porque init() corre antes de que termine de
 // evaluarse el archivo, y los usa.
@@ -140,7 +142,7 @@ const CAPTIONS = {
 };
 
 const cloud = new WordCloud($('cloud'));
-const sceneWriter = new Materializer(el.sceneText, { charsPerSecond: 38 });
+const sceneWriter = new Materializer(el.sceneText, { charsPerSecond: 56 });
 const speaker = new Speaker();
 const meter = new VoiceMeter();
 const show = new Show();
@@ -151,7 +153,10 @@ const sentences = makeSentenceSplitter((s) => speaker.say(s));
 const listener = voiceSupport.listen
   ? new Listener({
     onStart: () => setMode('listening'),
-    onPartial: (text) => showHeard(text, false),
+    onPartial: (text) => {
+      showHeard(text, false);
+      anticipar(text);
+    },
     onFinal: (text) => queueSpeech(text),
     onStatus: (texto) => pintarMic(texto),
     onError: (msg, code) => {
@@ -941,10 +946,36 @@ function setMicActive(active) {
 }
 
 /**
- * Junta lo dictado y espera un silencio antes de mandarlo.
+ * Mientras la persona todavía habla, si lo que va diciendo ya coincide con
+ * claridad con un pie, NOVA contesta sin esperar a que termine ni al
+ * silencio. Es lo que más tiempo ahorra. Solo con coincidencias fuertes:
+ * un pie que se parece a medias espera la frase completa.
+ */
+function anticipar(parcial) {
+  if (state.busy || !guion.activo || !guion.tiene) return;
+  const texto = [...state.pendingSpeech, parcial].join(' ').trim();
+  if (texto.split(/\s+/).length < 3) return;
+  const hallado = guion.buscar(texto);
+  if (!hallado || hallado.puntaje < 0.9) return;
+
+  clearTimeout(state.silenceTimer);
+  state.pendingSpeech.length = 0;
+  state.anticipado = { texto, t: Date.now() };
+  send(texto, { fromVoice: true });
+}
+
+/**
+ * Junta lo dictado y espera un silencio corto antes de mandarlo.
  * Así un grupo puede hablar en varias frases sin que se corte cada vez.
  */
 function queueSpeech(text) {
+  // La versión final de una frase que ya se contestó anticipada no se manda de nuevo.
+  const previo = state.anticipado;
+  if (previo && Date.now() - previo.t < ANTICIPO_MS && puntaje(text, previo.texto) >= 0.6) {
+    state.anticipado = null;
+    return;
+  }
+
   state.pendingSpeech.push(text);
   showHeard(state.pendingSpeech.join(' '), true);
 
@@ -994,9 +1025,9 @@ async function send(text, { fromVoice = false } = {}) {
 
   let hallado = guion.buscar(text);
 
-  // Si el parecido no alcanza, o es flojo, el asistente decide a qué pie
+  // Solo si el parecido no alcanza, el asistente decide a qué pie
   // corresponde. Mientras tanto NOVA "piensa", que es exactamente lo que pasa.
-  if (arbitro.disponible && guion.activo && guion.tiene && (!hallado || hallado.puntaje < 0.9)) {
+  if (!hallado && arbitro.disponible && guion.activo && guion.tiene) {
     setMode('thinking');
     const veredicto = await arbitro.ubicar({ oido: text, cursor: guion.cursor, entradas: guion.entradas });
     if (veredicto?.indice != null && veredicto.confianza >= 0.6 && guion.entradas[veredicto.indice]?.pies.length) {
@@ -1046,7 +1077,7 @@ async function responder(texto, { origen }) {
   const bubble = addBubble('ai', '', { pending: true });
   bubble.closest('.msg')?.classList.add(`msg--${origen}`);
   bubble.title = { guion: 'Dicho según el guion', comodin: 'Comodín: no reconoció el pie', libre: 'Escrito desde el panel' }[origen];
-  const bubbleWriter = new Materializer(bubble, { charsPerSecond: 46 });
+  const bubbleWriter = new Materializer(bubble, { charsPerSecond: 70 });
   let firstChunk = true;
   let answer = '';
 

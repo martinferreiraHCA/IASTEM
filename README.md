@@ -155,8 +155,10 @@ del botón se ve lo que va oyendo y un diagnóstico chiquito ("escuchando",
 "detecta voz", "transcribiendo", "sin respuesta, reintento 2"), que también se
 ve en el panel.
 
-NOVA espera **1,4 segundos de silencio** antes de contestar: así un grupo puede
-hablar en varias frases sin que la respuesta se dispare a mitad de la idea.
+NOVA contesta rápido: si lo que la persona va diciendo ya coincide con
+claridad con un pie, **contesta antes de que termine la frase**. Si la
+coincidencia es a medias, espera a que termine y deja pasar **0,7 segundos de
+silencio**, por si el grupo sigue con otra frase.
 
 ### Si el micrófono no transcribe
 
@@ -288,6 +290,10 @@ cualquier dispositivo de la red.
 
 - **Velocidad de las letras** — `charsPerSecond` en `app.js` (`sceneWriter`).
   Más bajo es más dramático; más alto acompaña mejor a la voz.
+- **Cuánto silencio espera** antes de contestar — `SILENCE_MS` en `app.js`.
+  La anticipación, cuando el pie ya coincide a mitad de frase, está en
+  `anticipar()`: el umbral de 0,9 es lo que la hace segura.
+- **El ritmo del goteo** de las palabras — las pausas en `goteo.js`.
 - **Cuántas mutaciones** hace cada letra antes de fijarse — `mutations` en
   `materialize.js`.
 - **Densidad de la nube** — `maxWords` en `wordcloud.js`.

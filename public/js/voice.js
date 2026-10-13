@@ -291,7 +291,7 @@ export class Speaker {
     const utterance = new SpeechSynthesisUtterance(clean);
     if (this.voice) utterance.voice = this.voice;
     utterance.lang = this.voice?.lang || 'es-ES';
-    utterance.rate = 1.02;
+    utterance.rate = 1.08;
     utterance.pitch = 1.05;
 
     // Chrome a veces no avisa cuando termina de hablar, y el micrófono

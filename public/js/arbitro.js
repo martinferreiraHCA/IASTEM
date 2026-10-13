@@ -19,7 +19,7 @@ const STORE_CLAVE = 'nova:asistente-clave';
 const STORE_MODELO = 'nova:asistente-modelo';
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
 const MODELO_POR_DEFECTO = 'gpt-4o-mini';
-const ESPERA_MS = 6000; // más que esto y la función se nota trabada
+const ESPERA_MS = 4000; // más que esto y la función se nota trabada
 
 /** Lo que se le pide. Devuelve JSON, nada más. */
 export const INSTRUCCION =

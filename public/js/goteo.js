@@ -16,13 +16,13 @@ export async function gotear(texto, onDelta, signal) {
   const trozos = texto.match(/\S+\s*/g) || [texto];
   let todo = '';
 
-  await pausa(380); // el "pensando" inicial
+  await pausa(140); // un respiro, como quien toma aire
 
   for (const trozo of trozos) {
     if (signal?.aborted) throw interrumpido();
     todo += trozo;
     onDelta(trozo);
-    await pausa(26 + Math.random() * 34);
+    await pausa(12 + Math.random() * 22);
   }
   return todo;
 }
