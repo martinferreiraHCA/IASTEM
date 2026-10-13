@@ -32,7 +32,9 @@ export class WordCloud {
     this.words = [];              // partículas activas
     this.weights = new Map();     // palabra -> cuántas veces apareció
     this.maxWords = 46;
-    this.clearZone = null;        // elipse central que las palabras esquivan
+    this.clearZone = null;        // la zona que las palabras esquivan: donde va el texto grande
+    this.zonaCache = null;        // la última zona medida, en píxeles
+    this.zonaMedida = 0;          // cuándo se midió
     this.energy = 0;              // volumen de la voz, de 0 a 1
     this.running = false;
     this.lastFrame = 0;
@@ -43,11 +45,33 @@ export class WordCloud {
   }
 
   /**
-   * Deja un hueco en el centro para que el texto grande se lea limpio.
-   * @param {{rx:number, ry:number}|null} zone  radios como fracción del ancho/alto
+   * Deja un hueco para que el texto grande se lea limpio.
+   *
+   * Puede ser una elipse fija en el centro, `{rx, ry}` como fracción del
+   * ancho y el alto, o una función que devuelve dónde está el texto en este
+   * momento, `{cx, cy, hw, hh}` en píxeles (centro y medios lados): así el
+   * hueco sigue al texto cuando crece, se achica o se corre.
+   *
+   * @param {{rx:number, ry:number} | (() => {cx:number, cy:number, hw:number, hh:number} | null) | null} zone
    */
   setClearZone(zone) {
     this.clearZone = zone;
+    this.zonaCache = null;
+    this.zonaMedida = 0;
+  }
+
+  /** La zona de ahora, en píxeles. Se vuelve a medir cada tanto, no en cada cuadro. */
+  #zona() {
+    if (!this.clearZone) return null;
+    if (typeof this.clearZone !== 'function') {
+      return { cx: this.w / 2, cy: this.h / 2, hw: this.w * this.clearZone.rx, hh: this.h * this.clearZone.ry, blanda: true };
+    }
+    const ahora = performance.now();
+    if (ahora - this.zonaMedida > 120) {
+      this.zonaMedida = ahora;
+      this.zonaCache = this.clearZone() || null;
+    }
+    return this.zonaCache;
   }
 
   /** El volumen de quien habla: las palabras brillan y se agitan con la voz. */
@@ -55,12 +79,19 @@ export class WordCloud {
     this.energy = Math.max(0, Math.min(1, nivel || 0));
   }
 
-  /** Cuánto invade una partícula la zona despejada (0 = afuera, 1 = en el centro). */
-  #intrusion(x, y) {
-    if (!this.clearZone) return 0;
-    const dx = (x - this.w / 2) / (this.w * this.clearZone.rx);
-    const dy = (y - this.h / 2) / (this.h * this.clearZone.ry);
-    const d = Math.hypot(dx, dy);
+  /**
+   * Cuánto invade una palabra la zona despejada (0 = afuera, 1 = en el
+   * centro). Se cuenta el tamaño de la palabra: una palabra larga que roza
+   * el borde ya está encima del texto.
+   */
+  #intrusion(x, y, ew = 0, eh = 0) {
+    const zona = this.#zona();
+    if (!zona) return 0;
+    const dx = Math.abs(x - zona.cx) / (zona.hw + ew + 24);
+    const dy = Math.abs(y - zona.cy) / (zona.hh + eh + 18);
+    // Una elipse si la zona es la fija de siempre; un rectángulo redondeado
+    // si sigue al texto, que es rectangular.
+    const d = zona.blanda ? Math.hypot(dx, dy) : Math.max(dx, dy, Math.hypot(dx, dy) / 1.25);
     return d >= 1 ? 0 : 1 - d;
   }
 
@@ -140,12 +171,15 @@ export class WordCloud {
 
     let x = this.w / 2 + Math.cos(angle) * radius;
     let y = this.h / 2 + Math.sin(angle) * radius * 0.72;
-    if (this.clearZone) {
-      const push = this.#intrusion(x, y);
-      if (push > 0) {
-        const escape = (1 + push) * Math.min(this.w, this.h) * 0.34;
-        x = this.w / 2 + Math.cos(angle) * escape;
-        y = this.h / 2 + Math.sin(angle) * escape * 0.8;
+    const zona = this.#zona();
+    if (zona) {
+      // Nace afuera de la zona del texto, en la misma dirección.
+      const ew = text.length * size * 0.29;
+      const eh = size * 0.62;
+      for (let intento = 0; intento < 6 && this.#intrusion(x, y, ew, eh) > 0; intento++) {
+        const escape = (1.15 + intento * 0.25);
+        x = zona.cx + Math.cos(angle) * (zona.hw + ew + 30) * escape;
+        y = zona.cy + Math.sin(angle) * (zona.hh + eh + 30) * escape;
       }
     }
 
@@ -191,14 +225,21 @@ export class WordCloud {
       p.vx *= 1 - 0.35 * dt;
       p.vy *= 1 - 0.35 * dt;
 
-      // El texto central manda: las palabras se apartan si se le acercan.
-      const push = this.#intrusion(p.x, p.y);
-      if (push > 0) {
-        const dx = p.x - this.w / 2;
-        const dy = p.y - this.h / 2;
+      // El texto manda: las palabras se apartan si se le acercan, y rápido
+      // si ya están encima, que pasa cuando el texto crece de golpe.
+      const zona = this.#zona();
+      const push = this.#intrusion(p.x, p.y, p.text.length * p.size * 0.29, p.size * 0.62);
+      if (push > 0 && zona) {
+        const dx = p.x - zona.cx;
+        const dy = (p.y - zona.cy) * (zona.hw / Math.max(1, zona.hh)); // salir por el lado más corto
         const len = Math.hypot(dx, dy) || 1;
-        p.vx += (dx / len) * push * 90 * dt;
-        p.vy += (dy / len) * push * 90 * dt;
+        const fuerza = 160 + push * 260;
+        p.vx += (dx / len) * fuerza * dt;
+        p.vy += (dy / len) * fuerza * dt;
+        if (push > 0.6) {
+          // Muy adentro: se desvanece un poco mientras sale, para no tapar.
+          p.life -= dt * 0.5;
+        }
       }
 
       // Rebote blando contra los bordes para que nada se escape.

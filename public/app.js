@@ -1405,10 +1405,30 @@ function setStageMode(on) {
     document.exitFullscreen?.().catch(() => {});
   }
 
-  // En el escenario, las palabras dejan libre el centro donde va el texto grande.
-  cloud.setClearZone(on ? { rx: 0.24, ry: 0.3 } : null);
+  // En el escenario, las palabras dejan libre el lugar donde está el texto
+  // grande, midiéndolo de verdad: así el hueco sigue al texto cuando crece.
+  cloud.setClearZone(on ? zonaDelTexto : null);
   cloud.resize();
   publicar();
+}
+
+/**
+ * Dónde está el texto grande ahora, para que la nube lo esquive. Abarca el
+ * rótulo y el texto (y lo que se oye, abajo). Cuando no hay texto, el
+ * hueco es chico y la nube ocupa el centro.
+ */
+function zonaDelTexto() {
+  const cajas = [el.sceneLabel, el.sceneText, el.sceneQuien, el.sceneHeard]
+    .filter((e) => e && e.textContent.trim() && e.offsetParent !== null)
+    .map((e) => e.getBoundingClientRect())
+    .filter((r) => r.width > 0 && r.height > 0);
+  if (!cajas.length) return { cx: innerWidth / 2, cy: innerHeight / 2, hw: innerWidth * 0.12, hh: innerHeight * 0.08 };
+
+  const left = Math.min(...cajas.map((r) => r.left));
+  const right = Math.max(...cajas.map((r) => r.right));
+  const top = Math.min(...cajas.map((r) => r.top));
+  const bottom = Math.max(...cajas.map((r) => r.bottom));
+  return { cx: (left + right) / 2, cy: (top + bottom) / 2, hw: (right - left) / 2, hh: (bottom - top) / 2 };
 }
 
 /* ---------------------------------------------------------------- varios */
