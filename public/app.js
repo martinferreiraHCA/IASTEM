@@ -559,17 +559,19 @@ async function verCamara(on) {
 function mostrarImagen(imagen) {
   if (!imagen?.src) return;
   clearTimeout(state.imagenTimer);
-  const segundos = Number(imagen.segundos) > 0 ? Number(imagen.segundos) : 8;
+  state.imagenTimer = null;
+  const segundos = Number(imagen.segundos) > 0 ? Number(imagen.segundos) : 0; // 0: se queda
   state.imagen = { src: imagen.src, pie: imagen.pie || '', segundos };
   state.imagenVisible = true;
   el.sceneImagen.classList.remove('se-va');
+  el.sceneImagen.classList.toggle('con-tiempo', segundos > 0);
   el.sceneImagenImg.src = imagen.src;
   el.sceneImagenImg.alt = imagen.pie || '';
   el.sceneImagenPie.textContent = imagen.pie || '';
-  el.sceneImagen.style.setProperty('--segundos', `${segundos}s`);
+  el.sceneImagen.style.setProperty('--segundos', `${segundos || 1}s`);
   el.scene.dataset.imagen = 'on';
-  state.imagenTimer = setTimeout(() => ocultarImagen(), segundos * 1000);
-  anotar(`Imagen en pantalla ${segundos} s: ${imagen.pie || imagen.src}.`);
+  if (segundos > 0) state.imagenTimer = setTimeout(() => ocultarImagen(), segundos * 1000);
+  anotar(segundos > 0 ? `Imagen en pantalla ${segundos} s: ${imagen.pie || imagen.src}.` : `Imagen en pantalla: ${imagen.pie || imagen.src}. Queda hasta que la saques.`);
   publicar();
 }
 
@@ -594,7 +596,7 @@ function ocultarImagen({ olvidar = false } = {}) {
 
 /** Tecla I: saca la imagen antes de tiempo, o la vuelve a mostrar. */
 function alternarImagen() {
-  if (!state.imagen) return toast('No hay ninguna imagen para este momento. Se sugieren desde el guion, con IMAGEN: dirección | pie | 10s.');
+  if (!state.imagen) return toast('No hay ninguna imagen para este momento. Se sugieren desde el guion, con IMAGEN: dirección | pie.');
   if (state.imagenVisible) ocultarImagen();
   else mostrarImagen(state.imagen);
 }

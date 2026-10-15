@@ -86,9 +86,10 @@ Las reglas son pocas:
   `(paréntesis)`, se ignoran. Una línea sin nombre continúa la anterior.
 - El guion también sugiere qué se ve en pantalla, con líneas justo antes
   del parlamento de NOVA en el que pasan:
-  - `IMAGEN: dirección | pie de foto | 10s`: la imagen **toma toda la
-    pantalla** el tiempo indicado (8 segundos si no se dice) y después
-    vuelve la vista normal.
+  - `IMAGEN: dirección | pie de foto`: la imagen **toma la pantalla, en
+    grande, y se queda**, sin ningún texto encima: NOVA se oye pero no se lee.
+    Sigue hasta que otra la reemplace o la saques con la tecla **I** o desde
+    el panel. Con un tiempo al final, `| 10s`, se va sola al cumplirse.
   - `FONDO: dirección | pie`: una imagen de fondo que **se queda**, detrás
     del texto, hasta que otra la reemplace o `FONDO: ninguno` la saque.
   - `PALABRA: CREATIVIDAD`: la palabra queda **flotando junto a NOVA**, sola
@@ -251,12 +252,12 @@ también puede prenderla sola en un momento dado, con `CÁMARA: encender`.
 ### Las imágenes
 
 Cuando el guion sugiere una imagen para un parlamento, al decirlo NOVA la
-imagen toma toda la pantalla, con su pie de foto y una línea abajo que
-muestra cuánto falta, durante el tiempo que el guion pide; después se
-desvanece y vuelve la vista normal, con el texto que NOVA siguió diciendo
-mientras tanto. Con la tecla **I** se saca antes de tiempo o se vuelve a
-mostrar; en el panel, lo mismo con el botón Imagen, y las líneas que traen
-imagen o cámara están marcadas con su tiempo.
+imagen toma la pantalla, en grande, con su pie de foto, y no aparece ningún
+texto: NOVA se oye, pero no se lee mientras la imagen está puesta. (Lo que
+dijo queda en el muro, con M.) La imagen se queda hasta que otra la reemplace o
+la saques: con la tecla **I**, o con el botón Imagen del panel. Si el guion
+le puso un tiempo, una línea abajo muestra cuánto falta y se desvanece sola
+al cumplirse. Las líneas del panel que traen imagen o cámara están marcadas.
 
 ### Los acuerdos
 

@@ -61,7 +61,7 @@ E1: No se ve tan mal. Seguramente la profesora ni cuenta se da. ¿Le damos enter
 E2: Re, dale.
 # La Gran Ola 2.0 es la versión "genérica" que hace la IA: generala con una
 # herramienta de imágenes y guardala como imagenes/gran-ola-2.jpg.
-IMAGEN: imagenes/gran-ola-2.jpg | La gran ola de Kanagawa 2.0 · hecha en cinco minutos | 14s
+IMAGEN: imagenes/gran-ola-2.jpg | La gran ola de Kanagawa 2.0 · hecha en cinco minutos
 PALABRA: CREATIVIDAD
 FONDO: ninguno
 NOVA: Listo. Cinco minutos. Acá tienen su obra. Y la palabra que me dieron a cambio, me la quedo.

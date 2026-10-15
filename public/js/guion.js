@@ -20,7 +20,8 @@
  *
  * El guion también puede sugerir qué se ve en pantalla, con líneas antes
  * del parlamento de NOVA en el que pasan:
- *   IMAGEN: dirección | pie | 10s   una imagen a pantalla completa, ese tiempo
+ *   IMAGEN: dirección | pie          una imagen a pantalla completa, que se queda
+ *   IMAGEN: dirección | pie | 10s    la misma, pero se va sola a los 10 segundos
  *   FONDO: dirección | pie          una imagen de fondo que se queda (FONDO: ninguno la saca)
  *   PALABRA: CREATIVIDAD            una palabra flotando junto a NOVA (PALABRA: ninguna la saca)
  *   CÁMARA: encender | apagar       la cámara del público
@@ -72,7 +73,7 @@ ANA: ¿Te podés equivocar?
 NOVA: Todo el tiempo. Adivino la palabra que mejor suena, no la que es verdad. Por eso conviene preguntarme de dónde saco lo que digo.
 
 [Un parlamento sin pie se dice a mano, con la tecla S]
-[CÁMARA: encender muestra al público en pantalla; IMAGEN: dirección | pie de foto | 10s muestra una imagen ese tiempo]
+[CÁMARA: encender muestra al público en pantalla; IMAGEN: dirección | pie de foto muestra una imagen en grande, que se queda; con | 10s se va sola]
 CÁMARA: encender
 NOVA: Gracias por esta noche. Mírense: lo que definimos juntos queda en el muro.
 `;
@@ -159,12 +160,13 @@ export function parsearGuion(texto) {
   return { entradas, comodines, personajes: [...personajes] };
 }
 
-/** Cuánto se muestra una imagen si el guion no dice otra cosa. */
-export const SEGUNDOS_IMAGEN = 8;
+/** Sin tiempo, la imagen se queda hasta que otra la reemplace o la saquen. */
+export const SEGUNDOS_IMAGEN = 0;
 
 /**
  * `dirección | pie de foto | 10s`: el pie y el tiempo son opcionales, y
- * el tiempo puede ir en cualquiera de los dos lugares.
+ * el tiempo puede ir en cualquiera de los dos lugares. Sin tiempo, la
+ * imagen se queda en pantalla.
  */
 export function leerImagen(texto) {
   const partes = String(texto || '').split('|').map((p) => p.trim());

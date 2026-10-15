@@ -208,19 +208,21 @@ body[data-palabra="on"] .cloud { opacity: 0; }
 }
 
 /* ------------------------------------------------ imagen que sugiere el guion */
-/* Toma toda la pantalla el tiempo que el guion pide, y después se va. */
+/* Toma la pantalla, en grande, y se queda sola: mientras está puesta no se ve
+   ningún texto de NOVA (su voz sigue). Si el guion dio un tiempo, se va sola
+   al cumplirse; si no, hasta que otra la reemplace o se la saque (I / panel). */
 .scene__imagen {
   position: fixed;
   inset: 0;
-  z-index: 60;
+  z-index: 3;
   margin: 0;
   display: none;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: clamp(10px, 2vh, 22px);
-  padding: clamp(24px, 5vh, 64px) clamp(24px, 5vw, 80px);
-  background: rgba(5, 6, 12, 0.92);
+  padding: clamp(20px, 4vh, 48px) clamp(24px, 5vw, 80px);
+  background: rgba(5, 6, 12, 0.96);
   animation: imagen-entra 0.6s ease both;
 }
 .scene[data-imagen="on"] .scene__imagen { display: flex; }
@@ -229,7 +231,7 @@ body[data-palabra="on"] .cloud { opacity: 0; }
 @keyframes imagen-sale { to { opacity: 0; } }
 .scene__imagen img {
   max-width: 100%;
-  max-height: 80vh;
+  max-height: 82vh;
   min-height: 0;
   object-fit: contain;
   border-radius: 18px;
@@ -238,17 +240,17 @@ body[data-palabra="on"] .cloud { opacity: 0; }
 }
 @keyframes imagen-foto { from { opacity: 0; transform: translateY(18px) scale(0.97); } }
 .scene__imagen figcaption {
-  font-size: clamp(16px, 2.6vh, 34px);
-  font-weight: 300;
-  letter-spacing: 0.01em;
-  color: var(--ink);
+  font-family: var(--mono);
+  font-size: clamp(11px, 1.5vh, 17px);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
   text-align: center;
-  max-width: 40ch;
-  text-shadow: 0 2px 20px rgba(0, 0, 0, 0.8);
+  max-width: 60ch;
 }
 .scene__imagen figcaption:empty { display: none; }
-/* Cuánto falta, en una línea finita abajo. */
-.scene__imagen::after {
+/* Cuánto falta, en una línea finita abajo: solo si el guion dio un tiempo. */
+.scene__imagen.con-tiempo::after {
   content: "";
   position: absolute;
   left: 0;
@@ -260,6 +262,14 @@ body[data-palabra="on"] .cloud { opacity: 0; }
   animation: imagen-tiempo var(--segundos, 8s) linear both;
 }
 @keyframes imagen-tiempo { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+
+/* Con la imagen puesta no aparece ningún texto: ni lo que dice NOVA, ni el orbe,
+   ni lo que oyó. Todo vuelve cuando la imagen se va. */
+.scene[data-imagen="on"] .scene__body,
+.scene[data-imagen="on"] .scene__orb,
+.scene[data-imagen="on"] .scene__foot,
+.scene[data-imagen="on"] .palabra,
+.scene[data-imagen="on"] .muro { visibility: hidden; }
 
 .scene__label {
   margin: 0 0 clamp(10px, 2vh, 26px);

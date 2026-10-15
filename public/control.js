@@ -201,7 +201,7 @@ function pintar() {
     fila.classList.toggle('is-dicho', entrada.indice <= guion.cursor);
     fila.classList.toggle('is-siguiente', entrada.indice === guion.cursor + 1);
     const marcas = [
-      entrada.imagen ? `<span class="linea__marca">imagen ${entrada.segundos || ''}s</span>` : '',
+      entrada.imagen ? `<span class="linea__marca">imagen${entrada.segundos ? ` ${entrada.segundos}s` : ''}</span>` : '',
       entrada.fondo ? `<span class="linea__marca">fondo: ${escapar(entrada.fondo)}</span>` : '',
       entrada.palabra ? `<span class="linea__marca">palabra: ${escapar(entrada.palabra)}</span>` : '',
       entrada.camara ? `<span class="linea__marca">cámara: ${entrada.camara}</span>` : '',
