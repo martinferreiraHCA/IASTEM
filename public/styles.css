@@ -484,6 +484,7 @@ body {
   transition: border-color .2s, box-shadow .2s;
 }
 .sheet__field select { resize: none; cursor: pointer; }
+.sheet__field input[type="range"] { padding: 0; border: 0; background: transparent; accent-color: var(--cyan); }
 .sheet__field input:focus,
 .sheet__field select:focus,
 .sheet__field textarea:focus {

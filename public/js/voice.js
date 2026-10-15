@@ -262,19 +262,100 @@ export class Listener {
   }
 }
 
-export class Speaker {
-  constructor() {
-    this.enabled = false;
+/* ------------------------------------------------------------------ hablar */
+
+const STORE_VOZ = 'nova:voz-ajustes';
+
+/** Las voces del sintetizador neuronal de OpenAI, con cómo suenan. */
+export const VOCES_OPENAI = [
+  ['nova', 'Nova: cálida y clara'],
+  ['coral', 'Coral: cercana y expresiva'],
+  ['sage', 'Sage: serena y pausada'],
+  ['shimmer', 'Shimmer: suave y luminosa'],
+  ['alloy', 'Alloy: neutra'],
+  ['ash', 'Ash: grave y firme'],
+  ['ballad', 'Ballad: tranquila'],
+  ['echo', 'Echo: grave y cálida'],
+  ['fable', 'Fable: narradora'],
+  ['onyx', 'Onyx: profunda'],
+];
+
+export const INSTRUCCIONES_VOZ =
+  'Hablás en español rioplatense, con acento uruguayo, cálida y clara, como una presencia serena en un escenario frente a familias. ' +
+  'Ritmo pausado pero vivo, sin sonar robótica ni exagerada. Pronunciá los nombres propios con naturalidad.';
+
+/**
+ * Los ajustes de la voz, guardados en este navegador.
+ *   motor         navegador u openai
+ *   nombre        la voz del navegador elegida a mano (vacío: la mejor que haya)
+ *   velocidad     0.8 a 1.3
+ *   claveOpenAI   clave para la voz por API (si está vacía se usa la del asistente)
+ *   vozOpenAI     nova, coral, sage...
+ *   instrucciones cómo tiene que sonar
+ */
+export function leerAjustesVoz() {
+  let guardado = {};
+  try {
+    guardado = JSON.parse(localStorage.getItem(STORE_VOZ) || '{}') || {};
+  } catch { /* nada guardado */ }
+  return {
+    motor: guardado.motor === 'openai' ? 'openai' : 'navegador',
+    nombre: typeof guardado.nombre === 'string' ? guardado.nombre : '',
+    velocidad: Math.min(1.3, Math.max(0.8, Number(guardado.velocidad) || 1)),
+    claveOpenAI: typeof guardado.claveOpenAI === 'string' ? guardado.claveOpenAI : '',
+    vozOpenAI: VOCES_OPENAI.some(([v]) => v === guardado.vozOpenAI) ? guardado.vozOpenAI : 'nova',
+    instrucciones: typeof guardado.instrucciones === 'string' && guardado.instrucciones.trim() ? guardado.instrucciones : INSTRUCCIONES_VOZ,
+  };
+}
+
+export function guardarAjustesVoz(ajustes) {
+  try {
+    localStorage.setItem(STORE_VOZ, JSON.stringify(ajustes));
+  } catch { /* navegación privada */ }
+}
+
+/**
+ * Qué tan buena suena una voz del navegador, a ojo: las neuronales de
+ * Edge ("Natural"), las de Google en Chrome y las mejoradas de macOS
+ * suenan a persona; las locales viejas, a robot. Y mejor rioplatense.
+ */
+export function puntuarVoz(voz) {
+  if (!/^es/i.test(voz.lang)) return -1;
+  let puntos = 0;
+  const nombre = voz.name || '';
+  if (/natural|neural/i.test(nombre)) puntos += 5;
+  if (/online/i.test(nombre)) puntos += 1;
+  if (/google/i.test(nombre)) puntos += 2.5;
+  if (/premium|enhanced|mejorada|siri/i.test(nombre)) puntos += 2.5;
+  if (!voz.localService) puntos += 0.5;
+  if (/^es[-_]UY/i.test(voz.lang)) puntos += 3;
+  else if (/^es[-_]AR/i.test(voz.lang)) puntos += 2.5;
+  else if (/^es[-_](MX|US|CL|CO)/i.test(voz.lang)) puntos += 1.5;
+  else if (/^es[-_]ES/i.test(voz.lang)) puntos += 1;
+  else puntos += 0.5;
+  if (/espeak/i.test(nombre)) puntos -= 4;
+  return puntos;
+}
+
+/** Las voces en español del navegador, de mejor a peor. */
+export function vocesDisponibles() {
+  if (!voiceSupport.speak) return [];
+  return speechSynthesis.getVoices()
+    .filter((v) => puntuarVoz(v) >= 0)
+    .sort((a, b) => puntuarVoz(b) - puntuarVoz(a));
+}
+
+/** La voz del navegador: la Web Speech API, con la mejor voz que haya. */
+export class VozNavegador {
+  constructor(ajustes) {
+    this.ajustes = ajustes;
     this.voice = null;
-    this.queue = [];
     this.speaking = false;
     this.onStart = null;
     this.onEnd = null;
-
     if (voiceSupport.speak) {
-      const pick = () => (this.voice = pickSpanishVoice());
-      pick();
-      speechSynthesis.addEventListener?.('voiceschanged', pick);
+      this.elegir();
+      speechSynthesis.addEventListener?.('voiceschanged', () => this.elegir());
     }
   }
 
@@ -282,17 +363,18 @@ export class Speaker {
     return voiceSupport.speak;
   }
 
-  /** Habla una frase. Se encola para respetar el orden de llegada. */
-  say(text) {
-    if (!this.enabled || !this.supported) return;
-    const clean = (text || '').replace(/[*_#`]/g, '').trim();
-    if (!clean) return;
+  elegir() {
+    const voces = vocesDisponibles();
+    this.voice = (this.ajustes.nombre && voces.find((v) => v.name === this.ajustes.nombre)) || voces[0] || null;
+  }
 
+  say(clean) {
+    if (!this.supported) return;
     const utterance = new SpeechSynthesisUtterance(clean);
     if (this.voice) utterance.voice = this.voice;
     utterance.lang = this.voice?.lang || 'es-ES';
-    utterance.rate = 1.08;
-    utterance.pitch = 1.05;
+    utterance.rate = this.ajustes.velocidad;
+    utterance.pitch = 1;
 
     // Chrome a veces no avisa cuando termina de hablar, y el micrófono
     // quedaría pausado para siempre. Pasado un tiempo prudente, se da por
@@ -316,7 +398,6 @@ export class Speaker {
       this.onStart?.();
     };
     utterance.onend = utterance.onerror = terminar;
-
     speechSynthesis.speak(utterance);
   }
 
@@ -324,18 +405,209 @@ export class Speaker {
     if (!this.supported) return;
     speechSynthesis.cancel();
     this.speaking = false;
-    this.onEnd?.();
   }
 }
 
-function pickSpanishVoice() {
-  const voices = speechSynthesis.getVoices();
-  if (!voices.length) return null;
-  return (
-    voices.find((v) => /^es-(AR|UY|MX|US)/i.test(v.lang)) ||
-    voices.find((v) => /^es/i.test(v.lang)) ||
-    null
-  );
+/**
+ * La voz por API: el sintetizador neuronal de OpenAI. Cada frase se pide
+ * apenas llega, en paralelo, y se reproduce en orden: así la voz arranca
+ * con la primera frase y no se corta entre una y otra.
+ *
+ * La clave puede estar en el servidor (`npm start`) o en este navegador.
+ */
+export class VozOpenAI {
+  /**
+   * @param {object} ajustes  los de leerAjustesVoz()
+   * @param {() => ('servidor'|'directo'|'ninguno')} modo  de dónde sale la clave
+   */
+  constructor(ajustes, modo) {
+    this.ajustes = ajustes;
+    this.modo = modo;
+    this.cola = [];          // {promesa, control}
+    this.audio = null;
+    this.speaking = false;
+    this.onStart = null;
+    this.onEnd = null;
+    this.onError = null;
+    this.reproduciendo = false;
+  }
+
+  get supported() {
+    return typeof Audio !== 'undefined' && this.modo() !== 'ninguno';
+  }
+
+  say(clean) {
+    if (!this.supported) return;
+    const control = new AbortController();
+    const promesa = this.#pedir(clean, control.signal);
+    promesa.catch(() => {}); // el error se atiende al reproducir; si se cancela antes, no es de nadie
+    this.cola.push({ promesa, control });
+    this.#reproducir();
+  }
+
+  cancel() {
+    for (const item of this.cola) item.control.abort();
+    this.cola = [];
+    if (this.audio) {
+      this.audio.pause();
+      this.audio.src = '';
+      this.audio = null;
+    }
+    this.speaking = false;
+    this.reproduciendo = false;
+  }
+
+  async #pedir(texto, signal) {
+    const cuerpo = {
+      model: 'gpt-4o-mini-tts',
+      voice: this.ajustes.vozOpenAI,
+      input: texto,
+      instructions: this.ajustes.instrucciones,
+      response_format: 'mp3',
+      speed: this.ajustes.velocidad,
+    };
+    const modo = this.modo();
+    const res = modo === 'servidor'
+      ? await fetch('api/voz', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo), signal })
+      : await fetch('https://api.openai.com/v1/audio/speech', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${this.ajustes.claveOpenAI}` },
+        body: JSON.stringify(cuerpo),
+        signal,
+      });
+    if (!res.ok) {
+      let detalle = '';
+      try { detalle = (await res.json())?.error?.message || (await res.text()); } catch { /* nada */ }
+      if (res.status === 401) throw new Error('la API de OpenAI rechazó la clave de la voz');
+      throw new Error(`la voz por API respondió ${res.status}${detalle ? `: ${String(detalle).slice(0, 120)}` : ''}`);
+    }
+    return res.blob();
+  }
+
+  async #reproducir() {
+    if (this.reproduciendo) return;
+    this.reproduciendo = true;
+    while (this.cola.length) {
+      const item = this.cola[0];
+      let blob;
+      try {
+        blob = await item.promesa;
+      } catch (err) {
+        if (this.cola[0] === item) this.cola.shift();
+        if (err.name !== 'AbortError') {
+          this.onError?.(err.message);
+          this.cancel();
+        }
+        break;
+      }
+      if (this.cola[0] !== item) break; // cancelaron mientras llegaba
+      this.cola.shift();
+      await this.#sonar(blob);
+    }
+    this.reproduciendo = false;
+    if (this.speaking) {
+      this.speaking = false;
+      this.onEnd?.();
+    }
+  }
+
+  #sonar(blob) {
+    return new Promise((listo) => {
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      this.audio = audio;
+      const fin = () => {
+        URL.revokeObjectURL(url);
+        if (this.audio === audio) this.audio = null;
+        listo();
+      };
+      audio.onended = fin;
+      audio.onerror = fin;
+      audio.onplay = () => {
+        if (!this.speaking) {
+          this.speaking = true;
+          this.onStart?.();
+        }
+      };
+      audio.play().catch(() => {
+        // Sin gesto previo el navegador puede negarse: se sigue sin sonido.
+        this.onError?.('el navegador no dejó reproducir el audio; tocá la página una vez y volvé a probar');
+        fin();
+      });
+    });
+  }
+}
+
+/**
+ * La voz de NOVA: elige el motor según los ajustes y le pasa las frases.
+ * La app habla con esto y no con los motores.
+ */
+export class Speaker {
+  /** @param {(ajustes:object) => ('servidor'|'directo'|'ninguno')} modoOpenAI  de dónde saldría la clave de OpenAI */
+  constructor(modoOpenAI = () => 'ninguno') {
+    this.enabled = false;
+    this.ajustes = leerAjustesVoz();
+    this.modoOpenAI = modoOpenAI;
+    this.onStart = null;
+    this.onEnd = null;
+    this.onError = null;
+    this.#armar();
+  }
+
+  get supported() {
+    return this.motor?.supported ?? false;
+  }
+
+  get speaking() {
+    return this.motor?.speaking ?? false;
+  }
+
+  /** Qué motor está hablando de verdad ahora. */
+  get motorActual() {
+    return this.motor instanceof VozOpenAI ? 'openai' : 'navegador';
+  }
+
+  /** De dónde sale la clave ahora, con estos ajustes. */
+  get modoApi() {
+    return this.modoOpenAI(this.ajustes);
+  }
+
+  #armar() {
+    this.motor?.cancel?.();
+    const modo = () => this.modoOpenAI(this.ajustes);
+    const quiereApi = this.ajustes.motor === 'openai' && modo() !== 'ninguno';
+    this.motor = quiereApi ? new VozOpenAI(this.ajustes, modo) : new VozNavegador(this.ajustes);
+    this.motor.onStart = () => this.onStart?.();
+    this.motor.onEnd = () => this.onEnd?.();
+    this.motor.onError = (mensaje) => {
+      // La API falló: se sigue con la voz del navegador, para que la función
+      // no se quede muda, y recién después se avisa.
+      this.motor = new VozNavegador(this.ajustes);
+      this.motor.onStart = () => this.onStart?.();
+      this.motor.onEnd = () => this.onEnd?.();
+      this.onError?.(mensaje);
+    };
+  }
+
+  /** Aplica ajustes nuevos y los guarda. */
+  configurar(ajustes) {
+    this.ajustes = { ...this.ajustes, ...ajustes };
+    guardarAjustesVoz(this.ajustes);
+    this.#armar();
+  }
+
+  /** Habla una frase. Se encola para respetar el orden de llegada. */
+  say(text) {
+    if (!this.enabled || !this.supported) return;
+    const clean = (text || '').replace(/[*_#`]/g, '').trim();
+    if (!clean) return;
+    this.motor.say(clean);
+  }
+
+  cancel() {
+    this.motor?.cancel();
+    this.onEnd?.();
+  }
 }
 
 /**

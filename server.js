@@ -60,7 +60,7 @@ const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
 
     if (url.pathname === '/api/health') {
-      return sendJson(res, 200, { ok: true, control: true, asistente: ASISTENTE || false, direcciones: direcciones() });
+      return sendJson(res, 200, { ok: true, control: true, asistente: ASISTENTE || false, voz: Boolean(OPENAI_KEY), direcciones: direcciones() });
     }
 
     if (url.pathname === '/api/eventos') {
@@ -81,6 +81,11 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/conversar') {
       if (req.method !== 'POST') return sendJson(res, 405, { error: 'Usá POST.' });
       return await conversar(req, res);
+    }
+
+    if (url.pathname === '/api/voz') {
+      if (req.method !== 'POST') return sendJson(res, 405, { error: 'Usá POST.' });
+      return await voz(req, res);
     }
 
     if (req.method !== 'GET' && req.method !== 'HEAD') {
@@ -249,6 +254,52 @@ async function conversar(req, res) {
       res.end();
     }
   }
+}
+
+/**
+ * La voz por API: una frase entra como texto y sale como audio, con el
+ * sintetizador neuronal de OpenAI y la clave del .env.
+ */
+async function voz(req, res) {
+  if (!OPENAI_KEY) return sendJson(res, 503, { error: 'El servidor no tiene clave de OpenAI: la voz por API está apagada.' });
+
+  let datos;
+  try {
+    datos = JSON.parse((await readBody(req)).toString('utf8'));
+    if (typeof datos.input !== 'string' || !datos.input.trim()) throw new Error('Falta el texto.');
+  } catch (err) {
+    return sendJson(res, 400, { error: err.message || 'JSON inválido.' });
+  }
+
+  const upstream = await fetch(`${OPENAI_URL}/audio/speech`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${OPENAI_KEY}` },
+    body: JSON.stringify({
+      model: typeof datos.model === 'string' && datos.model ? datos.model.slice(0, 60) : 'gpt-4o-mini-tts',
+      voice: String(datos.voice || 'nova').slice(0, 30),
+      input: datos.input.slice(0, 4000),
+      instructions: String(datos.instructions || '').slice(0, 2000),
+      response_format: 'mp3',
+      speed: Math.min(1.5, Math.max(0.7, Number(datos.speed) || 1)),
+    }),
+    signal: AbortSignal.timeout(20000),
+  }).catch((err) => {
+    console.error('No se pudo contactar la API de voz:', err.message);
+    return null;
+  });
+
+  if (!upstream) return sendJson(res, 502, { error: 'No se pudo contactar la API de voz. ¿Hay internet?' });
+  if (!upstream.ok) {
+    const detail = await upstream.text().catch(() => '');
+    console.error(`La API de voz respondió ${upstream.status}:`, detail.slice(0, 300));
+    return sendJson(res, upstream.status, {
+      error: upstream.status === 401 ? 'La API rechazó la clave (401). Revisá OPENAI_API_KEY en .env.' : `La API de voz respondió ${upstream.status}.`,
+    });
+  }
+
+  const audio = Buffer.from(await upstream.arrayBuffer());
+  res.writeHead(200, { 'Content-Type': upstream.headers.get('content-type') || 'audio/mpeg', 'Content-Length': audio.length, 'Cache-Control': 'no-store' });
+  res.end(audio);
 }
 
 /* ------------------------------------------------------------------ relevo */

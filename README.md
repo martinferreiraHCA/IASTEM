@@ -203,6 +203,21 @@ claridad con un pie, **contesta antes de que termine la frase**. Si la
 coincidencia es a medias, espera a que termine y deja pasar **0,7 segundos de
 silencio**, por si el grupo sigue con otra frase.
 
+### La voz de NOVA
+
+NOVA habla con una de dos voces, que se eligen en **Asistente y voz → La voz
+de NOVA**, con un botón para escuchar una frase antes de decidir:
+
+| Voz | Cómo suena | Qué hace falta |
+|---|---|---|
+| **La del navegador** | Depende del navegador. En Edge, las voces "Natural" suenan a persona; en Chrome, las de Google son aceptables; las demás, a robot. NOVA elige sola la mejor que haya, en rioplatense si existe, y se puede elegir otra a mano. | Nada. |
+| **Neuronal por API** | Mucho más natural: el sintetizador de OpenAI, con voces como *nova*, *coral* o *sage*, y una instrucción de cómo tiene que sonar (acento uruguayo, cálida, pausada). | Una clave de OpenAI, en el `.env` del servidor o pegada en el panel. Si el asistente ya usa OpenAI, se usa esa. |
+
+La voz por API pide cada frase apenas llega y las reproduce en orden, así
+arranca con la primera frase y no se corta. Si la API falla a mitad de la
+función, NOVA avisa y sigue con la voz del navegador: nunca se queda muda.
+Cada frase cuesta una fracción de centavo.
+
 ### Si el micrófono no transcribe
 
 El reconocimiento de voz lo hace el navegador, y **solo Google Chrome y Edge

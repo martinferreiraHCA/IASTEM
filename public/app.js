@@ -15,7 +15,7 @@
 import { gotear } from './js/goteo.js';
 import { Materializer } from './js/materialize.js';
 import { WordCloud } from './js/wordcloud.js';
-import { Listener, Speaker, makeSentenceSplitter, voiceSupport } from './js/voice.js';
+import { Listener, Speaker, makeSentenceSplitter, voiceSupport, vocesDisponibles, VOCES_OPENAI } from './js/voice.js';
 import { VoiceMeter } from './js/audio.js';
 import { Show } from './js/show.js';
 import { Guion, parsearGuion, puntaje, GUION_EJEMPLO } from './js/guion.js';
@@ -114,6 +114,20 @@ const el = {
   asistenteGuardar: $('asistenteGuardar'),
   asistenteOlvidar: $('asistenteOlvidar'),
 
+  // la voz
+  vozEstado: $('vozEstado'),
+  vozMotor: $('vozMotor'),
+  vozNavegadorCampos: $('vozNavegadorCampos'),
+  vozNombre: $('vozNombre'),
+  vozOpenAICampos: $('vozOpenAICampos'),
+  vozClave: $('vozClave'),
+  vozOpenAI: $('vozOpenAI'),
+  vozInstrucciones: $('vozInstrucciones'),
+  vozVelocidad: $('vozVelocidad'),
+  vozVelocidadValor: $('vozVelocidadValor'),
+  vozProbar: $('vozProbar'),
+  vozGuardar: $('vozGuardar'),
+
   // panel de control
   panelBtn: $('panelBtn'),
   panel: $('panel'),
@@ -146,6 +160,7 @@ const state = {
   palabra: '',           // la palabra que NOVA se queda, flotando
   evento: null,          // lo último que pasó, para el panel
   abriendoMic: false,
+  servidorVoz: false,    // el servidor tiene clave de OpenAI: la voz por API no necesita clave acá
   micQuerido: false,     // el micrófono tiene que estar encendido: se vuelve a prender solo
   micFatal: '',          // un error que no se arregla reintentando
   micDiag: '',           // diagnóstico del micrófono, para la consola y el panel
@@ -170,7 +185,7 @@ const CAPTIONS = {
 
 const cloud = new WordCloud($('cloud'));
 const sceneWriter = new Materializer(el.sceneText, { charsPerSecond: 56 });
-const speaker = new Speaker();
+const speaker = new Speaker((ajustes) => modoVozOpenAI(ajustes));
 const meter = new VoiceMeter();
 const show = new Show();
 const guion = new Guion();
@@ -237,6 +252,12 @@ async function init() {
     listener?.resumeAfterPlayback();
     if (!state.busy) setMode(listener?.active ? 'listening' : 'idle');
   };
+  speaker.onError = (mensaje) => {
+    toast(`La voz por API falló (${mensaje}). NOVA sigue con la voz del navegador.`);
+    anotar(`Voz por API: ${mensaje}. Se sigue con la del navegador.`);
+    pintarVoz();
+  };
+  wireVoz();
 
   if (!guion.tiene) {
     toast('NOVA responde con un guion. Cargalo en el botón Guion, arriba a la derecha.');
@@ -686,6 +707,7 @@ function publicar() {
         micDiag: state.micDiag,
         micQuerido: state.micQuerido,
         voz: speaker.enabled,
+        vozMotor: speaker.motorActual,
         camara: state.camara,
         imagen: state.imagen,
         imagenVisible: state.imagenVisible,
@@ -822,6 +844,7 @@ function wireGuion() {
   // Asistente de ubicación: la clave vive solo en este navegador.
   el.asistenteBtn.addEventListener('click', () => {
     pintarAsistente();
+    pintarVoz({ formulario: true });
     el.asistente.showModal();
   });
   el.asistenteClose.addEventListener('click', () => el.asistente.close());
@@ -840,6 +863,8 @@ function wireGuion() {
     arbitro.personalidad = el.asistentePersonalidad.value;
     await arbitro.detectar();
     pintarAsistente();
+    speaker.configurar({});
+    pintarVoz();
     toast(arbitro.disponible ? 'Asistente de ubicación listo.' : 'Sin clave: NOVA ubica los pies por parecido, como siempre.');
   });
   el.asistenteOlvidar.addEventListener('click', async () => {
@@ -883,6 +908,114 @@ async function probarAsistente() {
   if (veredicto.error) toast(`El asistente no respondió: ${veredicto.error}.`);
   else if (veredicto.indice === 0) toast(`Funciona: ubicó el pie correcto en ${tardo} s.`);
   else toast(`Respondió en ${tardo} s, pero no ubicó el pie esperado (dijo ${veredicto.indice === null ? 'ninguno' : veredicto.indice + 1}).`);
+}
+
+/* ---------------------------------------------------------------- la voz */
+
+/**
+ * De dónde saldría la clave de OpenAI para la voz: la propia de la voz, la
+ * del asistente si usa OpenAI, o el servidor si la tiene en su .env.
+ */
+function modoVozOpenAI(ajustes) {
+  // Ojo: se llama mientras se construye el hablante, así que no se puede
+  // mirar `speaker`; los ajustes llegan por parámetro.
+  if (ajustes?.claveOpenAI) return 'directo';
+  if (arbitro.proveedor === 'openai' && arbitro.clave) return 'directo';
+  if (state.servidorVoz) return 'servidor';
+  return 'ninguno';
+}
+
+function wireVoz() {
+  VOCES_OPENAI.forEach(([valor, nombre]) => {
+    const opcion = document.createElement('option');
+    opcion.value = valor;
+    opcion.textContent = nombre;
+    el.vozOpenAI.appendChild(opcion);
+  });
+  el.vozMotor.addEventListener('change', () => mostrarCamposVoz());
+  el.vozVelocidad.addEventListener('input', () => (el.vozVelocidadValor.textContent = Number(el.vozVelocidad.value).toFixed(2).replace(/0$/, '')));
+  el.vozGuardar.addEventListener('click', () => {
+    guardarVoz();
+    toast(speaker.motorActual === 'openai' ? 'Voz por API guardada.' : 'Voz del navegador guardada.');
+  });
+  el.vozProbar.addEventListener('click', () => {
+    guardarVoz();
+    if (!speaker.supported) return toast('Este navegador no puede hablar, y no hay clave para la voz por API.');
+    const enabled = speaker.enabled;
+    speaker.enabled = true;
+    speaker.cancel();
+    speaker.say('Hola. Soy NOVA, la inteligencia de esta muestra. Así voy a sonar en la función.');
+    speaker.say('¿Les parece bien, o probamos otra voz?');
+    setTimeout(() => (speaker.enabled = enabled), 50);
+  });
+  if (voiceSupport.speak) speechSynthesis.addEventListener?.('voiceschanged', () => pintarVoz());
+  // Si hay servidor con clave de OpenAI, la voz por API no necesita clave acá.
+  fetch('api/health', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).then((info) => {
+    state.servidorVoz = Boolean(info?.voz);
+    speaker.configurar({});
+    pintarVoz();
+  }).catch(() => pintarVoz());
+}
+
+function mostrarCamposVoz() {
+  const api = el.vozMotor.value === 'openai';
+  el.vozNavegadorCampos.hidden = api;
+  el.vozOpenAICampos.hidden = !api;
+}
+
+function guardarVoz() {
+  speaker.configurar({
+    motor: el.vozMotor.value,
+    nombre: el.vozNombre.value,
+    velocidad: Number(el.vozVelocidad.value) || 1,
+    claveOpenAI: el.vozClave.value.trim(),
+    vozOpenAI: el.vozOpenAI.value,
+    instrucciones: el.vozInstrucciones.value.trim(),
+  });
+  pintarVoz({ formulario: true });
+  publicar();
+}
+
+/**
+ * Lo que hay y lo que está elegido, en el panel. Los campos del formulario
+ * se cargan solo cuando se pide (al abrir el panel o después de guardar):
+ * si no, una lista de voces que llega tarde pisaría lo que la persona
+ * está escribiendo.
+ */
+function pintarVoz({ formulario = false } = {}) {
+  const a = speaker.ajustes;
+  if (formulario) {
+    el.vozMotor.value = a.motor;
+    el.vozVelocidad.value = String(a.velocidad);
+    el.vozVelocidadValor.textContent = a.velocidad.toFixed(2).replace(/0$/, '');
+    el.vozClave.value = a.claveOpenAI;
+    el.vozOpenAI.value = a.vozOpenAI;
+    el.vozInstrucciones.value = a.instrucciones;
+    mostrarCamposVoz();
+  }
+
+  // Las voces del navegador, de mejor a peor, sin perder la elegida.
+  const voces = vocesDisponibles();
+  const elegida = formulario ? a.nombre : el.vozNombre.value;
+  el.vozNombre.innerHTML = '<option value="">La mejor que haya</option>';
+  for (const voz of voces) {
+    const opcion = document.createElement('option');
+    opcion.value = voz.name;
+    opcion.textContent = `${voz.name} (${voz.lang})`;
+    el.vozNombre.appendChild(opcion);
+  }
+  el.vozNombre.value = voces.some((v) => v.name === elegida) ? elegida : '';
+
+  const mejor = voces[0];
+  const buena = mejor && /natural|neural|google|premium|enhanced|siri/i.test(mejor.name);
+  const sinClave = a.motor === 'openai' && speaker.modoApi === 'ninguno';
+  el.vozEstado.innerHTML = speaker.motorActual === 'openai'
+    ? `<strong>Habla con la voz neuronal de OpenAI</strong> (${escapar(a.vozOpenAI)}), ${speaker.modoApi === 'servidor' ? 'con la clave del servidor' : 'con la clave de este navegador'}.`
+    : sinClave
+      ? '<strong>Pediste la voz por API, pero no hay clave de OpenAI.</strong> Pegala abajo, o en el asistente, o en el .env del servidor. Mientras tanto habla con el navegador.'
+      : !voces.length
+        ? '<strong>Este navegador no tiene voces en español.</strong> La voz por API resuelve eso.'
+        : `<strong>Habla con la voz del navegador:</strong> ${escapar((speaker.motor?.voice || mejor)?.name || '')}. ${buena ? 'Es de las buenas.' : 'Suena a robot: en Edge hay voces "Natural" y en Chrome las de Google, o probá la voz por API.'}`;
 }
 
 /** Qué asistente hay, en su panel y para el panel de control. */
