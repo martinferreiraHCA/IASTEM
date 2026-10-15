@@ -157,7 +157,9 @@ body[data-camara="on"] .scene__fondo { display: none; } /* la cámara manda */
   animation: imagen-entra 0.8s ease both;
 }
 body[data-palabra="on"] .palabra { display: flex; }
-body[data-palabra="on"] .scene__body { visibility: hidden; }
+body[data-palabra="on"] .scene__body,
+body[data-palabra="on"] .scene__orb { visibility: hidden; } /* la palabra va sola, con su propio orbe */
+body[data-palabra="on"] .cloud { opacity: 0; }
 .palabra__orbe { width: clamp(110px, 18vh, 220px); animation: palabra-respira 5s ease-in-out infinite; }
 .palabra__marca {
   margin: 0;
