@@ -84,15 +84,25 @@ Las reglas son pocas:
   se dice así, o tocándolo en la lista.
 - Las líneas que empiezan con `#`, y las acotaciones entre `[corchetes]` o
   `(paréntesis)`, se ignoran. Una línea sin nombre continúa la anterior.
-- El guion también sugiere qué se ve en pantalla. `IMAGEN: dirección | pie
-  de foto | 10s`, justo antes de un parlamento de NOVA, hace que esa imagen
-  **tome toda la pantalla** cuando NOVA lo dice, el tiempo indicado (8
-  segundos si no se dice), y después vuelve la vista normal. `CÁMARA:
-  encender` o `CÁMARA: apagar` prende o apaga la cámara del público en ese
-  momento. Las imágenes van en `public/imagenes/` (ver el `LEEME.txt` de
-  ahí) o se enlazan con su dirección completa.
+- El guion también sugiere qué se ve en pantalla, con líneas justo antes
+  del parlamento de NOVA en el que pasan:
+  - `IMAGEN: dirección | pie de foto | 10s`: la imagen **toma toda la
+    pantalla** el tiempo indicado (8 segundos si no se dice) y después
+    vuelve la vista normal.
+  - `FONDO: dirección | pie`: una imagen de fondo que **se queda**, detrás
+    del texto, hasta que otra la reemplace o `FONDO: ninguno` la saque.
+  - `PALABRA: CREATIVIDAD`: la palabra queda **flotando junto a NOVA**, sola
+    en pantalla, hasta el próximo parlamento o `PALABRA: ninguna`.
+  - `CÁMARA: encender` o `CÁMARA: apagar`: la cámara del público.
 
-En `docs/guion-german-martin.txt` hay un diálogo de ejemplo listo para cargar.
+  Las imágenes van en `public/imagenes/` (ver el `LEEME.txt` de ahí) o se
+  enlazan con su dirección completa. En el panel, cada línea con indicaciones
+  de pantalla tiene un botón **Solo pantalla** que las aplica sin que NOVA
+  hable: sirve para los tramos en que hablan solo los estudiantes.
+
+En `docs/` hay guiones listos para cargar: `guion-prueba.txt`, corto, y
+`guion-creatividad.txt`, una escena completa con fondo, imagen, palabra y
+reflexión final.
 
 ### El asistente
 

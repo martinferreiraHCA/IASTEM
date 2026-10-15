@@ -61,6 +61,8 @@ const el = {
   sceneImagen: $('sceneImagen'),
   sceneImagenImg: $('sceneImagenImg'),
   sceneImagenPie: $('sceneImagenPie'),
+  sceneFondo: $('sceneFondo'),
+  palabraTexto: $('palabraTexto'),
 
   // función
   showBtn: $('showBtn'),
@@ -140,6 +142,8 @@ const state = {
   imagen: null,          // {src, pie, segundos}: la imagen que el guion sugirió para este momento
   imagenVisible: false,
   imagenTimer: null,
+  fondo: null,           // {src, pie}: la imagen de fondo que se queda
+  palabra: '',           // la palabra que NOVA se queda, flotando
   evento: null,          // lo último que pasó, para el panel
   abriendoMic: false,
   micQuerido: false,     // el micrófono tiene que estar encendido: se vuelve a prender solo
@@ -369,7 +373,7 @@ function wireEvents() {
 
   document.addEventListener('keydown', (event) => {
     // Mientras se escribe en un campo, las teclas son texto y nada más.
-    const typing = event.target.matches('input, textarea, select');
+    const typing = event.target instanceof Element && event.target.matches('input, textarea, select');
 
     if (event.code === 'Space' && !typing) {
       event.preventDefault();
@@ -574,12 +578,49 @@ function alternarImagen() {
   else mostrarImagen(state.imagen);
 }
 
+/** Una imagen de fondo que se queda hasta que el guion o el panel la saquen. */
+function ponerFondo(fondo) {
+  if (!fondo || fondo === 'ninguno' || !fondo.src) {
+    if (!state.fondo) return;
+    state.fondo = null;
+    el.sceneFondo.removeAttribute('src');
+    delete el.body.dataset.fondo;
+    anotar('Fondo quitado.');
+  } else {
+    state.fondo = { src: fondo.src, pie: fondo.pie || '' };
+    el.sceneFondo.src = fondo.src;
+    el.body.dataset.fondo = 'on';
+    anotar(`Fondo: ${fondo.pie || fondo.src}.`);
+  }
+  cloud.resize();
+  publicar();
+}
+
+/** La palabra que NOVA se queda: sola en pantalla, flotando junto al orbe. */
+function ponerPalabra(palabra) {
+  if (!palabra || palabra === 'ninguna') {
+    if (!state.palabra) return;
+    state.palabra = '';
+    delete el.body.dataset.palabra;
+    anotar('Palabra quitada.');
+  } else {
+    state.palabra = String(palabra).trim();
+    el.palabraTexto.textContent = state.palabra;
+    el.body.dataset.palabra = 'on';
+    anotar(`Palabra en pantalla: ${state.palabra}.`);
+  }
+  publicar();
+}
+
 /**
  * Lo que el guion pide para la pantalla cuando NOVA dice un parlamento:
- * su imagen (o ninguna: la anterior se va), y prender o apagar la cámara.
- * También deja lista la imagen del parlamento que sigue.
+ * imagen a pantalla completa, fondo, palabra, cámara. También deja lista
+ * la imagen del parlamento que sigue. Desde el panel se puede aplicar sin
+ * que NOVA diga nada, para los momentos en que hablan solo los estudiantes.
  */
 function aplicarPantalla(entrada) {
+  if (entrada.fondo) ponerFondo(entrada.fondo);
+  if (entrada.palabra) ponerPalabra(entrada.palabra);
   if (entrada.imagenes?.length) mostrarImagen(entrada.imagenes[0]);
   if (entrada.camara === 'encender') verCamara(true);
   if (entrada.camara === 'apagar') verCamara(false);
@@ -648,6 +689,8 @@ function publicar() {
         camara: state.camara,
         imagen: state.imagen,
         imagenVisible: state.imagenVisible,
+        fondo: state.fondo,
+        palabra: state.palabra,
         oido: state.oido,
         ultimaRespuesta: state.ultimaRespuesta,
         evento: state.evento,
@@ -696,6 +739,17 @@ function recibirComando(mensaje) {
     }
     case 'voz': setVoice(Boolean(mensaje.on)); break;
     case 'camara': verCamara(Boolean(mensaje.on)); break;
+    case 'fondo': ponerFondo(mensaje.on === false ? 'ninguno' : guion.entradas[mensaje.indice]?.fondo); break;
+    case 'palabra': ponerPalabra(mensaje.on === false ? 'ninguna' : String(mensaje.texto || guion.entradas[mensaje.indice]?.palabra || '')); break;
+    case 'pantalla': {
+      // Lo que el guion pide para la pantalla en ese parlamento, sin decirlo.
+      const entrada = guion.entradas[Number(mensaje.indice)];
+      if (entrada) {
+        aplicarPantalla(entrada);
+        anotar(`Pantalla del parlamento ${entrada.indice + 1} aplicada desde el panel.`);
+      }
+      break;
+    }
     case 'imagen': {
       if (Number.isInteger(mensaje.indice)) {
         const imagen = guion.entradas[mensaje.indice]?.imagenes?.[0];
@@ -964,6 +1018,7 @@ async function decirTexto(texto) {
 }
 
 function prepararRespuesta() {
+  if (state.palabra) ponerPalabra('ninguna');
   speaker.cancel();
   sentences.reset();
   el.welcome?.remove();

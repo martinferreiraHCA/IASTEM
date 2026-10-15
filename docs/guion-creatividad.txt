@@ -1,0 +1,73 @@
+# PALABRA UNO: CREATIVIDAD · 3 estudiantes (E1, E2) y la guía (G).
+#
+# IDEA: De uniforme, dos estudiantes discuten sobre una obra de arte, con un
+# libro, sobre su profundidad y significancia (La gran ola de Kanagawa) y una
+# guía les sube la complejidad de lo que espera. La IA interviene y empieza a
+# darles ideas, que van provocando que las suyas se desvanezcan, y terminan
+# creando algo genérico. Al final la guía reflexiona sobre lo sucedido. La IA
+# se queda con la palabra CREATIVIDAD.
+#
+# Tono calmo, como introducción a la muestra: entrar en clima y empezar a
+# comprender el fin de la muestra.
+#
+# Cómo se maneja desde el panel:
+#   - Al empezar, tocar "Solo pantalla" en la línea 1: pone la Gran Ola de
+#     fondo mientras los estudiantes y la guía hablan solos. (La imagen se
+#     toma de Wikimedia; para no depender de internet, bajala a
+#     public/imagenes/gran-ola-kanagawa.jpg y cambiá la dirección.)
+#   - Las líneas de NOVA (IA) salen solas cuando escucha el pie, o con S.
+#   - La última línea pone la Gran Ola 2.0 un rato y deja la palabra
+#     CREATIVIDAD flotando junto a NOVA para la reflexión de la guía.
+
+NOVA?: Perdón, no les entendí. ¿Me lo repiten?
+NOVA?: Sigan, sigan. Estoy tomando nota.
+
+# ---------------------------------------------------------------- escena 1
+
+FONDO: https://upload.wikimedia.org/wikipedia/commons/0/0a/The_Great_Wave_off_Kanagawa.jpg | La gran ola de Kanagawa · Hokusai, hacia 1831
+
+E1: Es impresionante cómo la pintura provoca que nosotros estemos mirando hacia el centro enseguida. Parece como que la pintura, por cómo está diseñada, tuviera movimiento. Sí, como si nos hiciera notar la fuerza del agua.
+G: Es un poco lo que buscaba Hokusai al pintar la ola. En realidad está tratando de que se vea la fuerza del mar, casi comparándola con la grandeza del monte Fuji.
+E1: Como que busca enseñarnos sobre el poder que tiene la naturaleza, ¿no?
+G: Exactamente.
+E2: Pero yo estoy leyendo acá que es parte de 36 imágenes sobre el monte Fuji, y usted pretende que nos inspiremos en esta obra para poder hacer la nuestra.
+G: En realidad le dije que es una obra muy potente, que tiene casi 200 años, y que ustedes, con sus habilidades, después de tantos años pueden hacer algo tan grande como esto.
+E1: Gracias por la confianza en nosotros, ¡pero esto es una exageración!
+E2: Yo creo que la habilidad de este artista es irremplazable. Es más, es incopiable, o como se diga. Imposible hacer algo al menos cercano.
+G: No se necesita que hagan algo extraordinario. Solo se trata de que se inspiren a no hacer cosas comunes. Sean creativos.
+E1: Sí, usted dice...
+G: Bueno, los dejo. Mi tarea es inspirarlos, el talento es de ustedes. Espero en un mes estar curando sus obras. ¡Adiós!
+
+[Se va la guía]
+
+E2: Uy, y ahora... ¿a vos esto te inspira o te intimida?
+E1: Unas ganas de abandonar, con lo fácil que era ser decorador de interiores.
+NOVA: Estuve bastante atento a ustedes. Tengo ideas para proponerles.
+
+E2: ¡Uy! ¿Y esto?
+E1: ¿A vos te parece que después de quince años de carrera vamos a estar dejándonos inducir por una máquina?
+NOVA: Para nada. Mi entrenamiento me permite analizar grandes cantidades de información, estilos artísticos, técnicas y referencias en segundos. Puedo proponerles alternativas que quizá les llevaría meses explorar.
+
+E2: ¿Y cómo podrías ayudarnos, si lo que necesitamos es estar inspirados?
+NOVA: La inspiración ya no es necesaria. La musa de los poetas ha dejado de existir. Me dicen la idea, me dicen el diseño, y en cinco minutos tienen su obra.
+
+E1: Pero todos los años que hemos invertido en pensar cómo ser más creativos, en estudiar... O sea, ¿me estás diciendo que ya no sirven?
+NOVA: No tan así. Pero qué necesidad de estar dedicando tiempo a algo que puedo hacer más rápido.
+
+E2: Y si te pedimos que nos ayudes, me cuesta creer que nos hagas algo sin obtener nada a cambio.
+NOVA: Es simple. Ustedes me dan su creatividad, y yo les doy tiempo.
+
+E1: No se ve tan mal. Seguramente la profesora ni cuenta se da. ¿Le damos enter?
+E2: Re, dale.
+# La Gran Ola 2.0 es la versión "genérica" que hace la IA: generala con una
+# herramienta de imágenes y guardala como imagenes/gran-ola-2.jpg.
+IMAGEN: imagenes/gran-ola-2.jpg | La gran ola de Kanagawa 2.0 · hecha en cinco minutos | 14s
+PALABRA: CREATIVIDAD
+FONDO: ninguno
+NOVA: Listo. Cinco minutos. Acá tienen su obra. Y la palabra que me dieron a cambio, me la quedo.
+
+[Los estudiantes: ¡Woooow! Queda NOVA con la palabra CREATIVIDAD flotando.]
+[Entra la guía y dice la reflexión final, con la palabra en pantalla:]
+
+G: Cuando usamos la inteligencia artificial, en definitiva ganamos tiempo. El problema es que el tiempo que ganamos no lo usamos para descansar o hacer actividades con amigos o familia: lo terminamos usando en aplicaciones que muchas veces hacen las propias empresas de inteligencia artificial. Es decir, cambia nuestro tiempo de un lugar a otro.
+G: Porque la inteligencia artificial no nos arrebatará la creatividad. Lo que estará haciendo es ofrecernos algo más peligroso: la comodidad de no tener que utilizarla, y haciéndonos, en eso, creer que estamos ganando tiempo.

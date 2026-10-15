@@ -172,6 +172,7 @@ button { cursor: pointer; }
 .grilla { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .grilla--dos { grid-template-columns: repeat(2, 1fr); }
 .linea__marca { font-family: var(--mono); font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--cyan); margin-left: 8px; }
+.linea__pantalla { grid-column: 2; justify-self: start; margin-top: 4px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--ambar); font-size: 11.5px; }
 .fila { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .fila input[type="text"] {
   flex: 1; min-width: 0;

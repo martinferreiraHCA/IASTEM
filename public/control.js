@@ -35,6 +35,8 @@ const el = {
   camara: $('camara'),
   imagen: $('imagen'),
   imagenNota: $('imagenNota'),
+  fondo: $('fondo'),
+  palabra: $('palabra'),
   turnoSiguiente: $('turnoSiguiente'),
   turnos: $('turnos'),
   fijar: $('fijar'),
@@ -116,6 +118,8 @@ function wire() {
   el.escenario.addEventListener('click', () => mandar('escenario', { on: !estado?.escenario }));
   el.camara.addEventListener('click', () => mandar('camara', { on: !estado?.camara }));
   el.imagen.addEventListener('click', () => mandar('imagen', { on: !estado?.imagenVisible }));
+  el.fondo.addEventListener('click', () => mandar('fondo', { on: false }));
+  el.palabra.addEventListener('click', () => mandar('palabra', { on: false }));
 
   el.turnoSiguiente.addEventListener('click', () => mandar('turno-siguiente'));
   el.fijar.addEventListener('click', () => mandar('fijar'));
@@ -196,12 +200,30 @@ function pintar() {
     fila.className = 'linea';
     fila.classList.toggle('is-dicho', entrada.indice <= guion.cursor);
     fila.classList.toggle('is-siguiente', entrada.indice === guion.cursor + 1);
-    const marcas = [entrada.imagen ? `<span class="linea__marca">imagen ${entrada.segundos || ''}s</span>` : '', entrada.camara ? `<span class="linea__marca">cámara: ${entrada.camara}</span>` : ''].join('');
+    const marcas = [
+      entrada.imagen ? `<span class="linea__marca">imagen ${entrada.segundos || ''}s</span>` : '',
+      entrada.fondo ? `<span class="linea__marca">fondo: ${escapar(entrada.fondo)}</span>` : '',
+      entrada.palabra ? `<span class="linea__marca">palabra: ${escapar(entrada.palabra)}</span>` : '',
+      entrada.camara ? `<span class="linea__marca">cámara: ${entrada.camara}</span>` : '',
+    ].join('');
     fila.innerHTML = `
       <span class="linea__numero">${entrada.indice + 1}</span>
       <span class="linea__pie">${entrada.pie ? escapar(entrada.pie) : '<em>sin pie</em>'}${marcas}</span>
       <span class="linea__parlamento">${escapar(entrada.parlamento)}</span>`;
     fila.addEventListener('click', () => mandar('decir', { indice: entrada.indice }));
+    if (entrada.pantalla) {
+      // Solo lo de pantalla, sin que NOVA hable: para cuando los estudiantes van solos.
+      const boton = document.createElement('button');
+      boton.type = 'button';
+      boton.className = 'linea__pantalla';
+      boton.textContent = 'Solo pantalla';
+      boton.title = 'Aplicar la imagen, el fondo, la palabra o la cámara de esta línea sin que NOVA hable';
+      boton.addEventListener('click', (event) => {
+        event.stopPropagation();
+        mandar('pantalla', { indice: entrada.indice });
+      });
+      fila.appendChild(boton);
+    }
     el.lineas.appendChild(fila);
   }
   const siguienteFila = el.lineas.querySelector('.is-siguiente');
@@ -229,6 +251,10 @@ function pintar() {
   el.imagen.setAttribute('aria-pressed', String(Boolean(estado.imagen && estado.imagenVisible)));
   el.imagen.textContent = !estado.imagen ? 'Imagen: no hay' : estado.imagenVisible ? 'Imagen: sacar ya' : 'Imagen: mostrar de nuevo';
   el.imagenNota.textContent = estado.imagen ? `Imagen de este momento: ${estado.imagen.pie || estado.imagen.src}` : '';
+  el.fondo.disabled = !estado.fondo;
+  el.fondo.textContent = estado.fondo ? `Quitar fondo: ${recortar(estado.fondo.pie || estado.fondo.src, 24)}` : 'Fondo: no hay';
+  el.palabra.disabled = !estado.palabra;
+  el.palabra.textContent = estado.palabra ? `Quitar palabra: ${estado.palabra}` : 'Palabra: no hay';
 
   // Turnos.
   el.turnos.innerHTML = '';

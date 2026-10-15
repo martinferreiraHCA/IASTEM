@@ -7,3 +7,15 @@ del parlamento de NOVA en el que tienen que aparecer:
 También sirve una dirección completa (https://...). El pie de foto, después
 de la barra, es opcional. Las imágenes de esta carpeta se publican con el
 sitio: subilas al repositorio y listo.
+
+Otras indicaciones de pantalla, también antes del parlamento de NOVA:
+
+    FONDO: imagenes/gran-ola-kanagawa.jpg | La gran ola    (se queda de fondo)
+    FONDO: ninguno                                         (la saca)
+    PALABRA: CREATIVIDAD                                   (flota junto a NOVA)
+    CÁMARA: encender                                       (la gente en pantalla)
+
+La gran ola de Kanagawa, de Hokusai, es de dominio público. El guion de
+ejemplo la toma directo de Wikimedia Commons; para no depender de internet
+el día de la función, bajala y guardala acá como gran-ola-kanagawa.jpg:
+https://upload.wikimedia.org/wikipedia/commons/0/0a/The_Great_Wave_off_Kanagawa.jpg

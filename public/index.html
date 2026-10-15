@@ -153,8 +153,9 @@
       <p class="scene__state" id="sceneState">En espera</p>
     </div>
 
-    <!-- La cámara del público, detrás de todo, cuando se la prende. -->
+    <!-- La cámara del público, o una imagen de fondo, detrás de todo. -->
     <video class="scene__camara" id="camara" autoplay muted playsinline aria-hidden="true"></video>
+    <img class="scene__fondo" id="sceneFondo" alt="" aria-hidden="true" />
     <div class="scene__velo" aria-hidden="true"></div>
 
     <div class="scene__body">
@@ -179,6 +180,18 @@
       <h1 class="portada__titulo">NOVA</h1>
       <p class="portada__bajada">Una conversación con una inteligencia artificial</p>
       <p class="portada__pie">La función está por empezar</p>
+    </div>
+
+    <!-- Una palabra que NOVA se queda: flota junto al orbe, sola en pantalla. -->
+    <div class="palabra" id="palabra" aria-hidden="true">
+      <div class="palabra__orbe orb orb--scene" data-state="idle">
+        <span class="orb__halo"></span>
+        <span class="orb__ring orb__ring--a"></span>
+        <span class="orb__ring orb__ring--b"></span>
+        <span class="orb__core"></span>
+      </div>
+      <p class="palabra__marca">NOVA</p>
+      <p class="palabra__texto" id="palabraTexto"></p>
     </div>
 
     <!-- Muro: todo lo que el grupo definió, junto, para el cierre. -->

@@ -18,10 +18,12 @@
  *
  * y si no, se queda callada y el panel de control avisa qué oyó.
  *
- * El guion también puede sugerir qué se ve en pantalla. Una línea
- * `IMAGEN: dirección | pie de foto` antes de un parlamento de NOVA hace que
- * esa imagen aparezca cuando NOVA lo dice; `CÁMARA: encender` o `apagar`
- * prende o apaga la cámara del público en ese momento.
+ * El guion también puede sugerir qué se ve en pantalla, con líneas antes
+ * del parlamento de NOVA en el que pasan:
+ *   IMAGEN: dirección | pie | 10s   una imagen a pantalla completa, ese tiempo
+ *   FONDO: dirección | pie          una imagen de fondo que se queda (FONDO: ninguno la saca)
+ *   PALABRA: CREATIVIDAD            una palabra flotando junto a NOVA (PALABRA: ninguna la saca)
+ *   CÁMARA: encender | apagar       la cámara del público
  *
  * La comparación es tolerante a propósito: el reconocimiento de voz no es
  * perfecto y nadie dice una frase exactamente igual dos veces. Además el
@@ -39,6 +41,8 @@ const ALIAS_NOVA = new Set(['nova', 'ia', 'ai', 'la ia', 'inteligencia artificia
 /** Rótulos que no son personajes sino indicaciones de pantalla. */
 const ROTULO_IMAGEN = new Set(['imagen', 'foto', 'image']);
 const ROTULO_CAMARA = new Set(['camara', 'cam']);
+const ROTULO_FONDO = new Set(['fondo', 'background']);
+const ROTULO_PALABRA = new Set(['palabra', 'word']);
 
 /** Palabras chicas que pueden ir dentro de un nombre: "Ana de la Torre". */
 const PARTICULAS = new Set(['de', 'del', 'la', 'el', 'los', 'las', 'y']);
@@ -122,6 +126,8 @@ export function parsearGuion(texto) {
   let pies = [];
   let imagenes = []; // las indicaciones de pantalla esperando su parlamento
   let camara = null;
+  let fondo = null;   // {src, pie} o 'ninguno'
+  let palabra = null; // texto o 'ninguna'
 
   for (const { quien, texto: dicho } of lineas) {
     if (!dicho) continue;
@@ -131,13 +137,19 @@ export function parsearGuion(texto) {
       if (imagen) imagenes.push(imagen);
     } else if (ROTULO_CAMARA.has(rotulo)) {
       camara = /^(apag|off|no|cerr|sac)/i.test(normalizar(dicho)) ? 'apagar' : 'encender';
+    } else if (ROTULO_FONDO.has(rotulo)) {
+      fondo = /^(ningun|no|sin|sac|quit|off)/i.test(normalizar(dicho)) ? 'ninguno' : leerImagen(dicho);
+    } else if (ROTULO_PALABRA.has(rotulo)) {
+      palabra = /^(ningun|no|sin|sac|quit|off)/i.test(normalizar(dicho)) ? 'ninguna' : dicho.trim();
     } else if (esComodin(quien)) {
       comodines.push(dicho);
     } else if (ALIAS_NOVA.has(normalizar(quien))) {
-      entradas.push({ indice: entradas.length, pies, parlamento: dicho, imagenes, camara });
+      entradas.push({ indice: entradas.length, pies, parlamento: dicho, imagenes, camara, fondo, palabra });
       pies = [];
       imagenes = [];
       camara = null;
+      fondo = null;
+      palabra = null;
     } else {
       if (quien) personajes.add(quien);
       pies.push(dicho);
@@ -183,7 +195,7 @@ function esComodin(quien) {
 function esNombre(candidato, vistos) {
   if (!candidato || /^https?$/i.test(candidato)) return false;
   const limpio = normalizar(candidato);
-  if (vistos.has(limpio) || ALIAS_NOVA.has(limpio) || ROTULO_IMAGEN.has(limpio) || ROTULO_CAMARA.has(limpio) || esComodin(candidato)) return true;
+  if (vistos.has(limpio) || ALIAS_NOVA.has(limpio) || ROTULO_IMAGEN.has(limpio) || ROTULO_CAMARA.has(limpio) || ROTULO_FONDO.has(limpio) || ROTULO_PALABRA.has(limpio) || esComodin(candidato)) return true;
 
   const partes = candidato.split(/\s+/);
   if (partes.length > 3) return false;
@@ -333,6 +345,9 @@ export class Guion {
         imagen: e.imagenes?.[0]?.src || '',
         segundos: e.imagenes?.[0]?.segundos || 0,
         camara: e.camara || null,
+        fondo: e.fondo ? (e.fondo === 'ninguno' ? 'ninguno' : e.fondo.pie || e.fondo.src) : null,
+        palabra: e.palabra || null,
+        pantalla: Boolean(e.imagenes?.length || e.camara || e.fondo || e.palabra),
       })),
     };
   }
