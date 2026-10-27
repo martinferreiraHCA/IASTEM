@@ -194,6 +194,11 @@ no apaga la pantalla. Si querés usar un servidor MQTT propio, ponelo en la
 consola del navegador, en la computadora y en el celular:
 `localStorage.setItem('nova:relevo', 'wss://tu-servidor/mqtt')`.
 
+Si el celular no entra, abrí en él `prueba-sala.html` (hay un enlace en el
+diálogo Panel, junto al QR): prueba qué deja pasar esa red (la señal, la
+dirección pública, cada relevo) y, con el código, si llega al escenario. El
+botón *Copiar el resultado* arma un informe para pegar y pedir ayuda.
+
 El servidor propio no guarda nada ni entiende los mensajes: solo releva lo que
 una página dice a las demás. Si el panel pierde la señal, lo dice abajo en rojo
 y se vuelve a enganchar solo cuando el escenario reaparece.

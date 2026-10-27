@@ -21,10 +21,18 @@
  */
 export const RELEVOS = [
   'wss://mqtt.eclipseprojects.io/mqtt',
+  'wss://public:public@public.cloud.shiftr.io',
   'wss://broker.emqx.io:8084/mqtt',
   'wss://broker.hivemq.com:8884/mqtt',
   'wss://test.mosquitto.org:8081',
 ];
+
+/** Separa usuario y clave de la dirección, si los trae (wss://usuario:clave@servidor). */
+export function leerDireccion(direccion) {
+  const m = /^(wss?:\/\/)(?:([^:@/]*)(?::([^@/]*))?@)?(.*)$/.exec(direccion);
+  if (!m) return { url: direccion, usuario: '', clave: '' };
+  return { url: m[1] + m[4], usuario: decodeURIComponent(m[2] || ''), clave: decodeURIComponent(m[3] || '') };
+}
 
 function servidores() {
   let propios = [];
@@ -41,11 +49,13 @@ export class Relevo {
    * @param {string} tema
    * @param {{ onMensaje: (m: object) => void, onCambio?: (estado: string) => void }} opciones
    */
-  constructor(tema, { onMensaje, onCambio }) {
+  constructor(tema, { onMensaje, onCambio, servidores: lista = null }) {
     this.tema = tema;
+    this.lista = lista; // una lista propia de servidores (para probar uno solo)
     this.onMensaje = onMensaje;
     this.onCambio = onCambio;
     this.estado = 'cerrado'; // cerrado, conectando, conectado, caido
+    this.servidor = ''; // a cuál se está conectando
     this.socket = null;
     this.cual = 0; // qué servidor de la lista
     this.intentos = 0;
@@ -60,9 +70,11 @@ export class Relevo {
     clearTimeout(this.reintento);
     this.#setEstado('conectando');
     let socket;
+    const lista = this.lista || servidores();
+    const direccion = leerDireccion(lista[this.cual % lista.length]);
+    this.servidor = direccion.url;
     try {
-      const lista = servidores();
-      socket = new WebSocket(lista[this.cual % lista.length], ['mqtt']);
+      socket = new WebSocket(direccion.url, ['mqtt']);
     } catch {
       return this.#caida();
     }
@@ -71,7 +83,7 @@ export class Relevo {
     const abrirTimer = setTimeout(() => { if (this.socket === socket && this.estado !== 'conectado') socket.close(); }, 8000);
 
     socket.onopen = () => {
-      socket.send(paqueteConectar(`nova-${Math.random().toString(36).slice(2, 10)}`));
+      socket.send(paqueteConectar(`nova-${Math.random().toString(36).slice(2, 10)}`, direccion.usuario, direccion.clave));
     };
     socket.onmessage = (event) => {
       if (this.socket !== socket) return;
@@ -183,8 +195,13 @@ function paquete(primerByte, cuerpo) {
   return new Uint8Array([primerByte, ...largoVariable(cuerpo.length), ...cuerpo]);
 }
 
-function paqueteConectar(clienteId) {
-  const cuerpo = [...texto('MQTT'), 4, 0x02, 0, 60, ...texto(clienteId)]; // nivel 4, sesión limpia, keepalive 60 s
+function paqueteConectar(clienteId, usuario = '', clave = '') {
+  let banderas = 0x02; // sesión limpia
+  if (usuario) banderas |= 0x80;
+  if (usuario && clave) banderas |= 0x40;
+  const cuerpo = [...texto('MQTT'), 4, banderas, 0, 60, ...texto(clienteId)]; // nivel 4, keepalive 60 s
+  if (usuario) cuerpo.push(...texto(usuario));
+  if (usuario && clave) cuerpo.push(...texto(clave));
   return paquete(0x10, cuerpo);
 }
 

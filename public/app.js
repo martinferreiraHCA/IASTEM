@@ -736,6 +736,7 @@ function pintarSala() {
           '<p class="sala__estado" id="salaEstado"></p>' +
           `<p class="panel__direccion"><a href="${escapar(direccion)}" target="_blank" rel="noopener">${escapar(direccion)}</a></p>` +
           '<p class="sheet__note">Escaneá el QR con el celular, o abrí esa dirección y poné el código. La sala queda abierta aunque recargues esta página.</p>' +
+          `<p class="sheet__note">¿El celular no entra? Abrí en él <a href="${escapar(new URL(`prueba-sala.html?sala=${encodeURIComponent(sala.codigo)}`, location.href).href)}" target="_blank" rel="noopener">la prueba de la sala</a>: dice qué deja pasar esa red.</p>` +
           '<div class="sheet__foot">' +
             '<button class="ghost" type="button" data-sala="cambiar">Otro código</button>' +
             '<button class="ghost" type="button" data-sala="cerrar">Cerrar la sala</button>' +
