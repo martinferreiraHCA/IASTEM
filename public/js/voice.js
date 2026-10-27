@@ -288,7 +288,7 @@ export const INSTRUCCIONES_VOZ =
  * Los ajustes de la voz, guardados en este navegador.
  *   motor         navegador u openai
  *   nombre        la voz del navegador elegida a mano (vacío: la mejor que haya)
- *   velocidad     0.8 a 1.3
+ *   velocidad     0.8 a 1.5
  *   claveOpenAI   clave para la voz por API (si está vacía se usa la del asistente)
  *   vozOpenAI     nova, coral, sage...
  *   instrucciones cómo tiene que sonar
@@ -301,7 +301,7 @@ export function leerAjustesVoz() {
   return {
     motor: guardado.motor === 'openai' ? 'openai' : 'navegador',
     nombre: typeof guardado.nombre === 'string' ? guardado.nombre : '',
-    velocidad: Math.min(1.3, Math.max(0.8, Number(guardado.velocidad) || 1)),
+    velocidad: Math.min(1.5, Math.max(0.8, Number(guardado.velocidad) || 1)),
     claveOpenAI: typeof guardado.claveOpenAI === 'string' ? guardado.claveOpenAI : '',
     vozOpenAI: VOCES_OPENAI.some(([v]) => v === guardado.vozOpenAI) ? guardado.vozOpenAI : 'nova',
     instrucciones: typeof guardado.instrucciones === 'string' && guardado.instrucciones.trim() ? guardado.instrucciones : INSTRUCCIONES_VOZ,
@@ -351,6 +351,7 @@ export class VozNavegador {
     this.ajustes = ajustes;
     this.voice = null;
     this.speaking = false;
+    this.abierto = false; // la respuesta sigue llegando: no avisar el fin todavía
     this.onStart = null;
     this.onEnd = null;
     if (voiceSupport.speak) {
@@ -385,7 +386,9 @@ export class VozNavegador {
       terminado = true;
       clearTimeout(limite);
       this.speaking = false;
-      if (!speechSynthesis.pending && !speechSynthesis.speaking) this.onEnd?.();
+      // Mientras la respuesta sigue abierta puede venir otro trozo: el fin se
+      // avisa recién cuando no queda nada y la respuesta se cerró.
+      if (!speechSynthesis.pending && !speechSynthesis.speaking && !this.abierto) this.onEnd?.();
     };
     const limite = setTimeout(() => {
       if (terminado) return;
@@ -401,6 +404,12 @@ export class VozNavegador {
     speechSynthesis.speak(utterance);
   }
 
+  /** La respuesta terminó de llegar: si ya no hay nada por decir, se avisa el fin. */
+  cerrar() {
+    if (!this.supported) return;
+    if (!speechSynthesis.pending && !speechSynthesis.speaking && !this.speaking) this.onEnd?.();
+  }
+
   cancel() {
     if (!this.supported) return;
     speechSynthesis.cancel();
@@ -409,12 +418,17 @@ export class VozNavegador {
 }
 
 /**
- * La voz por API: el sintetizador neuronal de OpenAI. Cada frase se pide
- * apenas llega, en paralelo, y se reproduce en orden: así la voz arranca
- * con la primera frase y no se corta entre una y otra.
+ * La voz por API: el sintetizador neuronal de OpenAI, en chorro.
+ *
+ * Cada trozo de texto se pide apenas llega, en paralelo, como audio crudo
+ * (PCM de 24 kHz) que va llegando de a pedazos. Los pedazos se encadenan en
+ * la línea de tiempo de Web Audio, uno pegado al otro: la voz arranca con
+ * el primer pedazo del primer trozo, y entre trozo y trozo no hay silencio.
  *
  * La clave puede estar en el servidor (`npm start`) o en este navegador.
  */
+const MUESTRAS_POR_SEGUNDO = 24000;
+const MUESTRAS_MINIMAS = 2400; // 100 ms de audio por pedazo programado
 export class VozOpenAI {
   /**
    * @param {object} ajustes  los de leerAjustesVoz()
@@ -424,16 +438,20 @@ export class VozOpenAI {
     this.ajustes = ajustes;
     this.modo = modo;
     this.cola = [];          // {promesa, control}
-    this.audio = null;
+    this.ctx = null;
+    this.fuentes = new Set(); // los pedazos programados que todavía no sonaron
+    this.siguiente = 0;      // cuándo empieza el próximo pedazo, en el reloj del contexto
     this.speaking = false;
+    this.abierto = false;
+    this.reproduciendo = false;
+    this.finTimer = null;
     this.onStart = null;
     this.onEnd = null;
     this.onError = null;
-    this.reproduciendo = false;
   }
 
   get supported() {
-    return typeof Audio !== 'undefined' && this.modo() !== 'ninguno';
+    return typeof AudioContext !== 'undefined' && this.modo() !== 'ninguno';
   }
 
   say(clean) {
@@ -445,16 +463,27 @@ export class VozOpenAI {
     this.#reproducir();
   }
 
+  cerrar() {
+    this.#revisarFin();
+  }
+
   cancel() {
     for (const item of this.cola) item.control.abort();
     this.cola = [];
-    if (this.audio) {
-      this.audio.pause();
-      this.audio.src = '';
-      this.audio = null;
+    for (const fuente of this.fuentes) {
+      try { fuente.stop(); } catch { /* ya paró */ }
     }
+    this.fuentes.clear();
+    clearTimeout(this.finTimer);
+    this.siguiente = 0;
     this.speaking = false;
     this.reproduciendo = false;
+  }
+
+  #contexto() {
+    this.ctx ??= new AudioContext();
+    if (this.ctx.state === 'suspended') this.ctx.resume().catch(() => {});
+    return this.ctx;
   }
 
   async #pedir(texto, signal) {
@@ -463,7 +492,7 @@ export class VozOpenAI {
       voice: this.ajustes.vozOpenAI,
       input: texto,
       instructions: this.ajustes.instrucciones,
-      response_format: 'mp3',
+      response_format: 'pcm',
       speed: this.ajustes.velocidad,
     };
     const modo = this.modo();
@@ -481,7 +510,8 @@ export class VozOpenAI {
       if (res.status === 401) throw new Error('la API de OpenAI rechazó la clave de la voz');
       throw new Error(`la voz por API respondió ${res.status}${detalle ? `: ${String(detalle).slice(0, 120)}` : ''}`);
     }
-    return res.blob();
+    if (!res.body) throw new Error('la voz por API no devolvió audio');
+    return res;
   }
 
   async #reproducir() {
@@ -489,9 +519,9 @@ export class VozOpenAI {
     this.reproduciendo = true;
     while (this.cola.length) {
       const item = this.cola[0];
-      let blob;
+      let res;
       try {
-        blob = await item.promesa;
+        res = await item.promesa;
       } catch (err) {
         if (this.cola[0] === item) this.cola.shift();
         if (err.name !== 'AbortError') {
@@ -502,39 +532,90 @@ export class VozOpenAI {
       }
       if (this.cola[0] !== item) break; // cancelaron mientras llegaba
       this.cola.shift();
-      await this.#sonar(blob);
+      try {
+        await this.#tocar(res, item.control.signal);
+      } catch (err) {
+        if (err.name !== 'AbortError' && !item.control.signal.aborted) {
+          this.onError?.(err.message);
+          this.cancel();
+          break;
+        }
+      }
     }
     this.reproduciendo = false;
-    if (this.speaking) {
-      this.speaking = false;
-      this.onEnd?.();
+    this.#revisarFin();
+  }
+
+  /** Lee el audio crudo a medida que llega y lo va programando, pegado al anterior. */
+  async #tocar(res, signal) {
+    const lector = res.body.getReader();
+    let resto = new Uint8Array(0);
+    let juntadas = [];
+    let cuantas = 0;
+    const soltar = () => {
+      if (!cuantas) return;
+      const muestras = new Float32Array(cuantas);
+      let i = 0;
+      for (const parte of juntadas) { muestras.set(parte, i); i += parte.length; }
+      juntadas = [];
+      cuantas = 0;
+      this.#programar(muestras);
+    };
+    for (;;) {
+      const { done, value } = await lector.read();
+      if (signal.aborted) { lector.cancel().catch(() => {}); return; }
+      if (done) break;
+      const bytes = new Uint8Array(resto.length + value.length);
+      bytes.set(resto);
+      bytes.set(value, resto.length);
+      const pares = bytes.length - (bytes.length % 2);
+      const vista = new DataView(bytes.buffer, bytes.byteOffset, pares);
+      const parte = new Float32Array(pares / 2);
+      for (let j = 0; j < parte.length; j++) parte[j] = vista.getInt16(j * 2, true) / 32768;
+      resto = bytes.slice(pares);
+      juntadas.push(parte);
+      cuantas += parte.length;
+      if (cuantas >= MUESTRAS_MINIMAS) soltar();
+    }
+    soltar();
+  }
+
+  #programar(muestras) {
+    const ctx = this.#contexto();
+    const buffer = ctx.createBuffer(1, muestras.length, MUESTRAS_POR_SEGUNDO);
+    buffer.copyToChannel(muestras, 0);
+    const fuente = ctx.createBufferSource();
+    fuente.buffer = buffer;
+    fuente.connect(ctx.destination);
+    const ahora = ctx.currentTime;
+    // Si el reloj ya pasó el punto de empalme (llegó tarde), se arranca ya,
+    // con un margen chico para que el próximo pedazo llegue a tiempo.
+    if (this.siguiente < ahora + 0.02) this.siguiente = ahora + (this.speaking ? 0.03 : 0.12);
+    fuente.start(this.siguiente);
+    this.siguiente += buffer.duration;
+    this.fuentes.add(fuente);
+    fuente.onended = () => {
+      this.fuentes.delete(fuente);
+      this.#revisarFin();
+    };
+    if (!this.speaking) {
+      this.speaking = true;
+      this.onStart?.();
     }
   }
 
-  #sonar(blob) {
-    return new Promise((listo) => {
-      const url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
-      this.audio = audio;
-      const fin = () => {
-        URL.revokeObjectURL(url);
-        if (this.audio === audio) this.audio = null;
-        listo();
-      };
-      audio.onended = fin;
-      audio.onerror = fin;
-      audio.onplay = () => {
-        if (!this.speaking) {
-          this.speaking = true;
-          this.onStart?.();
-        }
-      };
-      audio.play().catch(() => {
-        // Sin gesto previo el navegador puede negarse: se sigue sin sonido.
-        this.onError?.('el navegador no dejó reproducir el audio; tocá la página una vez y volvé a probar');
-        fin();
-      });
-    });
+  /** Avisa el fin cuando no queda nada por pedir, ni por programar, ni por sonar. */
+  #revisarFin() {
+    clearTimeout(this.finTimer);
+    if (!this.speaking || this.reproduciendo || this.cola.length || this.abierto) return;
+    const falta = this.ctx ? this.siguiente - this.ctx.currentTime : 0;
+    if (falta > 0.03) {
+      this.finTimer = setTimeout(() => this.#revisarFin(), falta * 1000 + 40);
+      return;
+    }
+    this.speaking = false;
+    this.siguiente = 0;
+    this.onEnd?.();
   }
 }
 
@@ -548,6 +629,9 @@ export class Speaker {
     this.enabled = false;
     this.ajustes = leerAjustesVoz();
     this.modoOpenAI = modoOpenAI;
+    this.abierto = false;  // una respuesta está llegando de a frases
+    this.primera = true;   // todavía no salió el primer trozo de esta respuesta
+    this.pendiente = '';   // frases juntadas que esperan formar un trozo
     this.onStart = null;
     this.onEnd = null;
     this.onError = null;
@@ -596,18 +680,114 @@ export class Speaker {
     this.#armar();
   }
 
-  /** Habla una frase. Se encola para respetar el orden de llegada. */
+  /**
+   * Empieza una respuesta que va a llegar de a frases (say). Hasta cerrar()
+   * no se avisa el fin, así el micrófono no se prende entre frase y frase.
+   */
+  abrir() {
+    this.abierto = true;
+    this.primera = true;
+    this.pendiente = '';
+    this.motor.abierto = true;
+  }
+
+  /**
+   * Una frase más de la respuesta. La primera sale enseguida, para que la
+   * voz arranque; las siguientes se juntan en trozos más largos, porque cada
+   * trozo le cuesta al sintetizador un arranque, y ahí se notan los cortes.
+   */
   say(text) {
     if (!this.enabled || !this.supported) return;
-    const clean = (text || '').replace(/[*_#`]/g, '').trim();
+    const clean = limpiar(text);
     if (!clean) return;
-    this.motor.say(clean);
+    if (!this.abierto) return this.decir(clean);
+    this.pendiente = this.pendiente ? `${this.pendiente} ${clean}` : clean;
+    if (this.primera || this.pendiente.length >= TROZO_LARGO) this.#soltar();
+  }
+
+  /** La respuesta terminó de llegar. */
+  cerrar() {
+    if (!this.abierto) return;
+    this.#soltar();
+    this.abierto = false;
+    this.motor.abierto = false;
+    this.motor.cerrar?.();
+  }
+
+  /** Dice un texto que ya se conoce entero: se pide todo junto, de una vez. */
+  decir(text) {
+    if (!this.enabled || !this.supported) return;
+    const clean = limpiar(text);
+    if (!clean) return;
+    this.abrir();
+    this.pendiente = clean;
+    this.#soltar();
+    this.cerrar();
+  }
+
+  #soltar() {
+    const texto = this.pendiente;
+    this.pendiente = '';
+    if (!texto) return;
+    for (const trozo of trocear(texto, { primeroCorto: this.primera })) this.motor.say(trozo);
+    this.primera = false;
   }
 
   cancel() {
+    this.abierto = false;
+    this.pendiente = '';
+    if (this.motor) this.motor.abierto = false;
     this.motor?.cancel();
     this.onEnd?.();
   }
+}
+
+function limpiar(text) {
+  return (text || '').replace(/[*_#`]/g, '').replace(/\s+/g, ' ').trim();
+}
+
+/* ------------------------------------------------------------- trozos */
+
+const TROZO_LARGO = 170;  // por trozo: menos arranques, y Chrome corta las voces de Google pasados ~15 s
+const PRIMERO_LARGO = 90; // el primero, más corto: así la voz arranca antes
+
+/**
+ * Corta un texto en trozos para el sintetizador: frases enteras, juntas
+ * hasta el largo máximo; una frase muy larga se parte en una coma. Con
+ * `primeroCorto`, el primer trozo se acorta para que arranque enseguida.
+ */
+export function trocear(texto, { primeroCorto = false } = {}) {
+  const frases = texto.match(/[^.!?…]+[.!?…]+["»)]?|[^.!?…]+$/g)?.map((f) => f.trim()).filter(Boolean) || [];
+  const trozos = [];
+  let actual = '';
+  const cerrarTrozo = () => { if (actual) trozos.push(actual); actual = ''; };
+  for (const frase of frases) {
+    const max = primeroCorto && !trozos.length ? PRIMERO_LARGO : TROZO_LARGO;
+    for (const parte of partir(frase, max)) {
+      if (actual && actual.length + 1 + parte.length > max) cerrarTrozo();
+      actual = actual ? `${actual} ${parte}` : parte;
+      if (actual.length >= max * 0.8) cerrarTrozo();
+    }
+  }
+  cerrarTrozo();
+  return trozos;
+}
+
+/** Parte una frase más larga que `max` en comas (o espacios si no hay). */
+function partir(frase, max) {
+  if (frase.length <= max) return [frase];
+  const partes = [];
+  let resto = frase;
+  while (resto.length > max) {
+    const ventana = resto.slice(0, max);
+    let corte = Math.max(ventana.lastIndexOf(', '), ventana.lastIndexOf('; '), ventana.lastIndexOf(': '));
+    if (corte < max * 0.4) corte = ventana.lastIndexOf(' ');
+    if (corte < 1) corte = max;
+    partes.push(resto.slice(0, corte + 1).trim());
+    resto = resto.slice(corte + 1).trim();
+  }
+  if (resto) partes.push(resto);
+  return partes;
 }
 
 /**

@@ -237,10 +237,25 @@ de NOVA**, con un botón para escuchar una frase antes de decidir:
 | **La del navegador** | Depende del navegador. En Edge, las voces "Natural" suenan a persona; en Chrome, las de Google son aceptables; las demás, a robot. NOVA elige sola la mejor que haya, en rioplatense si existe, y se puede elegir otra a mano. | Nada. |
 | **Neuronal por API** | Mucho más natural: el sintetizador de OpenAI, con voces como *nova*, *coral* o *sage*, y una instrucción de cómo tiene que sonar (acento uruguayo, cálida, pausada). | Una clave de OpenAI, en el `.env` del servidor o pegada en el panel. Si el asistente ya usa OpenAI, se usa esa. |
 
-La voz por API pide cada frase apenas llega y las reproduce en orden, así
-arranca con la primera frase y no se corta. Si la API falla a mitad de la
-función, NOVA avisa y sigue con la voz del navegador: nunca se queda muda.
-Cada frase cuesta una fracción de centavo.
+Las dos están pensadas para que NOVA hable de corrido:
+
+- Un parlamento del guion (o un texto del panel) se le da a la voz **entero
+  y de una vez**, apenas empieza, mientras en la pantalla se va formando. Lo
+  que la IA improvisa se le va dando por frases: la primera sale enseguida y
+  las demás se juntan en trozos largos, porque cada trozo le cuesta al
+  sintetizador un arranque, y ahí es donde se notaban los cortes.
+- La voz por API llega **en chorro**: el audio se reproduce a medida que
+  llega, pegado al anterior sin un hueco, con Web Audio. Arranca en menos de
+  un segundo y no se corta entre un trozo y otro. Si la API falla a mitad de
+  la función, NOVA avisa y sigue con la voz del navegador: nunca se queda
+  muda. Cada trozo cuesta una fracción de centavo.
+- El micrófono se apaga mientras NOVA habla y se vuelve a prender recién
+  cuando terminó todo el parlamento, no entre frase y frase.
+- La **velocidad** va de 0,8 a 1,5. Si querés que vaya más rápido, subila.
+
+Si con la voz del navegador igual se traba, es la voz: las de Google en
+Chrome bajan el audio de internet en cada arranque. La voz por API es la que
+suena a persona y de corrido.
 
 ### Si el micrófono no transcribe
 

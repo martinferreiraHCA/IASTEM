@@ -19,6 +19,7 @@ const fs = require('node:fs');
 const fsp = require('node:fs/promises');
 const os = require('node:os');
 const path = require('node:path');
+const { Readable } = require('node:stream');
 
 loadDotEnv(path.join(__dirname, '.env'));
 
@@ -279,10 +280,10 @@ async function voz(req, res) {
       voice: String(datos.voice || 'nova').slice(0, 30),
       input: datos.input.slice(0, 4000),
       instructions: String(datos.instructions || '').slice(0, 2000),
-      response_format: 'mp3',
+      response_format: datos.response_format === 'pcm' ? 'pcm' : 'mp3',
       speed: Math.min(1.5, Math.max(0.7, Number(datos.speed) || 1)),
     }),
-    signal: AbortSignal.timeout(20000),
+    signal: AbortSignal.timeout(60000),
   }).catch((err) => {
     console.error('No se pudo contactar la API de voz:', err.message);
     return null;
@@ -297,9 +298,14 @@ async function voz(req, res) {
     });
   }
 
-  const audio = Buffer.from(await upstream.arrayBuffer());
-  res.writeHead(200, { 'Content-Type': upstream.headers.get('content-type') || 'audio/mpeg', 'Content-Length': audio.length, 'Cache-Control': 'no-store' });
-  res.end(audio);
+  // El audio se pasa a medida que llega, sin esperar a que termine: así la
+  // voz arranca enseguida en el navegador.
+  res.writeHead(200, { 'Content-Type': upstream.headers.get('content-type') || 'audio/mpeg', 'Cache-Control': 'no-store' });
+  if (!upstream.body) return res.end();
+  const chorro = Readable.fromWeb(upstream.body);
+  chorro.on('error', () => res.end());
+  req.on('close', () => chorro.destroy());
+  chorro.pipe(res);
 }
 
 /* ------------------------------------------------------------------ relevo */

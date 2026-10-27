@@ -1081,8 +1081,7 @@ function wireVoz() {
     const enabled = speaker.enabled;
     speaker.enabled = true;
     speaker.cancel();
-    speaker.say('Hola. Soy NOVA, la inteligencia de esta muestra. Así voy a sonar en la función.');
-    speaker.say('¿Les parece bien, o probamos otra voz?');
+    speaker.decir('Hola. Soy NOVA, la inteligencia de esta muestra. Así voy a sonar en la función. ¿Les parece bien, o probamos otra voz?');
     setTimeout(() => (speaker.enabled = enabled), 50);
   });
   if (voiceSupport.speak) speechSynthesis.addEventListener?.('voiceschanged', () => pintarVoz());
@@ -1727,6 +1726,13 @@ async function responder(fuente, { origen }) {
 
   state.controller = new AbortController();
 
+  // Un texto que ya se conoce entero (el guion, el panel) se le da a la voz
+  // de una vez: así arranca ya y suena de corrido mientras en la pantalla
+  // se va formando. Lo que llega de a pedazos (la IA) se le va dando por frases.
+  const textoConocido = typeof fuente === 'string';
+  if (textoConocido) speaker.decir(fuente);
+  else speaker.abrir();
+
   try {
     const entregar = typeof fuente === 'function' ? fuente : (onDelta, signal) => gotear(fuente, onDelta, signal);
     answer = await entregar(
@@ -1745,14 +1751,15 @@ async function responder(fuente, { origen }) {
         }
         bubbleWriter.push(delta);
         if (isStage()) sceneWriter.push(delta);
-        sentences.push(delta);
+        if (!textoConocido) sentences.push(delta);
         scrollLog();
       },
       state.controller.signal,
       marcar,
     );
 
-    sentences.flush();
+    if (!textoConocido) sentences.flush();
+    speaker.cerrar();
     bubbleWriter.flush();
     bubble.classList.remove('is-streaming');
 
@@ -1762,6 +1769,8 @@ async function responder(fuente, { origen }) {
     state.ultimaRespuesta = answer.trim();
     el.pinBtn.disabled = false;
   } catch (err) {
+    sentences.reset();
+    speaker.cerrar();
     bubbleWriter.flush();
     bubble.classList.remove('is-streaming', 'is-pending');
     if (err.name === 'AbortError') {
