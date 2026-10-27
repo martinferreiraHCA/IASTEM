@@ -177,12 +177,22 @@ Hay dos maneras de abrirlo, y el botón **Panel** del escenario las explica:
 | **Desde el celular, por internet** | *Panel → Crear la sala para el celular.* NOVA muestra un código y un QR. En el celular se escanea el QR (o se abre `control.html` y se escribe el código) y listo: lo que se toca en el celular pasa en la computadora y en la tele. | Internet en los dos. El celular puede estar en cualquier red, hasta con sus datos. Anda desde GitHub Pages. |
 | **Desde el celular, en la misma red** | Correr `npm start` en la computadora que proyecta y abrir en el celular la dirección que muestra la consola, algo como `http://192.168.1.20:3000/control.html`. | Node, y que los dos estén en la misma red Wi-Fi. No necesita internet. |
 
-La sala se hace con WebRTC: el escenario y el celular se encuentran por un
-servidor público de PeerJS y después se hablan directo, sin pasar por nadie.
+La sala usa dos caminos a la vez, y el panel dice cuál anda: **directo**
+(WebRTC; el escenario y el celular se encuentran por un servidor público de
+PeerJS y después se hablan sin pasar por nadie) y **por relevo** (un servidor
+público de MQTT, para las redes que no dejan hablar directo, como el Wi-Fi
+de un instituto o los datos del celular). Con que uno de los dos ande, la
+sala funciona; cada mensaje va por los dos y se descarta el repetido. Lo que
+pasa por el relevo es público para quien tenga el código de la sala (seis
+letras al azar): por eso NOVA no manda claves por ahí, solo el guion y las
+órdenes del panel.
+
 El código de la sala queda guardado en los dos: si se recarga la página de
 NOVA o la del celular, se vuelven a enganchar solos. *Otro código* cambia la
 sala y *Cerrar la sala* la apaga. Mientras el panel está conectado, el celular
-no apaga la pantalla.
+no apaga la pantalla. Si querés usar un servidor MQTT propio, ponelo en la
+consola del navegador, en la computadora y en el celular:
+`localStorage.setItem('nova:relevo', 'wss://tu-servidor/mqtt')`.
 
 El servidor propio no guarda nada ni entiende los mensajes: solo releva lo que
 una página dice a las demás. Si el panel pierde la señal, lo dice abajo en rojo
@@ -354,7 +364,8 @@ public/                  El sitio. Esto es lo que se publica en Pages.
   control.css            Su estética, pensada para un celular a oscuras
   js/
     guion.js             El guion: pies, parlamentos, comodines y la comparación tolerante
-    enlace.js            El enlace entre escenario y panel: ventana a ventana, o por el servidor
+    enlace.js            El enlace entre escenario y panel: ventana a ventana, por el servidor, o por la sala
+    relevo.js            El relevo de la sala: un cliente MQTT mínimo sobre WebSocket, para redes cerradas
     arbitro.js           El asistente de ubicación: le pregunta a una IA en qué pie estamos
     goteo.js             Entrega un texto de a palabras, como si se pensara
     materialize.js       El efecto Jumanji, letra por letra

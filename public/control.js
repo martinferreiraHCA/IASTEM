@@ -235,7 +235,10 @@ function pintarEnlace() {
   el.sala.dataset.estado = sala.estado;
   el.formSala.hidden = enSala;
   el.salaDentro.hidden = !enSala;
-  if (enSala) el.salaTexto.innerHTML = `Sala <strong>${sala.codigo}</strong> · ${SALA_TEXTOS[sala.estado] || sala.estado}`;
+  if (enSala) {
+    const via = sala.estado === 'conectada' && sala.via ? (sala.via === 'directo' ? ' directo' : ' por relevo') : '';
+    el.salaTexto.innerHTML = `Sala <strong>${sala.codigo}</strong> · ${SALA_TEXTOS[sala.estado] || sala.estado}${via}`;
+  }
   // Si ya hay escenario por otro camino (misma computadora o servidor), el campo sobra.
   el.sala.hidden = !enSala && Boolean(conSenal);
 

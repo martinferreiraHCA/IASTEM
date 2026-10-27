@@ -759,7 +759,8 @@ function pintarSala() {
   let [clase, texto] = SALA_TEXTOS[sala.estado] || ['buscando', sala.detalle || sala.estado];
   if (sala.estado === 'abierta' && sala.conectados) {
     clase = 'bien';
-    texto = sala.conectados === 1 ? 'Celular conectado: lo que toques ahí pasa acá.' : `${sala.conectados} celulares conectados.`;
+    const via = sala.via === 'directo' ? ' (directo)' : sala.via === 'relevo' ? ' (por relevo)' : '';
+    texto = sala.conectados === 1 ? `Celular conectado${via}: lo que toques ahí pasa acá.` : `${sala.conectados} celulares conectados${via}.`;
   }
   estado.dataset.estado = clase;
   estado.textContent = texto;
