@@ -6,13 +6,19 @@
  * conexión, lo dice; si el escenario se recarga, se vuelve a enganchar solo.
  */
 
-import { Enlace } from './js/enlace.js';
+import { Enlace, normalizarCodigo } from './js/enlace.js';
 
 const $ = (id) => document.getElementById(id);
 
 const el = {
   enlace: $('enlace'),
   enlaceTexto: $('enlaceTexto'),
+  sala: $('sala'),
+  formSala: $('formSala'),
+  salaCodigo: $('salaCodigo'),
+  salaDentro: $('salaDentro'),
+  salaTexto: $('salaTexto'),
+  salaSalir: $('salaSalir'),
   ahora: $('ahora'),
   modo: $('modo'),
   escena: $('escena'),
@@ -72,9 +78,21 @@ const enlace = new Enlace('panel', (mensaje) => {
 });
 enlace.onCambio = () => pintarEnlace();
 
+const SALA_CLAVE = 'nova:sala-panel';
+const SALA_TEXTOS = {
+  entrando: 'entrando…',
+  esperando: 'el escenario todavía no la abrió',
+  conectada: 'conectada',
+  perdida: 'se cortó, reintentando…',
+  'sin-internet': 'sin internet, reintentando…',
+};
+
+let despierto = null; // el pedido de pantalla encendida, si el navegador lo da
+
 /* ----------------------------------------------------------- arranque */
 
 wire();
+entrarSalaGuardada();
 pintarEnlace();
 pedir();
 // Mientras no haya señal, se insiste; y si se corta, se nota en seguida.
@@ -91,9 +109,58 @@ function mandar(accion, extra = {}) {
   enlace.enviar({ tipo: 'comando', accion, ...extra });
 }
 
+/* --------------------------------------------------------------- sala */
+
+/** Entra a la sala del QR (?sala=CODIGO) o a la última que se usó. */
+function entrarSalaGuardada() {
+  const url = new URL(location.href);
+  const delQR = normalizarCodigo(url.searchParams.get('sala'));
+  if (delQR) {
+    url.searchParams.delete('sala');
+    history.replaceState(null, '', url); // el código queda guardado, no en la barra
+  }
+  const codigo = delQR || normalizarCodigo(localStorage.getItem(SALA_CLAVE));
+  if (codigo) entrarSala(codigo);
+}
+
+function entrarSala(codigo) {
+  codigo = normalizarCodigo(codigo);
+  if (!codigo) return;
+  localStorage.setItem(SALA_CLAVE, codigo);
+  el.salaCodigo.value = codigo;
+  enlace.entrarSala(codigo);
+  pintarEnlace();
+}
+
+function salirSala() {
+  localStorage.removeItem(SALA_CLAVE);
+  enlace.cerrarSala();
+  estado = null;
+  pintarEnlace();
+  el.salaCodigo.focus();
+}
+
+/* Que el celular no se apague en la mano mientras maneja la función. */
+async function mantenerDespierto() {
+  if (!('wakeLock' in navigator) || despierto || document.visibilityState !== 'visible') return;
+  try {
+    despierto = await navigator.wakeLock.request('screen');
+    despierto.addEventListener('release', () => { despierto = null; });
+  } catch { /* no se pudo: no es grave */ }
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') mantenerDespierto(); });
+document.addEventListener('pointerdown', () => mantenerDespierto(), { passive: true });
+
 /* ------------------------------------------------------------ eventos */
 
 function wire() {
+  el.formSala.addEventListener('submit', (event) => {
+    event.preventDefault();
+    entrarSala(el.salaCodigo.value);
+  });
+  el.salaCodigo.addEventListener('input', () => { el.salaCodigo.value = normalizarCodigo(el.salaCodigo.value); });
+  el.salaSalir.addEventListener('click', () => salirSala());
+
   el.siguiente.addEventListener('click', () => mandar('siguiente'));
   el.detener.addEventListener('click', () => mandar('detener'));
   el.activo.addEventListener('click', () => mandar('activo', { on: !(estado?.guion.activo ?? true) }));
@@ -145,26 +212,48 @@ function wire() {
 function pintarEnlace() {
   const conSenal = estado && Date.now() - ultimaSenal < 20000;
   const porRed = enlace.servidor === 'conectado';
+  const sala = enlace.sala;
+  const enSala = sala.estado !== 'cerrada';
+  const porSala = sala.estado === 'conectada';
 
   let nombre;
   let texto;
   if (conSenal) {
     nombre = 'bien';
-    texto = porRed ? 'Escenario conectado por red' : 'Escenario conectado en esta computadora';
+    texto = porSala ? 'Escenario conectado por la sala' : enSala ? 'La sala se cortó: reintentando…' : porRed ? 'Escenario conectado por red' : 'Escenario conectado en esta computadora';
   } else if (estado) {
     nombre = 'perdido';
     texto = 'Sin señal del escenario hace un rato';
   } else {
     nombre = 'buscando';
-    texto = porRed ? 'Esperando al escenario…' : 'Buscando el escenario en esta computadora…';
+    texto = enSala ? `Sala ${sala.codigo}: ${SALA_TEXTOS[sala.estado] || sala.estado}` : porRed ? 'Esperando al escenario…' : 'Buscando el escenario en esta computadora…';
   }
   el.enlace.dataset.estado = nombre;
   el.enlaceTexto.textContent = texto;
 
+  // La sala: el campo para entrar, o con qué código se está adentro.
+  el.sala.dataset.estado = sala.estado;
+  el.formSala.hidden = enSala;
+  el.salaDentro.hidden = !enSala;
+  if (enSala) el.salaTexto.innerHTML = `Sala <strong>${sala.codigo}</strong> · ${SALA_TEXTOS[sala.estado] || sala.estado}`;
+  // Si ya hay escenario por otro camino (misma computadora o servidor), el campo sobra.
+  el.sala.hidden = !enSala && Boolean(conSenal);
+
   el.aviso.hidden = Boolean(conSenal);
-  el.aviso.textContent = porRed
-    ? 'El escenario no responde. Fijate que la página de NOVA esté abierta en la computadora que proyecta.'
-    : 'No encuentro el escenario. Abrí la página de NOVA en otra ventana de este mismo navegador. Para manejarla desde el celular hace falta correr el servidor (npm start).';
+  if (enSala) {
+    el.aviso.textContent = sala.estado === 'esperando'
+      ? `El escenario no abrió la sala ${sala.codigo} todavía. En la computadora, abrí NOVA, tocá Panel y creá la sala; fijate que el código sea el mismo.`
+      : sala.estado === 'sin-internet'
+        ? 'El celular no llega al servidor de la sala. Revisá la conexión a internet (Wi-Fi o datos).'
+        : sala.estado === 'conectada'
+          ? 'Entré a la sala pero el escenario no responde. Fijate que la página de NOVA siga abierta en la computadora.'
+          : `Entrando a la sala ${sala.codigo}…`;
+  } else {
+    el.aviso.textContent = porRed
+      ? 'El escenario no responde. Fijate que la página de NOVA esté abierta en la computadora que proyecta.'
+      : 'No encuentro el escenario. Si está en esta computadora, abrilo en otra ventana de este navegador. Desde el celular, poné arriba el código de la sala que muestra NOVA en Panel.';
+  }
+  if (conSenal) mantenerDespierto();
 }
 
 function pintar() {

@@ -746,6 +746,35 @@ body {
 }
 .panel__direccion a { color: var(--cyan); text-decoration: none; }
 .panel__direccion a:hover { text-decoration: underline; }
+
+/* La sala para el celular: QR a un lado, código y estado al otro. */
+.sala { display: flex; gap: 18px; align-items: flex-start; flex-wrap: wrap; }
+.sala__qr {
+  flex: 0 0 auto;
+  width: 184px;
+  height: 184px;
+  padding: 8px;
+  border-radius: 14px;
+  background: #eef1ff;
+  display: grid;
+  place-items: center;
+}
+.sala__qr img, .sala__qr canvas { display: block; }
+.sala__qr .vacio { color: #05060c; text-align: center; padding: 6px; }
+.sala__datos { flex: 1 1 240px; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.sala__rotulo { margin: 0; font-family: var(--mono); font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-dim); }
+.sala__codigo { margin: 0; font-family: var(--mono); font-size: 40px; font-weight: 500; letter-spacing: 0.28em; color: #ffc76b; line-height: 1.1; }
+.sala__estado { margin: 0; font-size: 13px; color: var(--ink-dim); }
+.sala__estado::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 8px; background: var(--ink-dim); vertical-align: middle; }
+.sala__estado[data-estado="bien"] { color: #46f0a8; }
+.sala__estado[data-estado="bien"]::before { background: #46f0a8; box-shadow: 0 0 10px #46f0a8; }
+.sala__estado[data-estado="esperando"]::before,
+.sala__estado[data-estado="buscando"]::before { background: #ffc76b; animation: sala-late 1.2s ease-in-out infinite; }
+.sala__estado[data-estado="mal"] { color: #ff8f9f; }
+.sala__estado[data-estado="mal"]::before { background: #ff6b81; }
+@keyframes sala-late { 50% { opacity: 0.25; } }
+.sala .panel__direccion { font-size: 12px; overflow-wrap: anywhere; }
+.sala .sheet__foot { justify-content: flex-start; }
 .vacio code { font-family: var(--mono); color: var(--ink); }
 
 .sheet__note code {

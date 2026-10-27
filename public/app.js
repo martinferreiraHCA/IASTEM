@@ -19,7 +19,7 @@ import { Listener, Speaker, makeSentenceSplitter, voiceSupport, vocesDisponibles
 import { VoiceMeter } from './js/audio.js';
 import { Show } from './js/show.js';
 import { Guion, parsearGuion, puntaje, GUION_EJEMPLO } from './js/guion.js';
-import { Enlace } from './js/enlace.js';
+import { Enlace, codigoNuevo } from './js/enlace.js';
 import { Arbitro, PROVEEDORES } from './js/arbitro.js';
 
 const $ = (id) => document.getElementById(id);
@@ -133,8 +133,12 @@ const el = {
   panel: $('panel'),
   panelClose: $('panelClose'),
   panelAbrir: $('panelAbrir'),
+  panelSala: $('panelSala'),
   panelRed: $('panelRed'),
 };
+
+const SALA_CLAVE = 'nova:sala'; // el código de la sala del celular, para reabrirla sola
+const QR_URL = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
 
 /* --------------------------------------------------------------- estado */
 
@@ -173,6 +177,9 @@ const ANTICIPO_MS = 5000; // una frase anticipada tapa su versión final por est
 // evaluarse el archivo, y los usa.
 let publicarTimer = null;
 let toastTimer = null;
+let salaPintada = null; // qué código y estado de la sala está dibujado, para no rehacer el QR a cada rato
+let cargaQR = null; // la carga de la librería del QR, una sola vez
+let celularesAntes = 0; // cuántos celulares había, para avisar cuando entra o se va uno
 const isStage = () => el.body.dataset.mode === 'stage';
 const CAPTIONS = {
   idle: 'En espera',
@@ -234,6 +241,9 @@ async function init() {
   enlace.onCambio = () => pintarEnlace();
   pintarEnlace();
   arbitro.detectar().then(() => pintarAsistente());
+  // Si había una sala para el celular, se reabre sola con el mismo código.
+  const sala = localStorage.getItem(SALA_CLAVE);
+  if (sala) enlace.abrirSala(sala);
 
   if (!listener) {
     el.micBtn.disabled = true;
@@ -660,12 +670,118 @@ function wirePanel() {
   el.panelAbrir.addEventListener('click', () => {
     window.open('control.html', 'nova-panel', 'width=480,height=820');
   });
+  el.panelSala.addEventListener('click', (event) => {
+    const boton = event.target.closest('[data-sala]');
+    if (!boton) return;
+    if (boton.dataset.sala === 'abrir' || boton.dataset.sala === 'cambiar') abrirSala();
+    else if (boton.dataset.sala === 'cerrar') cerrarSala();
+  });
 }
 
 async function abrirPanelInfo() {
-  el.panelRed.innerHTML = '<p class="vacio">Buscando el servidor…</p>';
+  salaPintada = null;
+  pintarSala();
   el.panel.showModal();
+  pintarRed();
+}
 
+
+function cargarQR() {
+  if (window.QRCode) return Promise.resolve(window.QRCode);
+  cargaQR ??= new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = QR_URL;
+    script.onload = () => resolve(window.QRCode);
+    script.onerror = () => { cargaQR = null; script.remove(); reject(new Error('sin QR')); };
+    document.head.appendChild(script);
+  });
+  return cargaQR;
+}
+
+/** La dirección que abre el panel en el celular, ya con el código puesto. */
+function direccionSala(codigo) {
+  return new URL(`control.html?sala=${encodeURIComponent(codigo)}`, location.href).href;
+}
+
+const SALA_TEXTOS = {
+  abriendo: ['buscando', 'Abriendo la sala…'],
+  abierta: ['esperando', 'Esperando al celular…'],
+  ocupada: ['mal', 'Ese código ya lo usa otro escenario: probá con otro.'],
+  'sin-internet': ['mal', 'Sin internet: la sala se abre sola cuando vuelva.'],
+};
+
+/** La sección "Desde el celular" del diálogo Panel. */
+function pintarSala() {
+  const sala = enlace.sala;
+  const abierta = sala.estado !== 'cerrada';
+  const clave = `${abierta}:${sala.codigo}`;
+
+  if (salaPintada !== clave) {
+    salaPintada = clave;
+    if (!abierta) {
+      el.panelSala.innerHTML =
+        '<p class="sheet__note">NOVA abre una <strong>sala</strong> con un código. En el celular abrís el panel, ' +
+        'ponés el código, y lo que toques ahí pasa en esta pantalla y en la tele. Va por internet, sin instalar nada: ' +
+        'el celular puede estar en cualquier red, hasta con sus datos.</p>' +
+        '<div class="sheet__foot"><button class="primary" type="button" data-sala="abrir">Crear la sala para el celular</button></div>';
+      return;
+    }
+    const direccion = direccionSala(sala.codigo);
+    el.panelSala.innerHTML =
+      '<div class="sala">' +
+        '<div class="sala__qr" id="salaQR" aria-label="Código QR para abrir el panel en el celular"></div>' +
+        '<div class="sala__datos">' +
+          '<p class="sala__rotulo">Código de la sala</p>' +
+          `<p class="sala__codigo">${escapar(sala.codigo)}</p>` +
+          '<p class="sala__estado" id="salaEstado"></p>' +
+          `<p class="panel__direccion"><a href="${escapar(direccion)}" target="_blank" rel="noopener">${escapar(direccion)}</a></p>` +
+          '<p class="sheet__note">Escaneá el QR con el celular, o abrí esa dirección y poné el código. La sala queda abierta aunque recargues esta página.</p>' +
+          '<div class="sheet__foot">' +
+            '<button class="ghost" type="button" data-sala="cambiar">Otro código</button>' +
+            '<button class="ghost" type="button" data-sala="cerrar">Cerrar la sala</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    cargarQR().then((QRCode) => {
+      const caja = document.getElementById('salaQR');
+      if (!caja || salaPintada !== clave) return;
+      caja.innerHTML = '';
+      new QRCode(caja, { text: direccion, width: 168, height: 168, colorDark: '#05060c', colorLight: '#eef1ff', correctLevel: QRCode.CorrectLevel.M });
+    }).catch(() => {
+      const caja = document.getElementById('salaQR');
+      if (caja) caja.innerHTML = '<p class="vacio">Sin QR (no se pudo cargar). Usá la dirección.</p>';
+    });
+  }
+  if (!abierta) return;
+
+  const estado = document.getElementById('salaEstado');
+  if (!estado) return;
+  let [clase, texto] = SALA_TEXTOS[sala.estado] || ['buscando', sala.detalle || sala.estado];
+  if (sala.estado === 'abierta' && sala.conectados) {
+    clase = 'bien';
+    texto = sala.conectados === 1 ? 'Celular conectado: lo que toques ahí pasa acá.' : `${sala.conectados} celulares conectados.`;
+  }
+  estado.dataset.estado = clase;
+  estado.textContent = texto;
+}
+
+function abrirSala(codigo = codigoNuevo()) {
+  localStorage.setItem(SALA_CLAVE, codigo);
+  enlace.abrirSala(codigo);
+  anotar(`Sala ${codigo} abierta para el celular.`);
+  pintarSala();
+}
+
+function cerrarSala() {
+  localStorage.removeItem(SALA_CLAVE);
+  enlace.cerrarSala();
+  anotar('Sala del celular cerrada.');
+  pintarSala();
+}
+
+/** La otra manera: el servidor propio, en la misma red. */
+async function pintarRed() {
+  el.panelRed.innerHTML = '<p class="vacio">Buscando el servidor…</p>';
   let info = null;
   try {
     const res = await fetch('api/health', { cache: 'no-store' });
@@ -674,9 +790,9 @@ async function abrirPanelInfo() {
 
   if (!info?.control) {
     el.panelRed.innerHTML =
-      '<p class="vacio">Esta página está servida sin el servidor de NOVA, así que el panel ' +
-      'solo se puede abrir en otra ventana de esta misma computadora. Para manejarla desde ' +
-      'el celular, corré <code>npm start</code> y abrí la página desde ahí.</p>';
+      '<p class="vacio">Esta página está servida sin el servidor de NOVA. Si preferís no depender de internet, ' +
+      'corré <code>npm start</code> en esta computadora y abrí la página desde ahí: el celular entra por la ' +
+      'dirección de la red Wi-Fi, sin sala.</p>';
     return;
   }
 
@@ -687,7 +803,7 @@ async function abrirPanelInfo() {
     return;
   }
   el.panelRed.innerHTML =
-    '<p class="sheet__note">Desde un celular o una computadora <strong>en la misma red Wi-Fi</strong>, abrí una de estas direcciones:</p>' +
+    '<p class="sheet__note">Hay servidor: desde un celular <strong>en la misma red Wi-Fi</strong> también se puede abrir una de estas direcciones, sin sala:</p>' +
     direcciones.map((d) => `<p class="panel__direccion"><a href="${escapar(d)}" target="_blank" rel="noopener">${escapar(d)}</a></p>`).join('');
 }
 
@@ -725,6 +841,7 @@ function publicar() {
         plantel: show.speakers,
         acuerdos: show.agreements.length,
         enlace: enlace.servidor,
+        sala: enlace.sala,
       },
     });
   }, 80);
@@ -795,12 +912,28 @@ function recibirComando(mensaje) {
   }
 }
 
+
 function pintarEnlace() {
   const servidor = enlace.servidor === 'conectado';
-  setStatus(servidor ? 'online' : 'local', servidor ? 'Panel por red' : 'Panel solo acá');
-  el.status.title = servidor
-    ? 'Hay servidor: el panel de control se puede abrir desde otro dispositivo de la red.'
-    : 'Sin servidor: el panel de control solo se abre en otra ventana de esta computadora.';
+  const sala = enlace.sala;
+  const porSala = sala.estado === 'abierta';
+
+  let rotulo = servidor ? 'Panel por red' : 'Panel solo acá';
+  if (porSala) rotulo = sala.conectados ? `Celular · sala ${sala.codigo}` : `Sala ${sala.codigo}`;
+  else if (sala.estado !== 'cerrada') rotulo = `Sala ${sala.codigo}…`;
+  setStatus(servidor || porSala ? 'online' : 'local', rotulo);
+  el.status.title = porSala
+    ? `Sala ${sala.codigo} abierta: el panel se maneja desde el celular, por internet.`
+    : servidor
+      ? 'Hay servidor: el panel de control se puede abrir desde otro dispositivo de la red.'
+      : 'Sin servidor: el panel de control se abre en otra ventana de esta computadora, o desde el celular creando una sala (botón Panel).';
+
+  if (sala.conectados !== celularesAntes) {
+    if (sala.conectados > celularesAntes) toast('Celular conectado al panel.');
+    else if (sala.estado !== 'cerrada') toast('El celular se desconectó del panel.');
+    celularesAntes = sala.conectados;
+  }
+  if (el.panel.open) pintarSala();
   publicar();
 }
 

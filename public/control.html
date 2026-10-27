@@ -28,6 +28,18 @@
 
   <main class="panel">
 
+    <!-- La sala: para entrar desde el celular, por internet, con el código que muestra NOVA. -->
+    <section class="sala" id="sala" data-estado="cerrada">
+      <form class="fila" id="formSala">
+        <input type="text" id="salaCodigo" placeholder="Código de la sala (lo muestra NOVA en Panel)" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="12" inputmode="text" />
+        <button class="chip" id="salaEntrar" type="submit">Entrar</button>
+      </form>
+      <div class="sala__dentro" id="salaDentro" hidden>
+        <span class="sala__texto" id="salaTexto"></span>
+        <button class="chip" id="salaSalir" type="button">Salir</button>
+      </div>
+    </section>
+
     <!-- Lo que pasa ahora mismo en el escenario. -->
     <section class="ahora" id="ahora" data-modo="idle">
       <div class="ahora__cabeza">

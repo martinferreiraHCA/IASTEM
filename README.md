@@ -174,11 +174,19 @@ Hay dos maneras de abrirlo, y el botón **Panel** del escenario las explica:
 | Dónde | Cómo | Qué hace falta |
 |---|---|---|
 | **En la misma computadora** | *Panel → Abrir en otra ventana.* El escenario va al proyector y el panel queda en la pantalla de la notebook. | Nada: anda hasta en GitHub Pages. |
-| **Desde el celular** | Correr `npm start` en la computadora que proyecta y abrir en el celular la dirección que muestra la consola, algo como `http://192.168.1.20:3000/control.html`. | Node, y que los dos estén en la misma red Wi-Fi. |
+| **Desde el celular, por internet** | *Panel → Crear la sala para el celular.* NOVA muestra un código y un QR. En el celular se escanea el QR (o se abre `control.html` y se escribe el código) y listo: lo que se toca en el celular pasa en la computadora y en la tele. | Internet en los dos. El celular puede estar en cualquier red, hasta con sus datos. Anda desde GitHub Pages. |
+| **Desde el celular, en la misma red** | Correr `npm start` en la computadora que proyecta y abrir en el celular la dirección que muestra la consola, algo como `http://192.168.1.20:3000/control.html`. | Node, y que los dos estén en la misma red Wi-Fi. No necesita internet. |
 
-El servidor no guarda nada ni entiende los mensajes: solo releva lo que una
-página dice a las demás. Si el panel pierde la señal, lo dice abajo en rojo y se
-vuelve a enganchar solo cuando el escenario reaparece.
+La sala se hace con WebRTC: el escenario y el celular se encuentran por un
+servidor público de PeerJS y después se hablan directo, sin pasar por nadie.
+El código de la sala queda guardado en los dos: si se recarga la página de
+NOVA o la del celular, se vuelven a enganchar solos. *Otro código* cambia la
+sala y *Cerrar la sala* la apaga. Mientras el panel está conectado, el celular
+no apaga la pantalla.
+
+El servidor propio no guarda nada ni entiende los mensajes: solo releva lo que
+una página dice a las demás. Si el panel pierde la señal, lo dice abajo en rojo
+y se vuelve a enganchar solo cuando el escenario reaparece.
 
 ## Cómo se usa
 
@@ -329,8 +337,9 @@ un `index.html` en la raíz que lleva ahí. El panel queda en
 `https://TU-USUARIO.github.io/IASTEM/public/control.html`.
 
 GitHub Pages sirve archivos estáticos, así que ahí no corre el servidor: el
-panel se abre en otra ventana de la misma computadora, no desde el celular.
-Para el celular, `npm start`.
+panel se abre en otra ventana de la misma computadora, o desde el celular
+creando una sala (botón Panel). La otra manera para el celular, sin internet,
+es `npm start` en la misma red.
 
 ## Cómo está armado
 
