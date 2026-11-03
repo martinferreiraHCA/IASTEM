@@ -44,6 +44,7 @@ const el = {
   fondo: $('fondo'),
   palabra: $('palabra'),
   letrero: $('letrero'),
+  video: $('video'),
   apagar: $('apagar'),
   turnoSiguiente: $('turnoSiguiente'),
   turnos: $('turnos'),
@@ -190,6 +191,7 @@ function wire() {
   el.fondo.addEventListener('click', () => mandar('fondo', { on: false }));
   el.palabra.addEventListener('click', () => mandar('palabra', { on: false }));
   el.letrero.addEventListener('click', () => mandar('letrero', { on: false }));
+  el.video.addEventListener('click', () => mandar('video', { on: !estado?.videoEn }));
   el.apagar.addEventListener('click', () => mandar('apagar', { on: !estado?.apagada }));
 
   el.turnoSiguiente.addEventListener('click', () => mandar('turno-siguiente'));
@@ -309,6 +311,7 @@ function pintar() {
       entrada.fondo ? `<span class="linea__marca">fondo: ${escapar(entrada.fondo)}</span>` : '',
       entrada.palabra ? `<span class="linea__marca">palabra: ${escapar(entrada.palabra)}</span>` : '',
       entrada.letrero ? `<span class="linea__marca">letrero: ${escapar(entrada.letrero)}</span>` : '',
+      entrada.video ? `<span class="linea__marca">video: ${escapar(entrada.video)}</span>` : '',
       entrada.camara ? `<span class="linea__marca">cámara: ${entrada.camara}</span>` : '',
       entrada.grabada === false ? '<span class="linea__marca linea__marca--ojo">sin grabación</span>' : '',
     ].join('');
@@ -361,6 +364,9 @@ function pintar() {
   el.fondo.textContent = estado.fondo ? `Quitar fondo: ${recortar(estado.fondo.pie || estado.fondo.src, 24)}` : 'Fondo: no hay';
   el.palabra.disabled = !estado.palabra;
   el.palabra.textContent = estado.palabra ? `Quitar palabra: ${estado.palabra}` : 'Palabra: no hay';
+  el.video.disabled = !estado.video;
+  el.video.setAttribute('aria-pressed', String(Boolean(estado.videoEn)));
+  el.video.textContent = !estado.video ? 'Video: no hay' : estado.videoEn ? 'Video: parar' : `Video: pasar de nuevo (${recortar(estado.video.pie || estado.video.src, 18)})`;
   el.letrero.disabled = !estado.letrero;
   el.letrero.textContent = estado.letrero ? `Quitar letrero: ${recortar(estado.letrero, 20)}` : 'Letrero: no hay';
   el.apagar.setAttribute('aria-pressed', String(Boolean(estado.apagada)));

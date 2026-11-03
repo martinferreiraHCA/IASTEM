@@ -45,6 +45,7 @@ const ROTULO_CAMARA = new Set(['camara', 'cam']);
 const ROTULO_FONDO = new Set(['fondo', 'background']);
 const ROTULO_PALABRA = new Set(['palabra', 'word']);
 const ROTULO_LETRERO = new Set(['letrero', 'titulo', 'título', 'cartel']);
+const ROTULO_VIDEO = new Set(['video', 'vídeo', 'clip']);
 
 /** Palabras chicas que pueden ir dentro de un nombre: "Ana de la Torre". */
 const PARTICULAS = new Set(['de', 'del', 'la', 'el', 'los', 'las', 'y']);
@@ -141,6 +142,7 @@ export function parsearGuion(texto) {
   let fondo = null;   // {src, pie} o 'ninguno'
   let palabra = null; // texto o 'ninguna'
   let letrero = null; // texto o 'ninguno'
+  let video = null;   // {src, pie} o 'ninguno'
   let escenaActual = '';
 
   for (const { quien, texto: dicho, escena: titulo } of lineas) {
@@ -151,7 +153,7 @@ export function parsearGuion(texto) {
     const rotulo = normalizar(quien);
     // "NOVA:" sin texto, con indicaciones de pantalla antes: una línea muda,
     // que solo cambia la pantalla (un fondo, un letrero) sin que NOVA hable.
-    const muda = !dicho && ALIAS_NOVA.has(rotulo) && Boolean(imagenes.length || camara || fondo || palabra || letrero);
+    const muda = !dicho && ALIAS_NOVA.has(rotulo) && Boolean(imagenes.length || camara || fondo || palabra || letrero || video);
     if (!dicho && !muda) continue;
     if (ROTULO_IMAGEN.has(rotulo)) {
       const imagen = leerImagen(dicho);
@@ -164,16 +166,19 @@ export function parsearGuion(texto) {
       palabra = /^(ningun|no|sin|sac|quit|off)/i.test(normalizar(dicho)) ? 'ninguna' : dicho.trim();
     } else if (ROTULO_LETRERO.has(rotulo)) {
       letrero = /^(ningun|no|sin|sac|quit|off)/i.test(normalizar(dicho)) ? 'ninguno' : dicho.trim();
+    } else if (ROTULO_VIDEO.has(rotulo)) {
+      video = /^(ningun|no|sin|sac|quit|off|par)/i.test(normalizar(dicho)) ? 'ninguno' : leerImagen(dicho);
     } else if (esComodin(quien)) {
       comodines.push(dicho);
     } else if (ALIAS_NOVA.has(rotulo)) {
-      entradas.push({ indice: entradas.length, pies, parlamento: dicho, muda, imagenes, camara, fondo, palabra, letrero, escena: escenaActual });
+      entradas.push({ indice: entradas.length, pies, parlamento: dicho, muda, imagenes, camara, fondo, palabra, letrero, video, escena: escenaActual });
       pies = [];
       imagenes = [];
       camara = null;
       fondo = null;
       palabra = null;
       letrero = null;
+      video = null;
     } else {
       if (quien) personajes.add(quien);
       pies.push(dicho);
@@ -193,7 +198,7 @@ export const SEGUNDOS_IMAGEN = 0;
  */
 export function leerImagen(texto) {
   const partes = String(texto || '').split('|').map((p) => p.trim());
-  const src = partes.shift();
+  const src = direccionDeArchivo(partes.shift());
   if (!src) return null;
   let segundos = SEGUNDOS_IMAGEN;
   let pie = '';
@@ -203,6 +208,21 @@ export function leerImagen(texto) {
     else if (parte) pie = pie ? `${pie} | ${parte}` : parte;
   }
   return { src, pie, segundos };
+}
+
+/**
+ * La dirección de una imagen o un video como la entiende el navegador. Un
+ * enlace de Google Drive para compartir (drive.google.com/file/d/ID/view)
+ * se convierte en la descarga directa del archivo, que sirve para <img> y
+ * <video>; el archivo tiene que estar compartido como "Cualquier persona
+ * con el enlace".
+ */
+export function direccionDeArchivo(src) {
+  const texto = String(src || '').trim();
+  const drive = /drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?(?:export=\w+&)?id=)([\w-]{10,})/.exec(texto)
+    || /docs\.google\.com\/uc\?(?:export=\w+&)?id=([\w-]{10,})/.exec(texto);
+  if (drive) return `https://drive.google.com/uc?export=download&id=${drive[1]}`;
+  return texto;
 }
 
 /** "NOVA?" rotula un comodín: lo que dice cuando no reconoce el pie. */
@@ -220,7 +240,7 @@ function esComodin(quien) {
 function esNombre(candidato, vistos) {
   if (!candidato || /^https?$/i.test(candidato)) return false;
   const limpio = normalizar(candidato);
-  if (vistos.has(limpio) || ALIAS_NOVA.has(limpio) || ROTULO_IMAGEN.has(limpio) || ROTULO_CAMARA.has(limpio) || ROTULO_FONDO.has(limpio) || ROTULO_PALABRA.has(limpio) || ROTULO_LETRERO.has(limpio) || esComodin(candidato)) return true;
+  if (vistos.has(limpio) || ALIAS_NOVA.has(limpio) || ROTULO_IMAGEN.has(limpio) || ROTULO_CAMARA.has(limpio) || ROTULO_FONDO.has(limpio) || ROTULO_PALABRA.has(limpio) || ROTULO_LETRERO.has(limpio) || ROTULO_VIDEO.has(limpio) || esComodin(candidato)) return true;
 
   const partes = candidato.split(/\s+/);
   if (partes.length > 3) return false;
@@ -374,8 +394,9 @@ export class Guion {
         fondo: e.fondo ? (e.fondo === 'ninguno' ? 'ninguno' : e.fondo.pie || e.fondo.src) : null,
         palabra: e.palabra || null,
         letrero: e.letrero || null,
+        video: e.video ? (e.video === 'ninguno' ? 'ninguno' : e.video.pie || e.video.src) : null,
         escena: e.escena || '',
-        pantalla: Boolean(e.imagenes?.length || e.camara || e.fondo || e.palabra || e.letrero),
+        pantalla: Boolean(e.imagenes?.length || e.camara || e.fondo || e.palabra || e.letrero || e.video),
       })),
     };
   }

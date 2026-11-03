@@ -98,7 +98,15 @@ Las reglas son pocas:
   - `LETRERO: Palabras`: un letrero manuscrito que **se escribe y se borra
     en loop**, como fondo calmo (el nombre de la muestra); `LETRERO: ninguno`
     lo saca.
+  - `VIDEO: dirección | pie`: un video (mp4) que **toma la pantalla**, suena,
+    y al terminar se va solo; `VIDEO: ninguno`, la tecla **Esc** o el panel
+    lo paran. Los videos van en `public/videos/`.
   - `CÁMARA: encender` o `CÁMARA: apagar`: la cámara del público.
+  - Las direcciones pueden ser archivos del sitio (`imagenes/foto.jpg`,
+    `videos/clip.mp4`), direcciones completas, o **enlaces de Google Drive**
+    para compartir (`https://drive.google.com/file/d/…/view`), con el archivo
+    compartido como "Cualquier persona con el enlace". Para la función
+    conviene que estén en el sitio: no dependen de internet ni de Drive.
   - Una línea `NOVA:` **sin texto**, con indicaciones antes, es una línea
     **muda**: solo cambia la pantalla, NOVA no habla. Se pasa igual, con
     *Decir el siguiente*.

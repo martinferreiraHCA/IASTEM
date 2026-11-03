@@ -142,9 +142,11 @@ E1: Así que les pregunto: si necesitamos saber hoy qué va a pasar mañana, ¿c
 ## Palabra tres: Hipnocracia
 
 # Va en video, con V1 y V2. NOVA no habla. Mientras tanto, la pantalla
-# vuelve al letrero de la muestra.
+# vuelve al letrero de la muestra. Si el video se pasa desde NOVA, guardalo
+# como public/videos/hipnocracia.mp4 y sacale el # a la línea VIDEO.
 FONDO: ninguno
 LETRERO: Palabras
+# VIDEO: videos/hipnocracia.mp4 | Hipnocracia
 NOVA:
 
 ## Palabra cuatro: Memoria
@@ -252,7 +254,13 @@ NOVA: Todavía les quedan cuatro años para llegar a Inglaterra. Pero hay algo q
 PALABRA: AUTONOMÍA
 NOVA: Si yo hago todo, ustedes me darán su autonomía. ¿Están seguros?
 
-[Los cuatro noticieros en video: Adiós a los trencitos, La belleza de los algoritmos, Este dolor no es mío, Mascotas sin identidad]
+# Los cuatro noticieros en video: Adiós a los trencitos, La belleza de los
+# algoritmos, Este dolor no es mío, Mascotas sin identidad. Para pasarlos
+# desde NOVA, guardalos como public/videos/noticieros.mp4 y sacale el # a la
+# línea VIDEO: la palabra se va, el video toma la pantalla y al terminar vuelve.
+# PALABRA: ninguna
+# VIDEO: videos/noticieros.mp4 | Noticieros
+# NOVA:
 
 E1: Bueno, ya viste. Parece ser bastante peligroso entonces que la IA tome tantas decisiones sobre nosotros. Más estas, que tenemos que hacer algo que nos guste para vivir algo importante para nosotros.
 E2: Ta, sí, tenés razón. Si dejamos nuestra iniciativa para pensar qué hacer, perdemos el poder de decisión, eso a lo que llamamos autonomía.

@@ -62,6 +62,9 @@ const el = {
   sceneImagen: $('sceneImagen'),
   sceneImagenImg: $('sceneImagenImg'),
   sceneImagenPie: $('sceneImagenPie'),
+  sceneVideo: $('sceneVideo'),
+  sceneVideoEl: $('sceneVideoEl'),
+  sceneVideoPie: $('sceneVideoPie'),
   sceneFondo: $('sceneFondo'),
   palabraTexto: $('palabraTexto'),
   letrero: $('letrero'),
@@ -169,6 +172,8 @@ const state = {
   fondo: null,           // {src, pie}: la imagen de fondo que se queda
   palabra: '',           // la palabra que NOVA se queda, flotando
   letrero: '',           // el letrero escrito a mano que se escribe y se borra en loop
+  video: null,           // {src, pie} del video de este momento
+  videoEn: false,        // el video está en pantalla
   apagada: false,        // NOVA apagada: pantalla a negro (el final)
   evento: null,          // lo último que pasó, para el panel
   abriendoMic: false,
@@ -251,6 +256,13 @@ async function init() {
   enlace.onCambio = () => pintarEnlace();
   pintarEnlace();
   arbitro.detectar().then(() => pintarAsistente());
+  el.sceneVideoEl.addEventListener('ended', () => ocultarVideo());
+  el.sceneVideoEl.addEventListener('error', () => {
+    if (!state.videoEn) return;
+    toast('Video: no se pudo cargar. Fijate la dirección o el formato (mp4).');
+    anotar('El video no se pudo cargar.');
+    ocultarVideo();
+  });
   // Si había una sala para el celular, se reabre sola con el mismo código.
   const sala = localStorage.getItem(SALA_CLAVE);
   if (sala) enlace.abrirSala(sala);
@@ -468,7 +480,8 @@ function wireEvents() {
       toggleStage();
     }
     if (event.key === 'Escape') {
-      if (state.busy) abort();
+      if (state.videoEn) ocultarVideo();
+      else if (state.busy) abort();
       else if (el.body.dataset.mode === 'stage') toggleStage();
     }
   });
@@ -708,12 +721,55 @@ function ponerLetrero(texto) {
   letreroTimer = setTimeout(paso, 600);
 }
 
+/* ----------------------------------------------------------- el video */
+
+/** Un video del guion: toma la pantalla, suena, y al terminar se va solo. */
+function reproducirVideo(video) {
+  if (!video || video === 'ninguno') return ocultarVideo();
+  state.video = { src: video.src, pie: video.pie || '' };
+  state.videoEn = true;
+  el.sceneVideo.classList.remove('se-va');
+  el.sceneVideoPie.textContent = video.pie || '';
+  el.sceneVideoEl.src = video.src;
+  el.scene.dataset.video = 'on';
+  listener?.pauseForPlayback();
+  el.sceneVideoEl.play().catch((err) => {
+    const motivo = err?.name === 'NotAllowedError'
+      ? 'el navegador no dejó reproducirlo solo: tocá la pantalla de NOVA una vez y volvé a pasarlo'
+      : 'no se pudo cargar';
+    toast(`Video: ${motivo}.`);
+    anotar(`El video no se pudo reproducir (${motivo}).`);
+    ocultarVideo();
+  });
+  anotar(`Video en pantalla: ${video.pie || video.src}.`);
+  publicar();
+}
+
+function ocultarVideo() {
+  if (!state.videoEn) return;
+  state.videoEn = false;
+  el.sceneVideoEl.pause();
+  el.sceneVideo.classList.add('se-va');
+  setTimeout(() => {
+    if (!state.videoEn) {
+      delete el.scene.dataset.video;
+      el.sceneVideo.classList.remove('se-va');
+      el.sceneVideoEl.removeAttribute('src');
+      el.sceneVideoEl.load();
+    }
+  }, 500);
+  listener?.resumeAfterPlayback();
+  anotar('Video terminado.');
+  publicar();
+}
+
 /** El final: NOVA se apaga. La pantalla se va a negro y todo se calla. */
 function apagar(on = true) {
   if (on === state.apagada) return;
   state.apagada = on;
   if (on) {
     abort();
+    ocultarVideo();
     speaker.cancel();
     if (listener?.active) listener.stop();
     el.body.dataset.apagada = 'on';
@@ -730,12 +786,15 @@ function aplicarPantalla(entrada) {
   if (entrada.fondo) ponerFondo(entrada.fondo);
   if (entrada.palabra) ponerPalabra(entrada.palabra);
   if (entrada.letrero) ponerLetrero(entrada.letrero);
+  if (entrada.video) reproducirVideo(entrada.video);
   if (entrada.imagenes?.length) mostrarImagen(entrada.imagenes[0]);
   if (entrada.camara === 'encender') verCamara(true);
   if (entrada.camara === 'apagar') verCamara(false);
 
   const proxima = guion.entradas[entrada.indice + 1]?.imagenes?.[0];
   if (proxima?.src) new Image().src = proxima.src;
+  const proximoVideo = guion.entradas[entrada.indice + 1]?.video;
+  if (proximoVideo?.src && !state.videoEn) { el.sceneVideoEl.src = proximoVideo.src; el.sceneVideoEl.load(); } // se va bajando
 }
 
 /* ---------------------------------------------------- panel de control */
@@ -910,6 +969,8 @@ function publicar() {
         fondo: state.fondo,
         palabra: state.palabra,
         letrero: state.letrero,
+        video: state.video,
+        videoEn: state.videoEn,
         apagada: state.apagada,
         oido: state.oido,
         ultimaRespuesta: state.ultimaRespuesta,
@@ -966,6 +1027,7 @@ function recibirComando(mensaje) {
     case 'palabra': ponerPalabra(mensaje.on === false ? 'ninguna' : String(mensaje.texto || guion.entradas[mensaje.indice]?.palabra || '')); break;
     case 'letrero': ponerLetrero(mensaje.on === false ? 'ninguno' : String(mensaje.texto || guion.entradas[mensaje.indice]?.letrero || '')); break;
     case 'apagar': apagar(mensaje.on !== false); break;
+    case 'video': mensaje.on === false ? ocultarVideo() : reproducirVideo(guion.entradas[mensaje.indice]?.video || state.video); break;
     case 'pantalla': {
       // Lo que el guion pide para la pantalla en ese parlamento, sin decirlo.
       const entrada = guion.entradas[Number(mensaje.indice)];
@@ -1282,6 +1344,7 @@ function abrirGuion() {
 function describirPantalla(entrada) {
   const partes = [];
   if (entrada.letrero) partes.push(entrada.letrero === 'ninguno' ? 'sin letrero' : `letrero ${entrada.letrero}`);
+  if (entrada.video) partes.push(entrada.video === 'ninguno' ? 'parar el video' : `video ${entrada.video.pie || entrada.video.src}`);
   if (entrada.fondo) partes.push(entrada.fondo === 'ninguno' ? 'sin fondo' : `fondo ${entrada.fondo.pie || entrada.fondo.src}`);
   if (entrada.imagenes?.length) partes.push(`imagen ${entrada.imagenes[0].pie || entrada.imagenes[0].src}`);
   if (entrada.palabra) partes.push(entrada.palabra === 'ninguna' ? 'sin palabra' : `palabra ${entrada.palabra}`);

@@ -1,0 +1,2 @@
+Acá van los videos del guion (mp4, H.264), nombrados como en las líneas VIDEO: del guion.
+Conviene comprimirlos a 720p para que pesen menos de 50 MB cada uno.
