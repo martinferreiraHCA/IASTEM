@@ -793,6 +793,10 @@ body {
   min-height: 140px;
 }
 
+.insertar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.insertar__rotulo { font-size: 12px; letter-spacing: 0.06em; color: var(--ink-dim); margin-right: 4px; }
+.insertar .chip { font-size: 12px; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--line); background: rgba(122, 245, 255, 0.05); color: var(--ink); cursor: pointer; }
+.insertar .chip:hover { border-color: var(--cyan); color: var(--cyan); }
 .guion__archivo { display: inline-flex; align-items: center; }
 .guion__archivo:focus-within { outline: 2px solid var(--cyan); outline-offset: 3px; }
 

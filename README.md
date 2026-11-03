@@ -111,6 +111,11 @@ Las reglas son pocas:
     **muda**: solo cambia la pantalla, NOVA no habla. Se pasa igual, con
     *Decir el siguiente*.
   - `## Título` abre una **escena**: el panel agrupa las líneas por escena.
+  - `VELOCIDAD: 1.2`: ese parlamento va más rápido (o más lento, `0.9`).
+  - En el diálogo del guion, la botonera **Insertar acá** pone cualquiera de
+    estas líneas donde está el cursor, con la dirección seleccionada para
+    escribir encima, y agrega sola la línea `NOVA:` muda cuando hace falta
+    (por ejemplo, un video en el medio del diálogo de los estudiantes).
 
   Las imágenes van en `public/imagenes/` (ver el `LEEME.txt` de ahí) o se
   enlazan con su dirección completa. En el panel, cada línea con indicaciones
@@ -267,7 +272,11 @@ Las dos están pensadas para que NOVA hable de corrido:
   muda. Cada trozo cuesta una fracción de centavo.
 - El micrófono se apaga mientras NOVA habla y se vuelve a prender recién
   cuando terminó todo el parlamento, no entre frase y frase.
-- La **velocidad** va de 0,8 a 1,5. Si querés que vaya más rápido, subila.
+- La **velocidad** va de 0,8 a 1,5 y manda sobre todo: el sintetizador y
+  también las grabaciones (se aceleran o frenan conservando el tono). Para
+  un parlamento puntual, `VELOCIDAD: 1.2` en la línea de antes lo acelera
+  solo a ese (se multiplica con la general). *Escuchar una frase* toca una
+  grabación del guion cargado, a la velocidad elegida, para ajustarla.
 
 Si con la voz del navegador igual se traba, es la voz: las de Google en
 Chrome bajan el audio de internet en cada arranque. La voz por API es la que

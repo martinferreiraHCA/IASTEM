@@ -736,11 +736,12 @@ export class Speaker {
    * pantalla); si no, se le pide al motor todo junto, de una vez.
    * @returns {number} segundos de la grabación, o 0 si habla el motor
    */
-  decir(text) {
+  decir(text, { velocidad = 1 } = {}) {
     if (!this.enabled) return 0;
     const clean = limpiar(text);
     if (!clean) return 0;
-    const toque = this.grabaciones?.tocar(clean);
+    const factor = Math.min(2, Math.max(0.5, Number(velocidad) || 1)); // de la línea, sobre la general
+    const toque = this.grabaciones?.tocar(clean, this.ajustes.velocidad * factor);
     if (toque) {
       this.motor?.cancel();
       this.conGrabacion = true;
@@ -753,10 +754,13 @@ export class Speaker {
       return toque.duracion;
     }
     if (!this.supported) return 0;
+    const general = this.ajustes.velocidad;
+    this.ajustes.velocidad = Math.min(2, Math.max(0.5, general * factor)); // el motor la lee al pedir cada trozo
     this.abrir();
     this.pendiente = clean;
     this.#soltar();
     this.cerrar();
+    this.ajustes.velocidad = general;
     return 0;
   }
 

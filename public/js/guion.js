@@ -46,6 +46,7 @@ const ROTULO_FONDO = new Set(['fondo', 'background']);
 const ROTULO_PALABRA = new Set(['palabra', 'word']);
 const ROTULO_LETRERO = new Set(['letrero', 'titulo', 'título', 'cartel']);
 const ROTULO_VIDEO = new Set(['video', 'vídeo', 'clip']);
+const ROTULO_VELOCIDAD = new Set(['velocidad', 'ritmo', 'speed']);
 
 /** Palabras chicas que pueden ir dentro de un nombre: "Ana de la Torre". */
 const PARTICULAS = new Set(['de', 'del', 'la', 'el', 'los', 'las', 'y']);
@@ -143,6 +144,7 @@ export function parsearGuion(texto) {
   let palabra = null; // texto o 'ninguna'
   let letrero = null; // texto o 'ninguno'
   let video = null;   // {src, pie} o 'ninguno'
+  let velocidad = 0;  // para ese parlamento: 1 es la normal, 1.2 más rápido
   let escenaActual = '';
 
   for (const { quien, texto: dicho, escena: titulo } of lineas) {
@@ -168,10 +170,12 @@ export function parsearGuion(texto) {
       letrero = /^(ningun|no|sin|sac|quit|off)/i.test(normalizar(dicho)) ? 'ninguno' : dicho.trim();
     } else if (ROTULO_VIDEO.has(rotulo)) {
       video = /^(ningun|no|sin|sac|quit|off|par)/i.test(normalizar(dicho)) ? 'ninguno' : leerImagen(dicho);
+    } else if (ROTULO_VELOCIDAD.has(rotulo)) {
+      velocidad = Math.min(2, Math.max(0.5, Number(String(dicho).replace(',', '.').replace(/[^\d.]/g, '')) || 0));
     } else if (esComodin(quien)) {
       comodines.push(dicho);
     } else if (ALIAS_NOVA.has(rotulo)) {
-      entradas.push({ indice: entradas.length, pies, parlamento: dicho, muda, imagenes, camara, fondo, palabra, letrero, video, escena: escenaActual });
+      entradas.push({ indice: entradas.length, pies, parlamento: dicho, muda, imagenes, camara, fondo, palabra, letrero, video, velocidad: velocidad || 0, escena: escenaActual });
       pies = [];
       imagenes = [];
       camara = null;
@@ -179,6 +183,7 @@ export function parsearGuion(texto) {
       palabra = null;
       letrero = null;
       video = null;
+      velocidad = 0;
     } else {
       if (quien) personajes.add(quien);
       pies.push(dicho);
@@ -240,7 +245,7 @@ function esComodin(quien) {
 function esNombre(candidato, vistos) {
   if (!candidato || /^https?$/i.test(candidato)) return false;
   const limpio = normalizar(candidato);
-  if (vistos.has(limpio) || ALIAS_NOVA.has(limpio) || ROTULO_IMAGEN.has(limpio) || ROTULO_CAMARA.has(limpio) || ROTULO_FONDO.has(limpio) || ROTULO_PALABRA.has(limpio) || ROTULO_LETRERO.has(limpio) || ROTULO_VIDEO.has(limpio) || esComodin(candidato)) return true;
+  if (vistos.has(limpio) || ALIAS_NOVA.has(limpio) || ROTULO_IMAGEN.has(limpio) || ROTULO_CAMARA.has(limpio) || ROTULO_FONDO.has(limpio) || ROTULO_PALABRA.has(limpio) || ROTULO_LETRERO.has(limpio) || ROTULO_VIDEO.has(limpio) || ROTULO_VELOCIDAD.has(limpio) || esComodin(candidato)) return true;
 
   const partes = candidato.split(/\s+/);
   if (partes.length > 3) return false;
@@ -395,6 +400,7 @@ export class Guion {
         palabra: e.palabra || null,
         letrero: e.letrero || null,
         video: e.video ? (e.video === 'ninguno' ? 'ninguno' : e.video.pie || e.video.src) : null,
+        velocidad: e.velocidad || 0,
         escena: e.escena || '',
         pantalla: Boolean(e.imagenes?.length || e.camara || e.fondo || e.palabra || e.letrero || e.video),
       })),

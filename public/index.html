@@ -284,7 +284,10 @@
         responde; la línea anterior es su <strong>pie</strong>. Cuando alguien dice algo
         parecido al pie, por voz o por teclado, NOVA contesta con el parlamento tal cual.
         Las líneas <code>NOVA?:</code> son <strong>comodines</strong>: lo que dice cuando
-        no reconoce nada. Todo lo que NOVA dice sale de acá.
+        no reconoce nada. Todo lo que NOVA dice sale de acá. Un video, una imagen o un
+        fondo van en una línea justo antes del parlamento de NOVA en el que pasan; para
+        ponerlos en el medio del diálogo, sin que NOVA hable, va una línea <code>NOVA:</code>
+        vacía después: la botonera lo hace sola.
       </p>
 
       <div class="sheet__field" id="guionPaquetes" hidden>
@@ -297,6 +300,20 @@
       </div>
 
       <div class="sheet__field">
+        <div class="insertar" id="guionInsertar" aria-label="Insertar en el guion, donde está el cursor">
+          <span class="insertar__rotulo">Insertar acá:</span>
+          <button class="chip" type="button" data-insertar="video">Video</button>
+          <button class="chip" type="button" data-insertar="imagen">Imagen</button>
+          <button class="chip" type="button" data-insertar="fondo">Fondo</button>
+          <button class="chip" type="button" data-insertar="sin-fondo">Sin fondo</button>
+          <button class="chip" type="button" data-insertar="palabra">Palabra</button>
+          <button class="chip" type="button" data-insertar="sin-palabra">Sin palabra</button>
+          <button class="chip" type="button" data-insertar="letrero">Letrero</button>
+          <button class="chip" type="button" data-insertar="camara">Cámara</button>
+          <button class="chip" type="button" data-insertar="velocidad">Velocidad</button>
+          <button class="chip" type="button" data-insertar="escena">Escena</button>
+          <button class="chip" type="button" data-insertar="muda">Solo pantalla</button>
+        </div>
         <textarea id="guionTexto" rows="11" spellcheck="false"
                   placeholder="ANA: Hola NOVA, ¿nos escuchás?&#10;NOVA: Los escucho. Soy NOVA, la inteligencia de esta muestra.&#10;&#10;TOMÁS: ¿Y cómo aprendiste a hablar?&#10;NOVA: Parecido a como aprendiste vos a reconocer perros…"
                   aria-label="Texto del guion"></textarea>

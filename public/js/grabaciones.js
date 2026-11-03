@@ -5,8 +5,10 @@
  * Las genera `herramientas/grabar.mjs` y quedan en public/guiones/<nombre>/,
  * con un índice en public/guiones/indice.json. Cada grabación se encuentra
  * por la huella de su texto (ver huella.js): da lo mismo de qué guion vino
- * o en qué línea está. Al cargar un guion se bajan y decodifican todas las
- * que le corresponden, así suenan al instante cuando llega el momento.
+ * o en qué línea está. Al cargar un guion se bajan todas las que le
+ * corresponden, así suenan al instante cuando llega el momento. Se tocan
+ * con un elemento de audio, que permite cambiar la velocidad conservando
+ * el tono: el control de velocidad de la voz también manda sobre ellas.
  */
 
 import { huella, textoParaHuella } from './huella.js';
@@ -15,10 +17,9 @@ export class Grabaciones {
   constructor() {
     this.paquetes = [];           // lo que dice indice.json
     this.porHuella = new Map();   // huella → { url, duracion, texto, paquete }
-    this.buffers = new Map();     // huella → AudioBuffer ya decodificado
+    this.buffers = new Map();     // huella → { url (blob), duracion }, ya bajado
     this.fallidas = new Set();    // huellas cuyo audio no se pudo bajar
-    this.ctx = null;
-    this.actual = null;           // lo que está sonando
+    this.actual = null;           // el <audio> que está sonando
     this.onCambio = null;         // algo cambió: índice cargado, precarga avanzó
     this.precargando = 0;
   }
@@ -78,13 +79,12 @@ export class Grabaciones {
     this.precargando += pendientes.length;
     this.onCambio?.();
     await Promise.all(pendientes.map(async (h) => {
-      const { url } = this.porHuella.get(h);
+      const { url, duracion } = this.porHuella.get(h);
       try {
         const res = await fetch(url);
         if (!res.ok) throw new Error(String(res.status));
-        const bytes = await res.arrayBuffer();
-        const buffer = await this.#contexto().decodeAudioData(bytes);
-        this.buffers.set(h, buffer);
+        const blob = await res.blob();
+        this.buffers.set(h, { url: URL.createObjectURL(blob), duracion });
       } catch {
         this.fallidas.add(h);
       } finally {
@@ -95,34 +95,36 @@ export class Grabaciones {
   }
 
   /**
-   * Toca la grabación de ese texto, si está lista. Devuelve la duración y
-   * una promesa que se cumple al terminar; null si no hay grabación.
+   * Toca la grabación de ese texto, si está lista, a esa velocidad (1 es la
+   * grabada; el tono se conserva). Devuelve cuánto va a durar y una promesa
+   * que se cumple al terminar; null si no hay grabación.
    */
-  tocar(texto) {
+  tocar(texto, velocidad = 1) {
     const h = huella(texto);
-    const buffer = this.buffers.get(h);
-    if (!buffer) return null;
-    const ctx = this.#contexto();
-    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+    const grabacion = this.buffers.get(h);
+    if (!grabacion) return null;
     this.parar();
-    const fuente = ctx.createBufferSource();
-    fuente.buffer = buffer;
-    fuente.connect(ctx.destination);
-    const fin = new Promise((resolve) => { fuente.onended = () => { if (this.actual === fuente) this.actual = null; resolve(); }; });
-    fuente.start();
-    this.actual = fuente;
-    return { duracion: buffer.duration, fin };
+    const v = Math.min(2, Math.max(0.5, Number(velocidad) || 1));
+    const audio = new Audio(grabacion.url);
+    audio.preservesPitch = true;
+    audio.playbackRate = v;
+    const fin = new Promise((resolve) => {
+      const listo = () => { if (this.actual === audio) this.actual = null; resolve(); };
+      audio.onended = listo;
+      audio.onerror = listo;
+      audio.onpause = () => { if (audio.ended || this.actual !== audio) listo(); };
+    });
+    this.actual = audio;
+    audio.play().catch(() => { if (this.actual === audio) this.actual = null; });
+    return { duracion: grabacion.duracion / v, fin };
   }
 
   parar() {
-    if (!this.actual) return;
-    try { this.actual.stop(); } catch { /* ya paró */ }
+    const audio = this.actual;
+    if (!audio) return;
     this.actual = null;
-  }
-
-  #contexto() {
-    this.ctx ??= new AudioContext();
-    return this.ctx;
+    audio.pause();
+    audio.removeAttribute('src');
   }
 }
 

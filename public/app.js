@@ -96,6 +96,7 @@ const el = {
   guionResumen: $('guionResumen'),
   guionArchivo: $('guionArchivo'),
   guionEjemplo: $('guionEjemplo'),
+  guionInsertar: $('guionInsertar'),
   guionPaquetes: $('guionPaquetes'),
   guionPaquete: $('guionPaquete'),
   guionGrabaciones: $('guionGrabaciones'),
@@ -1087,6 +1088,10 @@ function pintarEnlace() {
 
 function wireGuion() {
   el.guionBtn.addEventListener('click', () => abrirGuion());
+  el.guionInsertar.addEventListener('click', (event) => {
+    const boton = event.target.closest('[data-insertar]');
+    if (boton) insertarEnGuion(boton.dataset.insertar);
+  });
   el.guionPaquete.addEventListener('change', async () => {
     const nombre = el.guionPaquete.value;
     if (!nombre) return;
@@ -1238,7 +1243,9 @@ function wireVoz() {
     const enabled = speaker.enabled;
     speaker.enabled = true;
     speaker.cancel();
-    speaker.decir('Hola. Soy NOVA, la inteligencia de esta muestra. Así voy a sonar en la función. ¿Les parece bien, o probamos otra voz?');
+    // Si el guion cargado tiene grabaciones, se escucha una de esas (a la velocidad elegida); si no, el motor.
+    const grabada = guion.entradas.find((e) => !e.muda && speaker.tieneGrabacion(e.parlamento));
+    speaker.decir(grabada ? grabada.parlamento : 'Hola. Soy NOVA, la inteligencia de esta muestra. Así voy a sonar en la función. ¿Les parece bien, o probamos otra voz?');
     setTimeout(() => (speaker.enabled = enabled), 50);
   });
   if (voiceSupport.speak) speechSynthesis.addEventListener?.('voiceschanged', () => pintarVoz());
@@ -1345,6 +1352,7 @@ function describirPantalla(entrada) {
   const partes = [];
   if (entrada.letrero) partes.push(entrada.letrero === 'ninguno' ? 'sin letrero' : `letrero ${entrada.letrero}`);
   if (entrada.video) partes.push(entrada.video === 'ninguno' ? 'parar el video' : `video ${entrada.video.pie || entrada.video.src}`);
+  if (entrada.velocidad) partes.push(`velocidad ${entrada.velocidad}`);
   if (entrada.fondo) partes.push(entrada.fondo === 'ninguno' ? 'sin fondo' : `fondo ${entrada.fondo.pie || entrada.fondo.src}`);
   if (entrada.imagenes?.length) partes.push(`imagen ${entrada.imagenes[0].pie || entrada.imagenes[0].src}`);
   if (entrada.palabra) partes.push(entrada.palabra === 'ninguna' ? 'sin palabra' : `palabra ${entrada.palabra}`);
@@ -1421,6 +1429,61 @@ function guardarGuion() {
   }
   toast(cuantos ? `Guion cargado: ${cuantos} ${cuantos === 1 ? 'parlamento' : 'parlamentos'}.` : 'Guion vacío.');
   anotar(cuantos ? `Guion cargado: ${cuantos} parlamentos.` : 'Guion vacío.');
+}
+
+/**
+ * Las plantillas de la botonera "Insertar": una línea de pantalla, lista
+ * para completar. Lo que va entre ‹› queda seleccionado para escribir encima.
+ */
+const PLANTILLAS = {
+  imagen: 'IMAGEN: ‹imagenes/foto.jpg› | pie de foto',
+  fondo: 'FONDO: ‹imagenes/fondo.jpg› | pie',
+  'sin-fondo': 'FONDO: ninguno',
+  video: 'VIDEO: ‹videos/clip.mp4› | título',
+  palabra: 'PALABRA: ‹CREATIVIDAD›',
+  'sin-palabra': 'PALABRA: ninguna',
+  letrero: 'LETRERO: ‹Palabras›',
+  'sin-letrero': 'LETRERO: ninguno',
+  camara: 'CÁMARA: ‹encender›',
+  velocidad: 'VELOCIDAD: ‹1.1›',
+  escena: '## ‹Título de la escena›',
+  muda: 'NOVA:',
+};
+
+/**
+ * Inserta una indicación de pantalla en el guion, en el renglón donde está
+ * el cursor. Si lo que sigue no es una línea de NOVA, se agrega una línea
+ * muda ("NOVA:") para que la indicación tenga su momento: así se puede
+ * poner un video o un fondo en el medio del diálogo de los estudiantes.
+ */
+function insertarEnGuion(que) {
+  const plantilla = PLANTILLAS[que];
+  if (!plantilla) return;
+  const area = el.guionTexto;
+  const texto = area.value;
+  // Al principio del renglón del cursor.
+  let desde = texto.lastIndexOf('\n', Math.max(0, area.selectionStart - 1)) + 1;
+  // Lo que sigue: ¿es una línea de NOVA? Si no, la indicación necesita una línea muda.
+  const resto = texto.slice(desde);
+  const siguiente = resto.split('\n').find((l) => l.trim() && !/^#|^\[|^\(/.test(l.trim())) || '';
+  const esDeNova = /^(nova|ia)\??\s*:/i.test(siguiente.trim());
+  const esIndicacion = /^(imagen|foto|fondo|palabra|letrero|video|vídeo|cámara|camara|velocidad)\s*:/i.test(siguiente.trim());
+  const conMuda = que !== 'escena' && que !== 'muda' && !esDeNova && !esIndicacion;
+  const bloque = `${plantilla}${conMuda ? '\nNOVA:' : ''}\n`;
+  const antes = texto.slice(0, desde);
+  const prefijo = antes && !antes.endsWith('\n') ? '\n' : '';
+  const nuevo = `${antes}${prefijo}${bloque}${resto}`;
+  area.value = nuevo;
+  const marca = nuevo.indexOf('‹', desde);
+  if (marca >= 0 && marca < desde + bloque.length + 2) {
+    const cierre = nuevo.indexOf('›', marca);
+    area.value = nuevo.slice(0, marca) + nuevo.slice(marca + 1, cierre) + nuevo.slice(cierre + 1);
+    area.setSelectionRange(marca, cierre - 1);
+  } else {
+    area.setSelectionRange(desde + bloque.length, desde + bloque.length);
+  }
+  area.focus();
+  describirGuion(area.value, { borrador: true });
 }
 
 /** El renglón bajo el texto: cuántos parlamentos y de quiénes son los pies. */
@@ -1518,7 +1581,7 @@ async function decirDelGuion(indice) {
   // Si después se fija como acuerdo, el pie sirve de título.
   state.ultimaPregunta = entrada.pies.at(-1) || '';
   anotar(`Dice el parlamento ${indice + 1} a pedido.`);
-  await responder(entrada.parlamento, { origen: 'guion' });
+  await responder(entrada.parlamento, { origen: 'guion', velocidad: entrada.velocidad || 1 });
 }
 
 /** NOVA dice un texto que el operador escribió en el momento. */
@@ -1946,7 +2009,7 @@ function conversarConIA(text) {
  *   el texto, o quien lo va entregando de a pedazos
  * @param {{origen: 'guion'|'comodin'|'libre'|'ia'}} opts
  */
-async function responder(fuente, { origen }) {
+async function responder(fuente, { origen, velocidad = 1 }) {
   state.busy = true;
   el.stopBtn.hidden = false;
   el.sendBtn.disabled = true;
@@ -1974,7 +2037,7 @@ async function responder(fuente, { origen }) {
   // de una vez: así arranca ya y suena de corrido mientras en la pantalla
   // se va formando. Lo que llega de a pedazos (la IA) se le va dando por frases.
   const textoConocido = typeof fuente === 'string';
-  const duracion = textoConocido ? speaker.decir(fuente) : 0; // con grabación, cuánto dura: la pantalla la acompaña
+  const duracion = textoConocido ? speaker.decir(fuente, { velocidad }) : 0; // con grabación, cuánto dura: la pantalla la acompaña
   if (!textoConocido) speaker.abrir();
 
   try {
