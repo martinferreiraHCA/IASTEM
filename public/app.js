@@ -64,6 +64,8 @@ const el = {
   sceneImagenPie: $('sceneImagenPie'),
   sceneFondo: $('sceneFondo'),
   palabraTexto: $('palabraTexto'),
+  letrero: $('letrero'),
+  letreroTexto: $('letreroTexto'),
 
   // función
   showBtn: $('showBtn'),
@@ -166,6 +168,8 @@ const state = {
   imagenTimer: null,
   fondo: null,           // {src, pie}: la imagen de fondo que se queda
   palabra: '',           // la palabra que NOVA se queda, flotando
+  letrero: '',           // el letrero escrito a mano que se escribe y se borra en loop
+  apagada: false,        // NOVA apagada: pantalla a negro (el final)
   evento: null,          // lo último que pasó, para el panel
   abriendoMic: false,
   servidorVoz: false,    // el servidor tiene clave de OpenAI: la voz por API no necesita clave acá
@@ -662,9 +666,70 @@ function ponerPalabra(palabra) {
  * la imagen del parlamento que sigue. Desde el panel se puede aplicar sin
  * que NOVA diga nada, para los momentos en que hablan solo los estudiantes.
  */
+/**
+ * El letrero: un texto escrito a mano que se escribe y se borra, en loop,
+ * como fondo calmo (el nombre de la muestra). Letra por letra, sin apuro.
+ */
+let letreroTimer = null;
+function ponerLetrero(texto) {
+  clearTimeout(letreroTimer);
+  if (!texto || texto === 'ninguno') {
+    if (!state.letrero) return;
+    state.letrero = '';
+    delete el.body.dataset.letrero;
+    el.letreroTexto.textContent = '';
+    anotar('Letrero quitado.');
+    publicar();
+    return;
+  }
+  state.letrero = String(texto).trim();
+  el.body.dataset.letrero = 'on';
+  anotar(`Letrero en pantalla: ${state.letrero}.`);
+  publicar();
+
+  const letras = [...state.letrero];
+  let cuantas = 0;
+  let escribiendo = true;
+  const paso = () => {
+    if (!state.letrero) return;
+    if (escribiendo) {
+      cuantas += 1;
+      el.letreroTexto.textContent = letras.slice(0, cuantas).join('');
+      if (cuantas >= letras.length) { escribiendo = false; letreroTimer = setTimeout(paso, 3200); return; }
+      letreroTimer = setTimeout(paso, 170 + Math.random() * 140);
+    } else {
+      cuantas -= 1;
+      el.letreroTexto.textContent = letras.slice(0, cuantas).join('');
+      if (cuantas <= 0) { escribiendo = true; letreroTimer = setTimeout(paso, 1400); return; }
+      letreroTimer = setTimeout(paso, 70 + Math.random() * 50);
+    }
+  };
+  el.letreroTexto.textContent = '';
+  letreroTimer = setTimeout(paso, 600);
+}
+
+/** El final: NOVA se apaga. La pantalla se va a negro y todo se calla. */
+function apagar(on = true) {
+  if (on === state.apagada) return;
+  state.apagada = on;
+  if (on) {
+    abort();
+    speaker.cancel();
+    if (listener?.active) listener.stop();
+    el.body.dataset.apagada = 'on';
+    anotar('NOVA apagada.');
+    toast('NOVA apagada. Cualquier orden del panel la vuelve a encender.');
+  } else {
+    delete el.body.dataset.apagada;
+    anotar('NOVA encendida de nuevo.');
+  }
+  publicar();
+}
+
 function aplicarPantalla(entrada) {
   if (entrada.fondo) ponerFondo(entrada.fondo);
   if (entrada.palabra) ponerPalabra(entrada.palabra);
+  if (entrada.letrero) ponerLetrero(entrada.letrero);
   if (entrada.imagenes?.length) mostrarImagen(entrada.imagenes[0]);
   if (entrada.camara === 'encender') verCamara(true);
   if (entrada.camara === 'apagar') verCamara(false);
@@ -844,6 +909,8 @@ function publicar() {
         imagenVisible: state.imagenVisible,
         fondo: state.fondo,
         palabra: state.palabra,
+        letrero: state.letrero,
+        apagada: state.apagada,
         oido: state.oido,
         ultimaRespuesta: state.ultimaRespuesta,
         evento: state.evento,
@@ -871,6 +938,7 @@ function anotar(texto) {
 function recibirComando(mensaje) {
   if (mensaje.tipo !== 'comando') return;
   const { accion } = mensaje;
+  if (state.apagada && !['hola', 'apagar'].includes(accion)) apagar(false);
 
   switch (accion) {
     case 'hola': publicar(); break;
@@ -896,6 +964,8 @@ function recibirComando(mensaje) {
     case 'camara': verCamara(Boolean(mensaje.on)); break;
     case 'fondo': ponerFondo(mensaje.on === false ? 'ninguno' : guion.entradas[mensaje.indice]?.fondo); break;
     case 'palabra': ponerPalabra(mensaje.on === false ? 'ninguna' : String(mensaje.texto || guion.entradas[mensaje.indice]?.palabra || '')); break;
+    case 'letrero': ponerLetrero(mensaje.on === false ? 'ninguno' : String(mensaje.texto || guion.entradas[mensaje.indice]?.letrero || '')); break;
+    case 'apagar': apagar(mensaje.on !== false); break;
     case 'pantalla': {
       // Lo que el guion pide para la pantalla en ese parlamento, sin decirlo.
       const entrada = guion.entradas[Number(mensaje.indice)];
@@ -1208,18 +1278,29 @@ function abrirGuion() {
   el.guion.showModal();
 }
 
+/** Qué cambia en la pantalla una línea, en palabras: para las líneas mudas. */
+function describirPantalla(entrada) {
+  const partes = [];
+  if (entrada.letrero) partes.push(entrada.letrero === 'ninguno' ? 'sin letrero' : `letrero ${entrada.letrero}`);
+  if (entrada.fondo) partes.push(entrada.fondo === 'ninguno' ? 'sin fondo' : `fondo ${entrada.fondo.pie || entrada.fondo.src}`);
+  if (entrada.imagenes?.length) partes.push(`imagen ${entrada.imagenes[0].pie || entrada.imagenes[0].src}`);
+  if (entrada.palabra) partes.push(entrada.palabra === 'ninguna' ? 'sin palabra' : `palabra ${entrada.palabra}`);
+  if (entrada.camara) partes.push(`cámara ${entrada.camara}`);
+  return partes.join(', ') || 'nada';
+}
+
 /* ------------------------------------------------------- grabaciones */
 
 /** Todo lo que NOVA podría decir con este guion: parlamentos y comodines. */
 function textosDelGuion() {
-  return [...guion.entradas.map((e) => e.parlamento), ...guion.comodines];
+  return [...guion.entradas.filter((e) => !e.muda).map((e) => e.parlamento), ...guion.comodines];
 }
 
 /** El resumen del guion para el panel, con si cada línea tiene grabación. */
 function resumenConGrabaciones() {
   const resumen = guion.resumen();
   if (!grabaciones.porHuella.size) return resumen;
-  return { ...resumen, entradas: resumen.entradas.map((e) => ({ ...e, grabada: grabaciones.tiene(e.parlamento) })) };
+  return { ...resumen, entradas: resumen.entradas.map((e) => ({ ...e, grabada: e.muda ? true : grabaciones.tiene(e.parlamento) })) };
 }
 
 function precargarGrabaciones() {
@@ -1319,7 +1400,7 @@ function pintarGuion() {
     fila.innerHTML = `
       <span class="guion__numero">${entrada.indice + 1}</span>
       <span class="guion__pie${entrada.pies.length ? '' : ' is-vacio'}">${pie}</span>
-      <span class="guion__parlamento">${escapar(entrada.parlamento)}</span>`;
+      <span class="guion__parlamento">${entrada.muda ? `<em>solo pantalla: ${escapar(describirPantalla(entrada))}</em>` : escapar(entrada.parlamento)}</span>`;
     fila.addEventListener('click', () => {
       el.guion.close();
       decirDelGuion(entrada.indice);
@@ -1336,7 +1417,7 @@ function pintarGuion() {
     } else if (siguiente.pies.length) {
       el.guionPie.innerHTML = `${siguiente.indice + 1}/${guion.entradas.length} · se espera: <strong>${escapar(siguiente.pies.at(-1))}</strong>`;
     } else {
-      el.guionPie.innerHTML = `${siguiente.indice + 1}/${guion.entradas.length} · <em>sin pie</em>: <strong>${escapar(siguiente.parlamento)}</strong>`;
+      el.guionPie.innerHTML = `${siguiente.indice + 1}/${guion.entradas.length} · <em>${siguiente.muda ? 'solo pantalla' : 'sin pie'}</em>: <strong>${escapar(siguiente.parlamento || describirPantalla(siguiente))}</strong>`;
     }
   }
 
@@ -1360,6 +1441,14 @@ async function decirDelGuion(indice) {
   const entrada = guion.entradas[indice];
   if (!entrada || state.busy) return;
 
+  if (entrada.muda) {
+    // Solo pantalla: NOVA no habla, pero la línea cuenta como dicha.
+    guion.marcar(indice);
+    aplicarPantalla(entrada);
+    if (state.palabra && entrada.palabra === 'ninguna') ponerPalabra('ninguna');
+    anotar(`Línea ${indice + 1}: solo pantalla.`);
+    return;
+  }
   prepararRespuesta();
   guion.marcar(indice);
   aplicarPantalla(entrada);
@@ -1378,7 +1467,8 @@ async function decirTexto(texto) {
 }
 
 function prepararRespuesta() {
-  if (state.palabra) ponerPalabra('ninguna');
+  // La palabra que NOVA se quedó sigue flotando mientras habla: la saca el
+  // guion (PALABRA: ninguna) o el panel.
   speaker.cancel();
   sentences.reset();
   el.welcome?.remove();
@@ -1852,6 +1942,9 @@ async function responder(fuente, { origen }) {
 
     if (!textoConocido) sentences.flush();
     speaker.cerrar();
+    // El parlamento termina cuando termina de sonar: hasta entonces no entra
+    // otro (salvo Detener), así una orden apurada no corta la voz.
+    await speaker.esperarFin();
     bubbleWriter.flush();
     bubble.classList.remove('is-streaming');
 
@@ -1891,7 +1984,7 @@ async function responder(fuente, { origen }) {
 
     const writer = sceneWriter.isBusy ? sceneWriter : bubbleWriter.isBusy ? bubbleWriter : null;
     if (writer) {
-      setMode('answering');
+      setMode(speaker.enabled && speaker.speaking ? 'speaking' : 'answering');
       writer.onSettle = () => {
         writer.onSettle = null;
         rest();

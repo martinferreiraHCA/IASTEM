@@ -634,6 +634,7 @@ export class Speaker {
     this.pendiente = '';   // frases juntadas que esperan formar un trozo
     this.grabaciones = null; // las grabaciones (grabaciones.js): si hay una para el texto, va antes que el motor
     this.conGrabacion = false; // está sonando una grabación
+    this.esperas = [];       // quienes esperan a que termine de hablar (esperarFin)
     this.onStart = null;
     this.onEnd = null;
     this.onError = null;
@@ -664,15 +665,28 @@ export class Speaker {
     const quiereApi = this.ajustes.motor === 'openai' && modo() !== 'ninguno';
     this.motor = quiereApi ? new VozOpenAI(this.ajustes, modo) : new VozNavegador(this.ajustes);
     this.motor.onStart = () => this.onStart?.();
-    this.motor.onEnd = () => this.onEnd?.();
+    this.motor.onEnd = () => this.#terminoDeHablar();
     this.motor.onError = (mensaje) => {
       // La API falló: se sigue con la voz del navegador, para que la función
       // no se quede muda, y recién después se avisa.
       this.motor = new VozNavegador(this.ajustes);
       this.motor.onStart = () => this.onStart?.();
-      this.motor.onEnd = () => this.onEnd?.();
+      this.motor.onEnd = () => this.#terminoDeHablar();
       this.onError?.(mensaje);
     };
+  }
+
+  #terminoDeHablar() {
+    this.onEnd?.();
+    const esperas = this.esperas;
+    this.esperas = [];
+    for (const listo of esperas) listo();
+  }
+
+  /** Se cumple cuando NOVA termina de hablar (ya, si no está hablando). */
+  esperarFin() {
+    if (!this.speaking) return Promise.resolve();
+    return new Promise((listo) => this.esperas.push(listo));
   }
 
   /** Aplica ajustes nuevos y los guarda. */
@@ -734,7 +748,7 @@ export class Speaker {
       toque.fin.then(() => {
         if (!this.conGrabacion) return; // la cortaron
         this.conGrabacion = false;
-        this.onEnd?.();
+        this.#terminoDeHablar();
       });
       return toque.duracion;
     }
@@ -766,7 +780,7 @@ export class Speaker {
     this.grabaciones?.parar();
     if (this.motor) this.motor.abierto = false;
     this.motor?.cancel();
-    this.onEnd?.();
+    this.#terminoDeHablar();
   }
 }
 

@@ -92,9 +92,17 @@ Las reglas son pocas:
     el panel. Con un tiempo al final, `| 10s`, se va sola al cumplirse.
   - `FONDO: dirección | pie`: una imagen de fondo que **se queda**, detrás
     del texto, hasta que otra la reemplace o `FONDO: ninguno` la saque.
-  - `PALABRA: CREATIVIDAD`: la palabra queda **flotando junto a NOVA**, sola
-    en pantalla, hasta el próximo parlamento o `PALABRA: ninguna`.
+  - `PALABRA: CREATIVIDAD`: la palabra queda **flotando junto a NOVA**, y
+    sigue ahí aunque NOVA hable (lo que dice pasa abajo, en una franja),
+    hasta que `PALABRA: ninguna` o el panel la saquen.
+  - `LETRERO: Palabras`: un letrero manuscrito que **se escribe y se borra
+    en loop**, como fondo calmo (el nombre de la muestra); `LETRERO: ninguno`
+    lo saca.
   - `CÁMARA: encender` o `CÁMARA: apagar`: la cámara del público.
+  - Una línea `NOVA:` **sin texto**, con indicaciones antes, es una línea
+    **muda**: solo cambia la pantalla, NOVA no habla. Se pasa igual, con
+    *Decir el siguiente*.
+  - `## Título` abre una **escena**: el panel agrupa las líneas por escena.
 
   Las imágenes van en `public/imagenes/` (ver el `LEEME.txt` de ahí) o se
   enlazan con su dirección completa. En el panel, cada línea con indicaciones
@@ -102,8 +110,8 @@ Las reglas son pocas:
   hable: sirve para los tramos en que hablan solo los estudiantes.
 
 En `docs/` hay guiones listos para cargar: `guion-prueba.txt`, corto, y
-`guion-creatividad.txt`, una escena completa con fondo, imagen, palabra y
-reflexión final.
+`guion-palabras.txt`, la muestra completa, por escenas, con fondos, letrero,
+imágenes y palabras, que además está grabada (ver más abajo).
 
 ### El asistente
 
@@ -267,10 +275,10 @@ repositorio y se publica con el sitio.
 1. **Grabar.** Con el guion en un archivo de texto (el formato de arriba):
 
    ```
-   node herramientas/grabar.mjs docs/guion-creatividad.txt --nombre creatividad
+   node herramientas/grabar.mjs docs/guion-palabras.txt --nombre palabras
    ```
 
-   Deja en `public/guiones/creatividad/` el guion, un `grabaciones.json` y
+   Deja en `public/guiones/palabras/` el guion, un `grabaciones.json` y
    un audio por parlamento (y por comodín). Es una caché: si cambiás una
    línea y volvés a correrlo, graba solo esa. Las grabaciones se encuentran
    por lo que dicen (una huella del texto), así que reordenar o agregar
@@ -433,7 +441,7 @@ public/                  El sitio. Esto es lo que se publica en Pages.
     indice.json          Qué guiones hay, para el selector del escenario
 
 herramientas/grabar.mjs  Graba los parlamentos de un guion (Piper u OpenAI) en public/guiones/
-docs/guion-creatividad.txt     El guion de la muestra: Palabra uno, Creatividad
+docs/guion-palabras.txt        El guion de la muestra "Palabras", completo, con las líneas de NOVA grabadas
 docs/guion-german-martin.txt   Un guion de ejemplo
 index.html               Redirección a public/, para que Pages sirva la app
 server.js                Servidor local: archivos estáticos, relevo para el panel y asistente

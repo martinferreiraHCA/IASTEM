@@ -53,7 +53,7 @@ const audioDir = path.join(carpeta, 'audio');
 fs.mkdirSync(audioDir, { recursive: true });
 
 const parlamentos = [
-  ...guion.entradas.map((e) => ({ indice: e.indice, texto: e.parlamento, tipo: 'parlamento' })),
+  ...guion.entradas.filter((e) => !e.muda).map((e) => ({ indice: e.indice, texto: e.parlamento, tipo: 'parlamento' })),
   ...guion.comodines.map((c, i) => ({ indice: i, texto: c, tipo: 'comodin' })),
 ];
 if (!parlamentos.length) {
@@ -100,7 +100,7 @@ const manifiesto = {
 fs.writeFileSync(path.join(carpeta, 'grabaciones.json'), `${JSON.stringify(manifiesto, null, 2)}\n`);
 
 const indice = (leerJson(path.join(GUIONES, 'indice.json')) || []).filter((g) => g.nombre !== nombre);
-indice.push({ nombre, titulo, parlamentos: guion.entradas.length, grabaciones: resultado.length, fecha: manifiesto.fecha });
+indice.push({ nombre, titulo, parlamentos: guion.entradas.filter((e) => !e.muda).length, grabaciones: resultado.length, fecha: manifiesto.fecha });
 indice.sort((a, b) => a.titulo.localeCompare(b.titulo, 'es'));
 fs.writeFileSync(path.join(GUIONES, 'indice.json'), `${JSON.stringify(indice, null, 2)}\n`);
 

@@ -43,6 +43,8 @@ const el = {
   imagenNota: $('imagenNota'),
   fondo: $('fondo'),
   palabra: $('palabra'),
+  letrero: $('letrero'),
+  apagar: $('apagar'),
   turnoSiguiente: $('turnoSiguiente'),
   turnos: $('turnos'),
   fijar: $('fijar'),
@@ -187,6 +189,8 @@ function wire() {
   el.imagen.addEventListener('click', () => mandar('imagen', { on: !estado?.imagenVisible }));
   el.fondo.addEventListener('click', () => mandar('fondo', { on: false }));
   el.palabra.addEventListener('click', () => mandar('palabra', { on: false }));
+  el.letrero.addEventListener('click', () => mandar('letrero', { on: false }));
+  el.apagar.addEventListener('click', () => mandar('apagar', { on: !estado?.apagada }));
 
   el.turnoSiguiente.addEventListener('click', () => mandar('turno-siguiente'));
   el.fijar.addEventListener('click', () => mandar('fijar'));
@@ -276,7 +280,7 @@ function pintar() {
   el.siguienteDetalle.textContent = !guion.total
     ? 'No hay guion cargado'
     : siguiente
-      ? `${siguiente.indice + 1}/${guion.total} · ${recortar(siguiente.parlamento, 90)}`
+      ? `${siguiente.indice + 1}/${guion.total} · ${siguiente.muda ? 'solo pantalla' : recortar(siguiente.parlamento, 90)}`
       : 'Fin del guion';
 
   // Guion.
@@ -287,7 +291,15 @@ function pintar() {
   if (!guion.total) {
     el.lineas.innerHTML = '<li class="lineas__vacio">No hay guion cargado. Cargalo en el escenario o desde acá abajo.</li>';
   }
+  let escenaVista = null;
   for (const entrada of guion.entradas) {
+    if (entrada.escena !== escenaVista && entrada.escena) {
+      const titulo = document.createElement('li');
+      titulo.className = 'lineas__escena';
+      titulo.textContent = entrada.escena;
+      el.lineas.appendChild(titulo);
+    }
+    escenaVista = entrada.escena;
     const fila = document.createElement('li');
     fila.className = 'linea';
     fila.classList.toggle('is-dicho', entrada.indice <= guion.cursor);
@@ -296,13 +308,14 @@ function pintar() {
       entrada.imagen ? `<span class="linea__marca">imagen${entrada.segundos ? ` ${entrada.segundos}s` : ''}</span>` : '',
       entrada.fondo ? `<span class="linea__marca">fondo: ${escapar(entrada.fondo)}</span>` : '',
       entrada.palabra ? `<span class="linea__marca">palabra: ${escapar(entrada.palabra)}</span>` : '',
+      entrada.letrero ? `<span class="linea__marca">letrero: ${escapar(entrada.letrero)}</span>` : '',
       entrada.camara ? `<span class="linea__marca">cámara: ${entrada.camara}</span>` : '',
       entrada.grabada === false ? '<span class="linea__marca linea__marca--ojo">sin grabación</span>' : '',
     ].join('');
     fila.innerHTML = `
       <span class="linea__numero">${entrada.indice + 1}</span>
       <span class="linea__pie">${entrada.pie ? escapar(entrada.pie) : '<em>sin pie</em>'}${marcas}</span>
-      <span class="linea__parlamento">${escapar(entrada.parlamento)}</span>`;
+      <span class="linea__parlamento">${entrada.muda ? '<em>Solo pantalla, NOVA no habla.</em>' : escapar(entrada.parlamento)}</span>`;
     fila.addEventListener('click', () => mandar('decir', { indice: entrada.indice }));
     if (entrada.pantalla) {
       // Solo lo de pantalla, sin que NOVA hable: para cuando los estudiantes van solos.
@@ -348,6 +361,10 @@ function pintar() {
   el.fondo.textContent = estado.fondo ? `Quitar fondo: ${recortar(estado.fondo.pie || estado.fondo.src, 24)}` : 'Fondo: no hay';
   el.palabra.disabled = !estado.palabra;
   el.palabra.textContent = estado.palabra ? `Quitar palabra: ${estado.palabra}` : 'Palabra: no hay';
+  el.letrero.disabled = !estado.letrero;
+  el.letrero.textContent = estado.letrero ? `Quitar letrero: ${recortar(estado.letrero, 20)}` : 'Letrero: no hay';
+  el.apagar.setAttribute('aria-pressed', String(Boolean(estado.apagada)));
+  el.apagar.textContent = estado.apagada ? 'Encender NOVA' : 'Apagar NOVA';
 
   // Turnos.
   el.turnos.innerHTML = '';

@@ -44,6 +44,7 @@ const ROTULO_IMAGEN = new Set(['imagen', 'foto', 'image']);
 const ROTULO_CAMARA = new Set(['camara', 'cam']);
 const ROTULO_FONDO = new Set(['fondo', 'background']);
 const ROTULO_PALABRA = new Set(['palabra', 'word']);
+const ROTULO_LETRERO = new Set(['letrero', 'titulo', 'título', 'cartel']);
 
 /** Palabras chicas que pueden ir dentro de un nombre: "Ana de la Torre". */
 const PARTICULAS = new Set(['de', 'del', 'la', 'el', 'los', 'las', 'y']);
@@ -88,7 +89,8 @@ NOVA: Gracias por esta noche. Mírense: lo que definimos juntos queda en el muro
  *   - `PERSONAJE: texto` es una línea de ese personaje.
  *   - Una línea sin personaje continúa la anterior, salvo que haya una
  *     línea en blanco en el medio: ahí es una línea nueva, de nadie.
- *   - `#`, `[acotación]` y `(acotación)` se ignoran.
+ *   - `#`, `[acotación]` y `(acotación)` se ignoran; `## Título` abre una
+ *     escena: las líneas que siguen la llevan, para que el panel las agrupe.
  *   - Un parlamento de NOVA sin pie antes solo se dice a mano.
  *   - `NOVA?: texto` es un comodín: se dice cuando nada se parece.
  *
@@ -100,10 +102,19 @@ export function parsearGuion(texto) {
   const vistos = new Set(); // nombres que ya aparecieron rotulando una línea
   let abierta = null; // la última línea, por si la siguiente la continúa
 
+  let escena = '';
+
   for (const cruda of String(texto || '').split(/\r?\n/)) {
     const linea = cruda.trim();
     if (!linea) {
       abierta = null;
+      continue;
+    }
+    const titulo = /^##\s*(.+?)\s*#*$/.exec(linea);
+    if (titulo) {
+      escena = titulo[1];
+      abierta = null;
+      lineas.push({ quien: '', texto: '', escena });
       continue;
     }
     if (/^#/.test(linea) || /^\[.*\]$/.test(linea) || /^\(.*\)$/.test(linea)) continue;
@@ -129,10 +140,19 @@ export function parsearGuion(texto) {
   let camara = null;
   let fondo = null;   // {src, pie} o 'ninguno'
   let palabra = null; // texto o 'ninguna'
+  let letrero = null; // texto o 'ninguno'
+  let escenaActual = '';
 
-  for (const { quien, texto: dicho } of lineas) {
-    if (!dicho) continue;
+  for (const { quien, texto: dicho, escena: titulo } of lineas) {
+    if (titulo !== undefined) {
+      escenaActual = titulo;
+      continue;
+    }
     const rotulo = normalizar(quien);
+    // "NOVA:" sin texto, con indicaciones de pantalla antes: una línea muda,
+    // que solo cambia la pantalla (un fondo, un letrero) sin que NOVA hable.
+    const muda = !dicho && ALIAS_NOVA.has(rotulo) && Boolean(imagenes.length || camara || fondo || palabra || letrero);
+    if (!dicho && !muda) continue;
     if (ROTULO_IMAGEN.has(rotulo)) {
       const imagen = leerImagen(dicho);
       if (imagen) imagenes.push(imagen);
@@ -142,15 +162,18 @@ export function parsearGuion(texto) {
       fondo = /^(ningun|no|sin|sac|quit|off)/i.test(normalizar(dicho)) ? 'ninguno' : leerImagen(dicho);
     } else if (ROTULO_PALABRA.has(rotulo)) {
       palabra = /^(ningun|no|sin|sac|quit|off)/i.test(normalizar(dicho)) ? 'ninguna' : dicho.trim();
+    } else if (ROTULO_LETRERO.has(rotulo)) {
+      letrero = /^(ningun|no|sin|sac|quit|off)/i.test(normalizar(dicho)) ? 'ninguno' : dicho.trim();
     } else if (esComodin(quien)) {
       comodines.push(dicho);
-    } else if (ALIAS_NOVA.has(normalizar(quien))) {
-      entradas.push({ indice: entradas.length, pies, parlamento: dicho, imagenes, camara, fondo, palabra });
+    } else if (ALIAS_NOVA.has(rotulo)) {
+      entradas.push({ indice: entradas.length, pies, parlamento: dicho, muda, imagenes, camara, fondo, palabra, letrero, escena: escenaActual });
       pies = [];
       imagenes = [];
       camara = null;
       fondo = null;
       palabra = null;
+      letrero = null;
     } else {
       if (quien) personajes.add(quien);
       pies.push(dicho);
@@ -197,7 +220,7 @@ function esComodin(quien) {
 function esNombre(candidato, vistos) {
   if (!candidato || /^https?$/i.test(candidato)) return false;
   const limpio = normalizar(candidato);
-  if (vistos.has(limpio) || ALIAS_NOVA.has(limpio) || ROTULO_IMAGEN.has(limpio) || ROTULO_CAMARA.has(limpio) || ROTULO_FONDO.has(limpio) || ROTULO_PALABRA.has(limpio) || esComodin(candidato)) return true;
+  if (vistos.has(limpio) || ALIAS_NOVA.has(limpio) || ROTULO_IMAGEN.has(limpio) || ROTULO_CAMARA.has(limpio) || ROTULO_FONDO.has(limpio) || ROTULO_PALABRA.has(limpio) || ROTULO_LETRERO.has(limpio) || esComodin(candidato)) return true;
 
   const partes = candidato.split(/\s+/);
   if (partes.length > 3) return false;
@@ -344,12 +367,15 @@ export class Guion {
         indice: e.indice,
         pie: e.pies.at(-1) || '',
         parlamento: e.parlamento,
+        muda: Boolean(e.muda),
         imagen: e.imagenes?.[0]?.src || '',
         segundos: e.imagenes?.[0]?.segundos || 0,
         camara: e.camara || null,
         fondo: e.fondo ? (e.fondo === 'ninguno' ? 'ninguno' : e.fondo.pie || e.fondo.src) : null,
         palabra: e.palabra || null,
-        pantalla: Boolean(e.imagenes?.length || e.camara || e.fondo || e.palabra),
+        letrero: e.letrero || null,
+        escena: e.escena || '',
+        pantalla: Boolean(e.imagenes?.length || e.camara || e.fondo || e.palabra || e.letrero),
       })),
     };
   }
@@ -389,7 +415,7 @@ export class Guion {
     let mejor = null;
     let mejorValor = 0;
     for (const entrada of this.entradas) {
-      if (!entrada.pies.length) continue;
+      if (!entrada.pies.length || entrada.muda) continue; // las mudas se pasan desde el panel
       const esSiguiente = entrada.indice === this.cursor + 1;
       const crudo = Math.max(...entrada.pies.map((pie) => puntaje(oido, pie)));
       if (crudo < this.umbral - (esSiguiente ? 0.1 : 0)) continue;

@@ -9,7 +9,7 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='38' fill='none' stroke='%237af5ff' stroke-width='7'/><circle cx='50' cy='50' r='13' fill='%23a37bff'/></svg>" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@300;500&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@300;500&family=Caveat:wght@500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="./styles.css" />
   <link rel="stylesheet" href="./stage.css" />
 </head>
@@ -184,6 +184,7 @@
     </div>
 
     <!-- Una palabra que NOVA se queda: flota junto al orbe, sola en pantalla. -->
+    <div class="letrero" id="letrero" aria-hidden="true"><span class="letrero__texto" id="letreroTexto"></span><span class="letrero__cursor"></span></div>
     <div class="palabra" id="palabra" aria-hidden="true">
       <div class="palabra__orbe orb orb--scene" data-state="idle">
         <span class="orb__halo"></span>

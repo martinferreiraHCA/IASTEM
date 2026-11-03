@@ -193,6 +193,8 @@ button { cursor: pointer; }
   max-height: 46vh; overflow-y: auto;
 }
 .lineas__vacio { color: var(--ink-dim); font-size: 13px; padding: 8px 2px; }
+.lineas__escena { font-family: var(--mono); font-size: 10.5px; letter-spacing: .22em; text-transform: uppercase; color: var(--ambar); padding: 12px 2px 2px; border-top: 1px solid var(--line); margin-top: 6px; }
+.lineas__escena:first-child { border-top: 0; margin-top: 0; padding-top: 2px; }
 .linea {
   display: grid; grid-template-columns: 26px 1fr; gap: 1px 8px;
   padding: 9px 12px; border-radius: 12px;

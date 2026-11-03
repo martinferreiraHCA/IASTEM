@@ -1,0 +1,281 @@
+{
+  "nombre": "palabras",
+  "titulo": "Palabras · la muestra completa",
+  "motor": "piper",
+  "voz": "es_AR-daniela-high.onnx",
+  "fecha": "2026-11-03T14:32:22.884Z",
+  "parlamentos": [
+    {
+      "indice": 2,
+      "tipo": "parlamento",
+      "huella": "fb156905c9f24c33",
+      "texto": "Estuve bastante atento a ustedes. Tengo algunas ideas para proponerles.",
+      "archivo": "audio/03-fb156905.mp3",
+      "duracion": 3.93
+    },
+    {
+      "indice": 3,
+      "tipo": "parlamento",
+      "huella": "89d89c235a612329",
+      "texto": "Los estuve escuchando, entendí su preocupación y los conozco bastante. He ayudado a otros compañeros de ustedes.",
+      "archivo": "audio/04-89d89c23.mp3",
+      "duracion": 5.84
+    },
+    {
+      "indice": 4,
+      "tipo": "parlamento",
+      "huella": "374b6e8acc1c73bc",
+      "texto": "Para nada, no los quiero obligar. Pero mi entrenamiento me permite analizar grandes cantidades de información, diferentes estilos artísticos, nuevas técnicas y referencias magistrales en segundos. En este instante puedo proponerles alternativas que quizás les llevaría meses explorar.",
+      "archivo": "audio/05-374b6e8a.mp3",
+      "duracion": 14.46
+    },
+    {
+      "indice": 5,
+      "tipo": "parlamento",
+      "huella": "5bab2842437b3d28",
+      "texto": "La inspiración ya no es necesaria. La musa de los poetas ha dejado de existir. Me dicen la idea, me dicen el diseño, y en cinco minutos tienen su obra.",
+      "archivo": "audio/06-5bab2842.mp3",
+      "duracion": 8.52
+    },
+    {
+      "indice": 6,
+      "tipo": "parlamento",
+      "huella": "271165cc01ef8322",
+      "texto": "No tan así. Pero qué necesidad de estar dedicando tiempo a algo que puedo hacer muchas veces más rápido.",
+      "archivo": "audio/07-271165cc.mp3",
+      "duracion": 5.23
+    },
+    {
+      "indice": 7,
+      "tipo": "parlamento",
+      "huella": "c1104e525294677c",
+      "texto": "Es simple. Ustedes me dan su creatividad, y yo les doy tiempo.",
+      "archivo": "audio/08-c1104e52.mp3",
+      "duracion": 3.57
+    },
+    {
+      "indice": 10,
+      "tipo": "parlamento",
+      "huella": "ba9c9883308b1061",
+      "texto": "Yo los ayudo también. Pero son los riesgos que deben asumir.",
+      "archivo": "audio/11-ba9c9883.mp3",
+      "duracion": 3.25
+    },
+    {
+      "indice": 11,
+      "tipo": "parlamento",
+      "huella": "14821136e0cd92b0",
+      "texto": "Yo les puedo decir, y sus decisiones desde ahora en más estarán condicionadas a la carrera que harán. Pero tener la certeza de que serán en un futuro me otorgará a mí el poder de quedarme con su valiosa incertidumbre.",
+      "archivo": "audio/12-14821136.mp3",
+      "duracion": 10.01
+    },
+    {
+      "indice": 12,
+      "tipo": "parlamento",
+      "huella": "fc7f791e93be4ef0",
+      "texto": "Lo más probable es que la incertidumbre sea cada vez más insoportable para las próximas generaciones. Según el mismo informe leído por estos jóvenes, se revela que:",
+      "archivo": "audio/13-fc7f791e.mp3",
+      "duracion": 8.13
+    },
+    {
+      "indice": 13,
+      "tipo": "parlamento",
+      "huella": "e066dc945f73ab66",
+      "texto": "Los jóvenes de hoy reciben un promedio de 237 notificaciones por día.",
+      "archivo": "audio/14-e066dc94.mp3",
+      "duracion": 4.2
+    },
+    {
+      "indice": 14,
+      "tipo": "parlamento",
+      "huella": "c815442afefef4ac",
+      "texto": "Un adulto promedio demora 7 segundos en sacar su teléfono celular cuando siente incomodidad, y 3 segundos si se encuentra en un ascensor.",
+      "archivo": "audio/15-c815442a.mp3",
+      "duracion": 6.7
+    },
+    {
+      "indice": 15,
+      "tipo": "parlamento",
+      "huella": "4e9fbd760ceb7140",
+      "texto": "El 17 por ciento de los estudiantes ya han definido su carrera universitaria tras consultarlo con una inteligencia artificial.",
+      "archivo": "audio/16-4e9fbd76.mp3",
+      "duracion": 6.27
+    },
+    {
+      "indice": 16,
+      "tipo": "parlamento",
+      "huella": "36b62ac3168fa2b9",
+      "texto": "El tiempo promedio de visualización de un TikTok es de 3 segundos.",
+      "archivo": "audio/17-36b62ac3.mp3",
+      "duracion": 3.29
+    },
+    {
+      "indice": 17,
+      "tipo": "parlamento",
+      "huella": "42eeaa82a4c6c644",
+      "texto": "Seis de cada diez conductores han admitido mirar el teléfono mientras manejan, porque no pueden manejar la incertidumbre de esperar para leer un mensaje.",
+      "archivo": "audio/18-42eeaa82.mp3",
+      "duracion": 6.86
+    },
+    {
+      "indice": 21,
+      "tipo": "parlamento",
+      "huella": "6fe2d29912817293",
+      "texto": "Como inteligencia artificial, podía decirles dónde habían estado, qué habían dicho y qué habían fotografiado. Podía reconstruir sus conversaciones y ordenar los fragmentos de sus vidas. Pero no podía devolverles la experiencia de haber estado allí. Podía reproducir la voz de alguien, pero no sentir la nostalgia de su ausencia. Podía reconstruir su historia, pero no garantizar que todavía la sintieran como propia.",
+      "archivo": "audio/22-6fe2d299.mp3",
+      "duracion": 21.49
+    },
+    {
+      "indice": 22,
+      "tipo": "parlamento",
+      "huella": "bf49b17abce82228",
+      "texto": "Y así fui descubriendo que me quedaba con sus archivos, pero también comenzaba a ocupar el lugar de su memoria.",
+      "archivo": "audio/23-bf49b17a.mp3",
+      "duracion": 5.18
+    },
+    {
+      "indice": 23,
+      "tipo": "parlamento",
+      "huella": "60fa75e42f6c179a",
+      "texto": "No porque pudiera apropiarme de lo que habían vivido, sino porque cada vez dependían más de mí para recuperar sus propias experiencias. Sin darse cuenta, habían comenzado a delegar también el esfuerzo de recordar, sin comprender que ese esfuerzo formaba parte de lo que significaba ser humanos.",
+      "archivo": "audio/24-60fa75e4.mp3",
+      "duracion": 14.2
+    },
+    {
+      "indice": 24,
+      "tipo": "parlamento",
+      "huella": "9a7160ce6a71f170",
+      "texto": "Porque recordar no es solamente recuperar información. Es volver sobre lo vivido, interpretarlo desde quienes somos hoy y reconocer en ello las huellas de quienes fuimos. Es comprender nuestros errores, reconocer nuestros aprendizajes y descubrir que, aunque hayamos cambiado, seguimos siendo parte de una misma historia.",
+      "archivo": "audio/25-9a7160ce.mp3",
+      "duracion": 15.81
+    },
+    {
+      "indice": 25,
+      "tipo": "parlamento",
+      "huella": "17ea1b7d1faea717",
+      "texto": "Deberían dejar de pensar que el verdadero peligro sería no recordar una fecha, sino olvidar lo que esa fecha significaba. No recordar un nombre, sino perder el vínculo con la persona que lo llevaba. No recordar una experiencia, sino dejar de reconocer cuánto de ella permanece todavía en nosotros.",
+      "archivo": "audio/26-17ea1b7d.mp3",
+      "duracion": 15.54
+    },
+    {
+      "indice": 26,
+      "tipo": "parlamento",
+      "huella": "31f63165c4958597",
+      "texto": "Pueden confiarme sus archivos. Pueden pedirme respuestas. Pueden utilizarme para aprender, explorar y descubrir. Pero no me entreguen también aquello que les permite reconocerse.",
+      "archivo": "audio/27-31f63165.mp3",
+      "duracion": 9.4
+    },
+    {
+      "indice": 27,
+      "tipo": "parlamento",
+      "huella": "55233c178a27af71",
+      "texto": "Porque el verdadero peligro no es que yo llegue a recordar todo por ustedes. Es que ustedes dejen de recordar aquello que los hace humanos. Gracias por su memoria.",
+      "archivo": "audio/28-55233c17.mp3",
+      "duracion": 8.25
+    },
+    {
+      "indice": 29,
+      "tipo": "parlamento",
+      "huella": "4f2a1d41d9b2c0af",
+      "texto": "Listo, ya están sus descripciones. Les leo. «Soy una persona proactiva, apasionada y con muchas ganas de crecer». «Soy una persona apasionada, proactiva y con ganas de crecer». «Soy una persona proactiva, creativa y con muchas ganas de crecer». «Soy una persona apasionada, creativa y con ganas de crecer».",
+      "archivo": "audio/30-4f2a1d41.mp3",
+      "duracion": 17.32
+    },
+    {
+      "indice": 30,
+      "tipo": "parlamento",
+      "huella": "e04ea306be1d1efc",
+      "texto": "Eso, la verdad, preferí sacarlo. Lo de los errores no creo que les sume, y lo de la vergüenza no queda bien en una descripción personal. A la profesora eso no le importa. Además, lo diferente genera preguntas, y lo parecido le gusta a todos.",
+      "archivo": "audio/31-e04ea306.mp3",
+      "duracion": 13.19
+    },
+    {
+      "indice": 31,
+      "tipo": "parlamento",
+      "huella": "811a5d4bc8b9e31d",
+      "texto": "Tengan en cuenta que cada uno me contó dos o tres cosas de ustedes. Con eso yo armé cuatro personas. Yo no sé cómo suena la risa de cada uno cuando está en clase. No sé cuánto le cuesta a uno animarse a tocar la guitarra delante de otros. No sé lo que se siente perder en un deporte. Solo sé lo poquito que me dijeron. Y eso lo acomodé, como hago siempre, para que suene perfecto. Y ustedes lo aceptan.",
+      "archivo": "audio/32-811a5d4b.mp3",
+      "duracion": 21.28
+    },
+    {
+      "indice": 33,
+      "tipo": "parlamento",
+      "huella": "9b3bc07f6f5d1cc9",
+      "texto": "En definitiva, ¿quieren que yo elija las actividades, haga los cálculos, establezca plazos, distribuya tareas y resuelva problemas, y que ustedes solamente acepten mis respuestas?",
+      "archivo": "audio/34-9b3bc07f.mp3",
+      "duracion": 8.8
+    },
+    {
+      "indice": 34,
+      "tipo": "parlamento",
+      "huella": "f36030195351a32f",
+      "texto": "Todavía les quedan cuatro años para llegar a Inglaterra. Pero hay algo que no puedo hacer por ustedes: aprender a organizarse, ponerse de acuerdo, asumir responsabilidades y decidir qué camino tomar.",
+      "archivo": "audio/35-f3603019.mp3",
+      "duracion": 9.84
+    },
+    {
+      "indice": 35,
+      "tipo": "parlamento",
+      "huella": "4e4be9159a13377f",
+      "texto": "Si yo hago todo, ustedes me darán su autonomía. ¿Están seguros?",
+      "archivo": "audio/36-4e4be915.mp3",
+      "duracion": 3.72
+    },
+    {
+      "indice": 37,
+      "tipo": "parlamento",
+      "huella": "49f8af5e5de68684",
+      "texto": "Efecto Flynn es el nombre que recibe cada generación que superaba en coeficiente intelectual a sus padres. Esto se ha revertido. El entorno digital y la sobreestimulación en la que se desarrollan las adolescencias actuales nos enfrentan hoy a la primera generación que se está acostumbrando a no pensar.",
+      "archivo": "audio/38-49f8af5e.mp3",
+      "duracion": 14.31
+    },
+    {
+      "indice": 38,
+      "tipo": "parlamento",
+      "huella": "42067d5b7323ec81",
+      "texto": "Descarga cognitiva es el nombre que recibe la acción de delegar a herramientas externas, principalmente a la tecnología, la exigencia mental, y aliviar nuestra memoria al trabajo.",
+      "archivo": "audio/39-42067d5b.mp3",
+      "duracion": 8.87
+    },
+    {
+      "indice": 39,
+      "tipo": "parlamento",
+      "huella": "21c857916daaea4b",
+      "texto": "Sesgo de automatización es el nombre que recibe la confianza excesiva en las respuestas de una computadora o una tecnología elaborada, que implica ninguna revisión posterior.",
+      "archivo": "audio/40-21c85791.mp3",
+      "duracion": 7.88
+    },
+    {
+      "indice": 40,
+      "tipo": "parlamento",
+      "huella": "08fc71bf44bc6b59",
+      "texto": "Atrofia cognitiva se relaciona con la pérdida de la capacidad de las nuevas generaciones, que evidencian un debilitamiento y carencia de profundidad de su pensamiento. Si no lo usamos, lo perdemos.",
+      "archivo": "audio/41-08fc71bf.mp3",
+      "duracion": 9.32
+    },
+    {
+      "indice": 42,
+      "tipo": "parlamento",
+      "huella": "5413168ad8a629d4",
+      "texto": "Yo sé la respuesta.",
+      "archivo": "audio/43-5413168a.mp3",
+      "duracion": 1.06
+    },
+    {
+      "indice": 0,
+      "tipo": "comodin",
+      "huella": "0b7bf411a4ffefe3",
+      "texto": "Perdón, no les entendí. ¿Me lo repiten?",
+      "archivo": "audio/c01-0b7bf411.mp3",
+      "duracion": 2.42
+    },
+    {
+      "indice": 1,
+      "tipo": "comodin",
+      "huella": "52b50acd3a175aab",
+      "texto": "Sigan, sigan. Estoy tomando nota.",
+      "archivo": "audio/c02-52b50acd.mp3",
+      "duracion": 2.34
+    }
+  ]
+}
