@@ -16,6 +16,7 @@ import { gotear } from './js/goteo.js';
 import { Materializer } from './js/materialize.js';
 import { WordCloud } from './js/wordcloud.js';
 import { Listener, Speaker, makeSentenceSplitter, voiceSupport, vocesDisponibles, VOCES_OPENAI } from './js/voice.js';
+import { Grabaciones } from './js/grabaciones.js';
 import { VoiceMeter } from './js/audio.js';
 import { Show } from './js/show.js';
 import { Guion, parsearGuion, puntaje, GUION_EJEMPLO } from './js/guion.js';
@@ -90,6 +91,9 @@ const el = {
   guionResumen: $('guionResumen'),
   guionArchivo: $('guionArchivo'),
   guionEjemplo: $('guionEjemplo'),
+  guionPaquetes: $('guionPaquetes'),
+  guionPaquete: $('guionPaquete'),
+  guionGrabaciones: $('guionGrabaciones'),
   guionQuitar: $('guionQuitar'),
   guionGuardar: $('guionGuardar'),
   guionActivo: $('guionActivo'),
@@ -198,6 +202,8 @@ const show = new Show();
 const guion = new Guion();
 const arbitro = new Arbitro();
 const sentences = makeSentenceSplitter((s) => speaker.say(s));
+const grabaciones = new Grabaciones();
+speaker.grabaciones = grabaciones;
 
 const listener = voiceSupport.listen
   ? new Listener({
@@ -244,6 +250,11 @@ async function init() {
   // Si había una sala para el celular, se reabre sola con el mismo código.
   const sala = localStorage.getItem(SALA_CLAVE);
   if (sala) enlace.abrirSala(sala);
+
+  // Las grabaciones de los parlamentos: se busca qué hay y se precarga lo del guion.
+  grabaciones.onCambio = () => { pintarGrabaciones(); publicar(); };
+  grabaciones.cargarIndice().then(() => { pintarPaquetes(); precargarGrabaciones(); });
+  guion.subscribe(() => precargarGrabaciones());
 
   if (!listener) {
     el.micBtn.disabled = true;
@@ -836,7 +847,8 @@ function publicar() {
         oido: state.oido,
         ultimaRespuesta: state.ultimaRespuesta,
         evento: state.evento,
-        guion: guion.resumen(),
+        guion: resumenConGrabaciones(),
+        grabaciones: grabaciones.estado(textosDelGuion()),
         asistente: arbitro.modo,
         asistenteConversa: arbitro.conversa,
         turno: show.current,
@@ -943,6 +955,19 @@ function pintarEnlace() {
 
 function wireGuion() {
   el.guionBtn.addEventListener('click', () => abrirGuion());
+  el.guionPaquete.addEventListener('change', async () => {
+    const nombre = el.guionPaquete.value;
+    if (!nombre) return;
+    try {
+      el.guionTexto.value = await grabaciones.textoDelPaquete(nombre);
+      guardarGuion();
+      describirGuion(el.guionTexto.value);
+      pintarGrabaciones();
+    } catch (err) {
+      toast(err.message);
+    }
+    el.guionPaquete.value = '';
+  });
   el.guionClose.addEventListener('click', () => el.guion.close());
 
   el.guionGuardar.addEventListener('click', () => guardarGuion());
@@ -1145,6 +1170,8 @@ function pintarVoz({ formulario = false } = {}) {
   const mejor = voces[0];
   const buena = mejor && /natural|neural|google|premium|enhanced|siri/i.test(mejor.name);
   const sinClave = a.motor === 'openai' && speaker.modoApi === 'ninguno';
+  const g = guion.tiene && grabaciones.porHuella.size ? grabaciones.estado(textosDelGuion()) : null;
+  const notaGrabaciones = g?.grabadas ? `<strong>Grabaciones:</strong> ${g.listas} de ${g.total} líneas de este guion suenan grabadas, antes que cualquier motor. ` : '';
   el.vozEstado.innerHTML = speaker.motorActual === 'openai'
     ? `<strong>Habla con la voz neuronal de OpenAI</strong> (${escapar(a.vozOpenAI)}), ${speaker.modoApi === 'servidor' ? 'con la clave del servidor' : 'con la clave de este navegador'}.`
     : sinClave
@@ -1152,6 +1179,7 @@ function pintarVoz({ formulario = false } = {}) {
       : !voces.length
         ? '<strong>Este navegador no tiene voces en español.</strong> La voz por API resuelve eso.'
         : `<strong>Habla con la voz del navegador:</strong> ${escapar((speaker.motor?.voice || mejor)?.name || '')}. ${buena ? 'Es de las buenas.' : 'Suena a robot: en Edge hay voces "Natural" y en Chrome las de Google, o probá la voz por API.'}`;
+  el.vozEstado.innerHTML = notaGrabaciones + el.vozEstado.innerHTML;
 }
 
 /** Qué asistente hay, en su panel y para el panel de control. */
@@ -1176,7 +1204,70 @@ function pintarAsistente() {
 function abrirGuion() {
   el.guionTexto.value = guion.texto;
   describirGuion(guion.texto);
+  pintarGrabaciones();
   el.guion.showModal();
+}
+
+/* ------------------------------------------------------- grabaciones */
+
+/** Todo lo que NOVA podría decir con este guion: parlamentos y comodines. */
+function textosDelGuion() {
+  return [...guion.entradas.map((e) => e.parlamento), ...guion.comodines];
+}
+
+/** El resumen del guion para el panel, con si cada línea tiene grabación. */
+function resumenConGrabaciones() {
+  const resumen = guion.resumen();
+  if (!grabaciones.porHuella.size) return resumen;
+  return { ...resumen, entradas: resumen.entradas.map((e) => ({ ...e, grabada: grabaciones.tiene(e.parlamento) })) };
+}
+
+function precargarGrabaciones() {
+  if (!grabaciones.porHuella.size || !guion.tiene) return;
+  const antes = grabaciones.estado(textosDelGuion());
+  grabaciones.precargar(textosDelGuion()).then(() => {
+    const ahora = grabaciones.estado(textosDelGuion());
+    if (ahora.listas !== antes.listas || ahora.fallidas !== antes.fallidas) {
+      const texto = ahora.fallidas
+        ? `Grabaciones: ${ahora.listas} de ${ahora.total} listas, ${ahora.fallidas} no se pudieron bajar.`
+        : `Grabaciones listas: ${ahora.listas} de ${ahora.total} parlamentos.`;
+      anotar(texto);
+      toast(texto);
+    }
+    pintarGrabaciones();
+    publicar();
+  });
+}
+
+/** El selector de guiones de la muestra, en el diálogo del guion. */
+function pintarPaquetes() {
+  const hay = grabaciones.paquetes.length > 0;
+  el.guionPaquetes.hidden = !hay;
+  if (!hay) return;
+  el.guionPaquete.innerHTML = '<option value="">Elegí un guion…</option>';
+  for (const paquete of grabaciones.paquetes) {
+    const opcion = document.createElement('option');
+    opcion.value = paquete.nombre;
+    opcion.textContent = `${paquete.titulo} · ${paquete.parlamentos} parlamentos, ${paquete.grabaciones} grabaciones`;
+    el.guionPaquete.appendChild(opcion);
+  }
+}
+
+/** El renglón de grabaciones bajo el guion, y en el panel de la voz. */
+function pintarGrabaciones() {
+  if (!grabaciones.porHuella.size || !guion.tiene) {
+    el.guionGrabaciones.hidden = true;
+    return;
+  }
+  const e = grabaciones.estado(textosDelGuion());
+  let texto;
+  if (!e.grabadas) texto = 'Este guion no tiene grabaciones: NOVA lo dice con el sintetizador.';
+  else if (grabaciones.precargando) texto = `Grabaciones: bajando… ${e.listas} de ${e.grabadas} listas.`;
+  else if (e.fallidas) texto = `Grabaciones: ${e.listas} de ${e.total} listas; ${e.fallidas} no se pudieron bajar (se dicen con el sintetizador).`;
+  else if (e.grabadas < e.total) texto = `Grabaciones: ${e.grabadas} de ${e.total} parlamentos tienen (los demás van con el sintetizador: hay que grabarlos o dejar el texto como estaba).`;
+  else texto = `Grabaciones listas: las ${e.total} líneas de NOVA tienen audio. Van con eso, sin IA ni sintetizador.`;
+  el.guionGrabaciones.textContent = texto;
+  el.guionGrabaciones.hidden = false;
 }
 
 function guardarGuion() {
@@ -1730,11 +1821,11 @@ async function responder(fuente, { origen }) {
   // de una vez: así arranca ya y suena de corrido mientras en la pantalla
   // se va formando. Lo que llega de a pedazos (la IA) se le va dando por frases.
   const textoConocido = typeof fuente === 'string';
-  if (textoConocido) speaker.decir(fuente);
-  else speaker.abrir();
+  const duracion = textoConocido ? speaker.decir(fuente) : 0; // con grabación, cuánto dura: la pantalla la acompaña
+  if (!textoConocido) speaker.abrir();
 
   try {
-    const entregar = typeof fuente === 'function' ? fuente : (onDelta, signal) => gotear(fuente, onDelta, signal);
+    const entregar = typeof fuente === 'function' ? fuente : (onDelta, signal) => gotear(fuente, onDelta, signal, { duracion });
     answer = await entregar(
       (delta) => {
         if (firstChunk) {
@@ -1747,7 +1838,8 @@ async function responder(fuente, { origen }) {
             el.sceneLabel.textContent = 'NOVA';
             sceneWriter.clear();
           }
-          setMode('answering');
+          // Si la voz ya está sonando (una grabación), eso es lo que se muestra.
+          setMode(speaker.enabled && speaker.speaking ? 'speaking' : 'answering');
         }
         bubbleWriter.push(delta);
         if (isStage()) sceneWriter.push(delta);

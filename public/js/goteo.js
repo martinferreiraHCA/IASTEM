@@ -12,9 +12,15 @@ const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
  * @param {AbortSignal} [signal]
  * @returns {Promise<string>} el texto completo
  */
-export async function gotear(texto, onDelta, signal) {
+export async function gotear(texto, onDelta, signal, { duracion = 0 } = {}) {
   const trozos = texto.match(/\S+\s*/g) || [texto];
   let todo = '';
+
+  // Si se sabe cuánto dura la voz (una grabación), las palabras caen a su
+  // ritmo y el texto termina de formarse poco antes de que termine de sonar.
+  const paso = duracion > 0
+    ? Math.min(450, Math.max(12, (duracion * 1000 * 0.9 - 140) / trozos.length))
+    : 0;
 
   await pausa(140); // un respiro, como quien toma aire
 
@@ -22,7 +28,7 @@ export async function gotear(texto, onDelta, signal) {
     if (signal?.aborted) throw interrumpido();
     todo += trozo;
     onDelta(trozo);
-    await pausa(12 + Math.random() * 22);
+    await pausa(paso ? paso * (0.7 + Math.random() * 0.6) : 12 + Math.random() * 22);
   }
   return todo;
 }

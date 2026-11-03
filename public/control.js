@@ -297,6 +297,7 @@ function pintar() {
       entrada.fondo ? `<span class="linea__marca">fondo: ${escapar(entrada.fondo)}</span>` : '',
       entrada.palabra ? `<span class="linea__marca">palabra: ${escapar(entrada.palabra)}</span>` : '',
       entrada.camara ? `<span class="linea__marca">cámara: ${entrada.camara}</span>` : '',
+      entrada.grabada === false ? '<span class="linea__marca linea__marca--ojo">sin grabación</span>' : '',
     ].join('');
     fila.innerHTML = `
       <span class="linea__numero">${entrada.indice + 1}</span>

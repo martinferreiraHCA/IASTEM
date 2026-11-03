@@ -257,6 +257,40 @@ Si con la voz del navegador igual se traba, es la voz: las de Google en
 Chrome bajan el audio de internet en cada arranque. La voz por API es la que
 suena a persona y de corrido.
 
+### La función con grabaciones
+
+Para la muestra, NOVA no necesita IA ni sintetizador en vivo: **cada
+parlamento está grabado de antemano** y suena al instante cuando llega su
+momento, desde el panel o por el pie. Todo lo que hace falta queda en el
+repositorio y se publica con el sitio.
+
+1. **Grabar.** Con el guion en un archivo de texto (el formato de arriba):
+
+   ```
+   node herramientas/grabar.mjs docs/guion-creatividad.txt --nombre creatividad
+   ```
+
+   Deja en `public/guiones/creatividad/` el guion, un `grabaciones.json` y
+   un audio por parlamento (y por comodín). Es una caché: si cambiás una
+   línea y volvés a correrlo, graba solo esa. Las grabaciones se encuentran
+   por lo que dicen (una huella del texto), así que reordenar o agregar
+   líneas no las rompe; cambiar una palabra sí, y hay que regrabar esa.
+2. **Cargar.** En NOVA, *Guion → Guiones de la muestra* lista los guiones
+   grabados: elegís uno y queda cargado, con sus grabaciones precargadas en
+   memoria (abajo del texto dice cuántas están listas). También podés pegar
+   el guion a mano: cada línea que coincida con una grabación suena grabada.
+3. **Conducir.** Desde el panel, *Decir el siguiente* o tocar la línea. En
+   la pantalla el texto se forma al ritmo de la voz y termina con ella. Las
+   líneas sin grabación aparecen marcadas en el panel y salen con el
+   sintetizador.
+
+Motores para grabar: **Piper** (por defecto; local y gratis, con una voz
+`.onnx` de https://huggingface.co/rhasspy/piper-voices, por ejemplo
+`es_AR-daniela-high`, rioplatense) o **OpenAI** (`--motor openai`, con
+`OPENAI_API_KEY` en el entorno y `--voz nova`). `node herramientas/grabar.mjs
+--ayuda` cuenta el resto. Para la función conviene dejar el asistente sin
+clave y el micrófono apagado si todo se maneja desde el panel.
+
 ### Si el micrófono no transcribe
 
 El reconocimiento de voz lo hace el navegador, y **solo Google Chrome y Edge
@@ -386,6 +420,8 @@ public/                  El sitio. Esto es lo que se publica en Pages.
     guion.js             El guion: pies, parlamentos, comodines y la comparación tolerante
     enlace.js            El enlace entre escenario y panel: ventana a ventana, por el servidor, o por la sala
     relevo.js            El relevo de la sala: un cliente MQTT mínimo sobre WebSocket, para redes cerradas
+    huella.js            La huella de un parlamento, para encontrar su grabación por lo que dice
+    grabaciones.js       Las grabaciones: índice, precarga y reproducción al instante
     arbitro.js           El asistente de ubicación: le pregunta a una IA en qué pie estamos
     goteo.js             Entrega un texto de a palabras, como si se pensara
     materialize.js       El efecto Jumanji, letra por letra
@@ -393,7 +429,11 @@ public/                  El sitio. Esto es lo que se publica en Pages.
     voice.js             Micrófono y voz (Web Speech API)
     audio.js             Mide el volumen real: la voz que mueve los visuales
     show.js              La función: turnos de estudiantes y acuerdos
+  guiones/               Los guiones de la muestra, grabados: guion.txt, grabaciones.json y audio/
+    indice.json          Qué guiones hay, para el selector del escenario
 
+herramientas/grabar.mjs  Graba los parlamentos de un guion (Piper u OpenAI) en public/guiones/
+docs/guion-creatividad.txt     El guion de la muestra: Palabra uno, Creatividad
 docs/guion-german-martin.txt   Un guion de ejemplo
 index.html               Redirección a public/, para que Pages sirva la app
 server.js                Servidor local: archivos estáticos, relevo para el panel y asistente

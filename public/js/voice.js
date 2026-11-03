@@ -632,6 +632,8 @@ export class Speaker {
     this.abierto = false;  // una respuesta está llegando de a frases
     this.primera = true;   // todavía no salió el primer trozo de esta respuesta
     this.pendiente = '';   // frases juntadas que esperan formar un trozo
+    this.grabaciones = null; // las grabaciones (grabaciones.js): si hay una para el texto, va antes que el motor
+    this.conGrabacion = false; // está sonando una grabación
     this.onStart = null;
     this.onEnd = null;
     this.onError = null;
@@ -643,7 +645,7 @@ export class Speaker {
   }
 
   get speaking() {
-    return this.motor?.speaking ?? false;
+    return this.conGrabacion || (this.motor?.speaking ?? false);
   }
 
   /** Qué motor está hablando de verdad ahora. */
@@ -714,15 +716,39 @@ export class Speaker {
     this.motor.cerrar?.();
   }
 
-  /** Dice un texto que ya se conoce entero: se pide todo junto, de una vez. */
+  /**
+   * Dice un texto que ya se conoce entero. Si hay una grabación de ese
+   * texto, suena esa (y se devuelve cuánto dura, para acompasar la
+   * pantalla); si no, se le pide al motor todo junto, de una vez.
+   * @returns {number} segundos de la grabación, o 0 si habla el motor
+   */
   decir(text) {
-    if (!this.enabled || !this.supported) return;
+    if (!this.enabled) return 0;
     const clean = limpiar(text);
-    if (!clean) return;
+    if (!clean) return 0;
+    const toque = this.grabaciones?.tocar(clean);
+    if (toque) {
+      this.motor?.cancel();
+      this.conGrabacion = true;
+      this.onStart?.();
+      toque.fin.then(() => {
+        if (!this.conGrabacion) return; // la cortaron
+        this.conGrabacion = false;
+        this.onEnd?.();
+      });
+      return toque.duracion;
+    }
+    if (!this.supported) return 0;
     this.abrir();
     this.pendiente = clean;
     this.#soltar();
     this.cerrar();
+    return 0;
+  }
+
+  /** Hay grabación lista para ese texto. */
+  tieneGrabacion(text) {
+    return Boolean(this.grabaciones?.lista(limpiar(text)));
   }
 
   #soltar() {
@@ -736,6 +762,8 @@ export class Speaker {
   cancel() {
     this.abierto = false;
     this.pendiente = '';
+    this.conGrabacion = false;
+    this.grabaciones?.parar();
     if (this.motor) this.motor.abierto = false;
     this.motor?.cancel();
     this.onEnd?.();

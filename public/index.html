@@ -282,11 +282,21 @@
         no reconoce nada. Todo lo que NOVA dice sale de acá.
       </p>
 
+      <div class="sheet__field" id="guionPaquetes" hidden>
+        <label class="sheet__label" for="guionPaquete">Guiones de la muestra, con sus grabaciones</label>
+        <div class="alta">
+          <select id="guionPaquete" aria-label="Guion de la muestra">
+            <option value="">Elegí un guion…</option>
+          </select>
+        </div>
+      </div>
+
       <div class="sheet__field">
         <textarea id="guionTexto" rows="11" spellcheck="false"
                   placeholder="ANA: Hola NOVA, ¿nos escuchás?&#10;NOVA: Los escucho. Soy NOVA, la inteligencia de esta muestra.&#10;&#10;TOMÁS: ¿Y cómo aprendiste a hablar?&#10;NOVA: Parecido a como aprendiste vos a reconocer perros…"
                   aria-label="Texto del guion"></textarea>
         <p class="sheet__note" id="guionResumen"></p>
+        <p class="sheet__note" id="guionGrabaciones" hidden></p>
       </div>
 
       <div class="sheet__foot">
