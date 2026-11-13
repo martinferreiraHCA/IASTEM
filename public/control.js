@@ -25,6 +25,8 @@ const el = {
   oido: $('oido'),
   dicho: $('dicho'),
   siguiente: $('siguiente'),
+  atras: $('atras'),
+  entrega: $('entrega'),
   siguienteDetalle: $('siguienteDetalle'),
   detener: $('detener'),
   progreso: $('progreso'),
@@ -73,13 +75,59 @@ let estado = null;
 let ultimaSenal = 0;
 const eventos = []; // los últimos, por orden de llegada
 
+// El guion entero llega aparte del estado, y solo cuando cambia: acá se guarda.
+let guionGuardado = { version: '', entradas: [] };
+let guionPedido = 0;       // cuándo se pidió por última vez
+let listaPintada = null;   // qué versión del guion está dibujada en la lista
+let plantelPintado = '';   // y qué plantel
+let cursorPintado = null;
+
 const enlace = new Enlace('panel', (mensaje) => {
+  if (mensaje.tipo === 'guion') {
+    guionGuardado = { version: mensaje.version, entradas: mensaje.entradas || [] };
+    if (estado) { completarGuion(); pintar(); }
+    return;
+  }
   if (mensaje.tipo !== 'estado') return;
   estado = mensaje.estado;
   ultimaSenal = Date.now();
+  completarGuion();
   pintar();
 });
 enlace.onCambio = () => pintarEnlace();
+enlace.onEntrega = (entrega) => pintarEntrega(entrega);
+
+/** Le pone al estado las líneas del guion guardado; si son de otra versión, las pide. */
+function completarGuion() {
+  const { guion } = estado;
+  if (guion.version === guionGuardado.version) {
+    guion.entradas = guionGuardado.entradas;
+    return;
+  }
+  guion.entradas = guion.total ? [] : [];
+  guion.esperando = guion.total > 0;
+  if (Date.now() - guionPedido > 1500) {
+    guionPedido = Date.now();
+    enlace.enviar({ tipo: 'comando', accion: 'guion' });
+  }
+}
+
+/* Si la orden llegó: se dice abajo de los botones, y cuánto tardó. */
+let ordenActual = null; // {id, texto}
+let entregaTimer = null;
+function pintarEntrega({ id, estado: como, ms, intento }) {
+  if (!ordenActual || ordenActual.id !== id) return;
+  clearTimeout(entregaTimer);
+  el.entrega.dataset.estado = como;
+  if (como === 'enviando') el.entrega.textContent = intento ? `${ordenActual.texto}: reintentando (${intento + 1})…` : `${ordenActual.texto}: enviando…`;
+  else if (como === 'ok') {
+    el.entrega.textContent = `${ordenActual.texto}: recibido · ${ms} ms${intento ? `, al intento ${intento + 1}` : ''}`;
+    entregaTimer = setTimeout(() => { el.entrega.textContent = ''; el.entrega.dataset.estado = ''; }, 4000);
+  } else {
+    el.entrega.textContent = `${ordenActual.texto}: NO LLEGÓ. Fijate la conexión y tocá de nuevo.`;
+    navigator.vibrate?.([60, 60, 60]);
+  }
+}
 
 const SALA_CLAVE = 'nova:sala-panel';
 const SALA_TEXTOS = {
@@ -100,16 +148,32 @@ pintarEnlace();
 pedir();
 // Mientras no haya señal, se insiste; y si se corta, se nota en seguida.
 setInterval(() => {
-  if (!estado || Date.now() - ultimaSenal > 20000) pedir();
+  const sinSenal = !estado || Date.now() - ultimaSenal > 14000; // el escenario late cada 6 s
+  if (sinSenal) {
+    enlace.reanimar();
+    pedir();
+  }
   pintarEnlace();
-}, 5000);
+}, 4000);
+// Al volver al panel (el celular estaba bloqueado, o en otra app) o recuperar la red: revivir ya.
+const revivir = () => { enlace.reanimar(); pedir(); };
+for (const evento of ['online', 'pageshow', 'focus']) window.addEventListener(evento, revivir);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') revivir(); });
 
 function pedir() {
   enlace.enviar({ tipo: 'comando', accion: 'hola' });
 }
 
+const NOMBRES_ORDEN = { siguiente: 'Adelante', atras: 'Atrás', detener: 'Detener', decir: 'Decir línea', pantalla: 'Solo pantalla', apagar: 'Apagar', reiniciar: 'Al principio' };
+
+/** Manda una orden al escenario y espera su acuse; lo que pasa se ve abajo de los botones. */
 function mandar(accion, extra = {}) {
-  enlace.enviar({ tipo: 'comando', accion, ...extra });
+  const texto = accion === 'decir' ? `Línea ${Number(extra.indice) + 1}` : NOMBRES_ORDEN[accion] || 'Orden';
+  navigator.vibrate?.(12);
+  ordenActual = { id: null, texto };
+  const id = enlace.enviar({ tipo: 'comando', accion, ...extra }, { confirmar: true });
+  ordenActual.id = id;
+  pintarEntrega({ id, estado: 'enviando', intento: 0 });
 }
 
 /* --------------------------------------------------------------- sala */
@@ -165,6 +229,21 @@ function wire() {
   el.salaSalir.addEventListener('click', () => salirSala());
 
   el.siguiente.addEventListener('click', () => mandar('siguiente'));
+  el.atras.addEventListener('click', () => mandar('atras'));
+  // Con teclado (el panel abierto en la notebook, o un puntero de presentaciones).
+  document.addEventListener('keydown', (event) => {
+    if (event.repeat || (event.target instanceof Element && event.target.matches('input, textarea, select'))) return;
+    if (event.key === 'ArrowRight' || event.key === 'PageDown') { event.preventDefault(); if (!el.siguiente.disabled) mandar('siguiente'); }
+    if (event.key === 'ArrowLeft' || event.key === 'PageUp') { event.preventDefault(); if (!el.atras.disabled) mandar('atras'); }
+  });
+  // Las líneas del guion: un solo oyente para toda la lista, que no se rehace con cada mensaje.
+  el.lineas.addEventListener('click', (event) => {
+    const fila = event.target.closest('.linea');
+    if (!fila) return;
+    const indice = Number(fila.dataset.indice);
+    if (event.target.closest('.linea__pantalla')) mandar('pantalla', { indice });
+    else mandar('decir', { indice });
+  });
   el.detener.addEventListener('click', () => mandar('detener'));
   el.activo.addEventListener('click', () => mandar('activo', { on: !(estado?.guion.activo ?? true) }));
   el.reiniciar.addEventListener('click', () => mandar('reiniciar'));
@@ -278,9 +357,12 @@ function pintar() {
 
   // El siguiente parlamento, en el botón grande.
   const siguiente = guion.entradas[guion.cursor + 1] || null;
-  el.siguiente.disabled = !siguiente;
+  el.siguiente.disabled = guion.cursor + 1 >= guion.total;
+  el.atras.disabled = guion.cursor < 0;
   el.siguienteDetalle.textContent = !guion.total
     ? 'No hay guion cargado'
+    : guion.esperando && !guion.entradas.length
+      ? `${Math.min(guion.cursor + 2, guion.total)}/${guion.total} · bajando el guion…`
     : siguiente
       ? `${siguiente.indice + 1}/${guion.total} · ${siguiente.muda ? 'solo pantalla' : recortar(siguiente.parlamento, 90)}`
       : 'Fin del guion';
@@ -289,54 +371,57 @@ function pintar() {
   const conAsistente = estado.asistente && estado.asistente !== 'ninguno';
   el.progreso.textContent = `${guion.total ? `${Math.max(0, guion.cursor + 1)}/${guion.total}` : ''}${conAsistente ? (estado.asistenteConversa ? ' · con IA que conversa' : ' · con asistente') : ''}`;
   el.activo.setAttribute('aria-pressed', String(guion.activo));
-  el.lineas.innerHTML = '';
-  if (!guion.total) {
-    el.lineas.innerHTML = '<li class="lineas__vacio">No hay guion cargado. Cargalo en el escenario o desde acá abajo.</li>';
-  }
-  let escenaVista = null;
-  for (const entrada of guion.entradas) {
-    if (entrada.escena !== escenaVista && entrada.escena) {
-      const titulo = document.createElement('li');
-      titulo.className = 'lineas__escena';
-      titulo.textContent = entrada.escena;
-      el.lineas.appendChild(titulo);
+  // La lista se dibuja una vez por versión del guion; después solo se mueve la marca.
+  // Rehacerla con cada mensaje hacía perder toques y saltar el desplazamiento.
+  const clave = `${guion.version}:${guion.entradas.length}`;
+  if (listaPintada !== clave) {
+    listaPintada = clave;
+    cursorPintado = null;
+    el.lineas.innerHTML = '';
+    if (!guion.total) {
+      el.lineas.innerHTML = '<li class="lineas__vacio">No hay guion cargado. Cargalo en el escenario o desde acá abajo.</li>';
+    } else if (!guion.entradas.length) {
+      el.lineas.innerHTML = '<li class="lineas__vacio">Bajando el guion…</li>';
     }
-    escenaVista = entrada.escena;
-    const fila = document.createElement('li');
-    fila.className = 'linea';
-    fila.classList.toggle('is-dicho', entrada.indice <= guion.cursor);
-    fila.classList.toggle('is-siguiente', entrada.indice === guion.cursor + 1);
-    const marcas = [
-      entrada.imagen ? `<span class="linea__marca">${entrada.imagen === 'ninguna' ? 'sin imagen' : `imagen${entrada.segundos ? ` ${entrada.segundos}s` : ''}`}</span>` : '',
-      entrada.fondo ? `<span class="linea__marca">fondo: ${escapar(entrada.fondo)}</span>` : '',
-      entrada.palabra ? `<span class="linea__marca">palabra: ${escapar(entrada.palabra)}</span>` : '',
-      entrada.letrero ? `<span class="linea__marca">letrero: ${escapar(entrada.letrero)}</span>` : '',
-      entrada.video ? `<span class="linea__marca">video: ${escapar(entrada.video)}</span>` : '',
-      entrada.camara ? `<span class="linea__marca">cámara: ${entrada.camara}</span>` : '',
-      entrada.grabada === false ? '<span class="linea__marca linea__marca--ojo">sin grabación</span>' : '',
-    ].join('');
-    fila.innerHTML = `
-      <span class="linea__numero">${entrada.indice + 1}</span>
-      <span class="linea__pie">${entrada.pie ? escapar(entrada.pie) : '<em>sin pie</em>'}${marcas}</span>
-      <span class="linea__parlamento">${entrada.muda ? '<em>Solo pantalla, NOVA no habla.</em>' : escapar(entrada.parlamento)}</span>`;
-    fila.addEventListener('click', () => mandar('decir', { indice: entrada.indice }));
-    if (entrada.pantalla) {
-      // Solo lo de pantalla, sin que NOVA hable: para cuando los estudiantes van solos.
-      const boton = document.createElement('button');
-      boton.type = 'button';
-      boton.className = 'linea__pantalla';
-      boton.textContent = 'Solo pantalla';
-      boton.title = 'Aplicar la imagen, el fondo, la palabra o la cámara de esta línea sin que NOVA hable';
-      boton.addEventListener('click', (event) => {
-        event.stopPropagation();
-        mandar('pantalla', { indice: entrada.indice });
-      });
-      fila.appendChild(boton);
+    let escenaVista = null;
+    const partes = document.createDocumentFragment();
+    for (const entrada of guion.entradas) {
+      if (entrada.escena !== escenaVista && entrada.escena) {
+        const titulo = document.createElement('li');
+        titulo.className = 'lineas__escena';
+        titulo.textContent = entrada.escena;
+        partes.appendChild(titulo);
+      }
+      escenaVista = entrada.escena;
+      const fila = document.createElement('li');
+      fila.className = 'linea';
+      fila.dataset.indice = String(entrada.indice);
+      const marcas = [
+        entrada.imagen ? `<span class="linea__marca">${entrada.imagen === 'ninguna' ? 'sin imagen' : `imagen${entrada.segundos ? ` ${entrada.segundos}s` : ''}`}</span>` : '',
+        entrada.fondo ? `<span class="linea__marca">fondo: ${escapar(entrada.fondo)}</span>` : '',
+        entrada.palabra ? `<span class="linea__marca">palabra: ${escapar(entrada.palabra)}</span>` : '',
+        entrada.letrero ? `<span class="linea__marca">letrero: ${escapar(entrada.letrero)}</span>` : '',
+        entrada.video ? `<span class="linea__marca">video: ${escapar(entrada.video)}</span>` : '',
+        entrada.camara ? `<span class="linea__marca">cámara: ${entrada.camara}</span>` : '',
+        entrada.grabada === false ? '<span class="linea__marca linea__marca--ojo">sin grabación</span>' : '',
+      ].join('');
+      fila.innerHTML = `
+        <span class="linea__numero">${entrada.indice + 1}</span>
+        <span class="linea__pie">${entrada.pie ? escapar(entrada.pie) : '<em>sin pie</em>'}${marcas}</span>
+        <span class="linea__parlamento">${entrada.muda ? '<em>Solo pantalla, NOVA no habla.</em>' : escapar(entrada.parlamento)}</span>${entrada.pantalla && !entrada.muda ? '<button type="button" class="linea__pantalla" title="Aplicar la imagen, el fondo, la palabra o la cámara de esta línea sin que NOVA hable">Solo pantalla</button>' : ''}`;
+      partes.appendChild(fila);
     }
-    el.lineas.appendChild(fila);
+    el.lineas.appendChild(partes);
   }
-  const siguienteFila = el.lineas.querySelector('.is-siguiente');
-  siguienteFila?.scrollIntoView({ block: 'nearest' });
+  if (cursorPintado !== guion.cursor) {
+    cursorPintado = guion.cursor;
+    for (const fila of el.lineas.querySelectorAll('.linea')) {
+      const indice = Number(fila.dataset.indice);
+      fila.classList.toggle('is-dicho', indice <= guion.cursor);
+      fila.classList.toggle('is-siguiente', indice === guion.cursor + 1);
+    }
+    el.lineas.querySelector('.is-siguiente')?.scrollIntoView({ block: 'nearest' });
+  }
 
   // Pantalla.
   for (const boton of document.querySelectorAll('[data-escena]')) {
@@ -373,20 +458,25 @@ function pintar() {
   el.apagar.textContent = estado.apagada ? 'Encender NOVA' : 'Apagar NOVA';
 
   // Turnos.
-  el.turnos.innerHTML = '';
-  if (!estado.plantel.length) {
-    el.turnos.innerHTML = '<p class="nota">Sin plantel. Se carga en el escenario, en Función.</p>';
+  const plantel = JSON.stringify(estado.plantel);
+  if (plantel !== plantelPintado) {
+    plantelPintado = plantel;
+    el.turnos.innerHTML = '';
+    if (!estado.plantel.length) {
+      el.turnos.innerHTML = '<p class="nota">Sin plantel. Se carga en el escenario, en Función.</p>';
+    }
+    for (const persona of estado.plantel) {
+      const boton = document.createElement('button');
+      boton.type = 'button';
+      boton.className = 'turno';
+      boton.dataset.id = persona.id;
+      boton.style.setProperty('--acento', persona.color);
+      boton.textContent = persona.name;
+      boton.addEventListener('click', () => mandar('turno', { id: persona.id }));
+      el.turnos.appendChild(boton);
+    }
   }
-  for (const persona of estado.plantel) {
-    const boton = document.createElement('button');
-    boton.type = 'button';
-    boton.className = 'turno';
-    boton.style.setProperty('--acento', persona.color);
-    boton.setAttribute('aria-pressed', String(estado.turno?.id === persona.id));
-    boton.textContent = persona.name;
-    boton.addEventListener('click', () => mandar('turno', { id: persona.id }));
-    el.turnos.appendChild(boton);
-  }
+  for (const boton of el.turnos.querySelectorAll('.turno')) boton.setAttribute('aria-pressed', String(String(estado.turno?.id) === boton.dataset.id));
   el.fijar.disabled = !estado.ultimaRespuesta;
   el.acuerdos.textContent = estado.acuerdos ? `${estado.acuerdos} en el muro` : '';
 

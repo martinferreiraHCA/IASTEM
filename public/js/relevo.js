@@ -13,7 +13,7 @@
  */
 
 /**
- * Servidores públicos; si uno no anda, se prueba el siguiente. El primero
+ * Servidores públicos; se usan varios a la vez (ver Relevo). El primero
  * va por el puerto 443, que pasa por cualquier red; los otros usan puertos
  * raros que algunas redes cierran. Con `localStorage['nova:relevo']` se
  * puede poner uno propio (una dirección wss://, o varias separadas por
@@ -40,18 +40,91 @@ function servidores() {
   return [...propios, ...RELEVOS];
 }
 
-const LATIDO_MS = 25000; // keepalive 60 s: se late antes de la mitad
+const LATIDO_MS = 20000; // keepalive 60 s: se late antes de la mitad
 const codificador = new TextEncoder();
 const decodificador = new TextDecoder();
 
+/**
+ * El relevo: varias conexiones a la vez, una por servidor. El escenario y
+ * el celular publican y escuchan en todos los que les respondan, así
+ * siempre comparten al menos uno aunque a cada cual le falle alguno
+ * distinto. El mensaje repetido lo descarta el enlace, por su `id`.
+ */
 export class Relevo {
   /**
    * @param {string} tema
-   * @param {{ onMensaje: (m: object) => void, onCambio?: (estado: string) => void }} opciones
+   * @param {{ onMensaje: (m: object) => void, onCambio?: (estado: string) => void, servidores?: string[] }} opciones
    */
   constructor(tema, { onMensaje, onCambio, servidores: lista = null }) {
+    this.onCambio = onCambio;
+    this.estado = 'cerrado'; // cerrado, conectando, conectado, caido
+    const todas = (lista || servidores()).slice(0, MAX_HILOS);
+    this.hilos = todas.map((direccion) => new Hilo(tema, direccion, { onMensaje, onCambio: () => this.#revisar() }));
+  }
+
+  /** El primero conectado (o el primero, si ninguno): para mostrar. */
+  get servidor() {
+    return (this.hilos.find((h) => h.estado === 'conectado') || this.hilos[0])?.servidor || '';
+  }
+
+  /** Cuántos servidores están conectados ahora. */
+  get conectados() {
+    return this.hilos.filter((h) => h.estado === 'conectado').length;
+  }
+
+  /** Los intentos fallidos del que menos falló: 0 si alguno anda. */
+  get intentos() {
+    return this.hilos.length ? Math.min(...this.hilos.map((h) => h.intentos)) : 0;
+  }
+
+  conectar() {
+    this.cerrado = false;
+    for (const hilo of this.hilos) hilo.conectar();
+    this.#revisar();
+  }
+
+  /** Publica por todos los servidores conectados. */
+  enviar(objeto) {
+    let alguno = false;
+    const carga = JSON.stringify(objeto);
+    for (const hilo of this.hilos) alguno = hilo.enviar(carga) || alguno;
+    return alguno;
+  }
+
+  /**
+   * Vuelve a conectar ya lo que esté caído y comprueba que lo conectado
+   * siga vivo: al volver de tener el celular bloqueado, las conexiones
+   * parecen abiertas y no lo están.
+   */
+  reanimar() {
+    for (const hilo of this.hilos) hilo.reanimar();
+  }
+
+  cerrar() {
+    this.cerrado = true;
+    for (const hilo of this.hilos) hilo.cerrar();
+    this.#revisar();
+  }
+
+  #revisar() {
+    const estados = this.hilos.map((h) => h.estado);
+    const estado = this.cerrado ? 'cerrado'
+      : estados.includes('conectado') ? 'conectado'
+        : estados.includes('conectando') ? 'conectando'
+          : 'caido';
+    if (estado === this.estado) return this.onCambio?.(estado); // cambió cuántos hay, aunque no el estado
+    this.estado = estado;
+    this.onCambio?.(estado);
+  }
+}
+
+const MAX_HILOS = 4; // a cuántos servidores a la vez, como mucho
+
+/** Una conexión con un servidor: conecta, se suscribe, publica, late y reintenta. */
+class Hilo {
+  constructor(tema, direccion, { onMensaje, onCambio }) {
     this.tema = tema;
-    this.lista = lista; // una lista propia de servidores (para probar uno solo)
+    this.lista = [direccion];
     this.onMensaje = onMensaje;
     this.onCambio = onCambio;
     this.estado = 'cerrado'; // cerrado, conectando, conectado, caido
@@ -63,6 +136,7 @@ export class Relevo {
     this.latido = null;
     this.paqueteId = 1;
     this.pendiente = new Uint8Array(0); // bytes que llegaron a medias
+    this.ultimoPaquete = 0;             // cuándo llegó algo del servidor por última vez
   }
 
   conectar() {
@@ -70,8 +144,7 @@ export class Relevo {
     clearTimeout(this.reintento);
     this.#setEstado('conectando');
     let socket;
-    const lista = this.lista || servidores();
-    const direccion = leerDireccion(lista[this.cual % lista.length]);
+    const direccion = leerDireccion(this.lista[0]);
     this.servidor = direccion.url;
     try {
       socket = new WebSocket(direccion.url, ['mqtt']);
@@ -99,15 +172,41 @@ export class Relevo {
     };
   }
 
-  /** Publica un objeto en el tema, sin confirmación (QoS 0). */
-  enviar(objeto) {
+  /** Publica un texto (JSON) en el tema, sin confirmación (QoS 0). */
+  enviar(carga) {
     if (this.estado !== 'conectado' || !this.socket) return false;
     try {
-      this.socket.send(paquetePublicar(this.tema, JSON.stringify(objeto)));
+      this.socket.send(paquetePublicar(this.tema, carga));
       return true;
     } catch {
       return false;
     }
+  }
+
+  /** Si está caído, reconecta ya; si parece conectado, comprueba que conteste. */
+  reanimar() {
+    if (this.estado === 'cerrado') return;
+    if (!this.socket) {
+      this.intentos = 0;
+      this.conectar();
+      return;
+    }
+    if (this.estado !== 'conectado') return;
+    const socket = this.socket;
+    const antes = this.ultimoPaquete;
+    try { socket.send(new Uint8Array([0xC0, 0x00])); } catch { /* se nota abajo */ }
+    setTimeout(() => {
+      if (this.socket !== socket || this.ultimoPaquete !== antes) return; // contestó, o ya es otra
+      this.intentos = 0;
+      try { socket.close(); } catch { /* ya cerrada */ }
+      // Un socket muerto puede tardar en avisar que se cerró: no se lo espera.
+      if (this.socket === socket) {
+        this.socket = null;
+        clearInterval(this.latido);
+        this.#setEstado('caido');
+        this.conectar();
+      }
+    }, 2500);
   }
 
   cerrar() {
@@ -120,11 +219,9 @@ export class Relevo {
   }
 
   #caida() {
-    // Si este servidor falló sin haber conectado, se pasa al siguiente.
-    if (this.estado !== 'conectado') this.cual += 1;
     this.intentos += 1;
     this.#setEstado('caido');
-    const espera = Math.min(1500 * this.intentos, 15000);
+    const espera = Math.min(1500 * this.intentos, 20000);
     this.reintento = setTimeout(() => { if (this.estado !== 'cerrado') this.conectar(); }, espera);
   }
 
@@ -144,6 +241,7 @@ export class Relevo {
   }
 
   #paquete({ tipo, cuerpo }, socket) {
+    this.ultimoPaquete = performance.now();
     if (tipo === 2) { // CONNACK
       if (cuerpo[1] !== 0) return socket.close();
       socket.send(paqueteSuscribir(this.tema, this.paqueteId++));
@@ -153,7 +251,11 @@ export class Relevo {
       this.intentos = 0;
       this.#setEstado('conectado');
       clearInterval(this.latido);
-      this.latido = setInterval(() => { try { socket.send(new Uint8Array([0xC0, 0x00])); } catch { /* se cae sola */ } }, LATIDO_MS);
+      this.latido = setInterval(() => {
+        // Sin respuesta a dos latidos seguidos, la conexión está muerta aunque no lo diga.
+        if (performance.now() - this.ultimoPaquete > LATIDO_MS * 2.5) return socket.close();
+        try { socket.send(new Uint8Array([0xC0, 0x00])); } catch { /* se cae sola */ }
+      }, LATIDO_MS);
       return;
     }
     if (tipo === 3) { // PUBLISH

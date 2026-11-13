@@ -200,11 +200,28 @@ Hay dos maneras de abrirlo, y el botón **Panel** del escenario las explica:
 | **Desde el celular, por internet** | *Panel → Crear la sala para el celular.* NOVA muestra un código y un QR. En el celular se escanea el QR (o se abre `control.html` y se escribe el código) y listo: lo que se toca en el celular pasa en la computadora y en la tele. | Internet en los dos. El celular puede estar en cualquier red, hasta con sus datos. Anda desde GitHub Pages. |
 | **Desde el celular, en la misma red** | Correr `npm start` en la computadora que proyecta y abrir en el celular la dirección que muestra la consola, algo como `http://192.168.1.20:3000/control.html`. | Node, y que los dos estén en la misma red Wi-Fi. No necesita internet. |
 
+**Adelante y atrás.** La función se conduce con dos órdenes: *Adelante* dice
+la línea que sigue del guion, y *Atrás* corta lo que suena y vuelve una línea
+(no la dice: queda como la siguiente). Están en el panel, en la consola de
+NOVA, y en el teclado de la computadora: **flecha derecha** o **Av Pág**, y
+**flecha izquierda** o **Re Pág**. Un puntero de presentaciones conectado a
+la computadora manda esas mismas teclas: es la manera más firme de conducir,
+porque no depende de ninguna red.
+
+**Para que el celular ande fino.** El estado que NOVA le cuenta al panel es
+liviano (alrededor de 1 KB) y sale a lo sumo cada 220 ms; el guion entero
+viaja aparte, una sola vez por versión. El panel dibuja la lista una vez y
+después solo mueve la marca. Cada orden espera el **acuse** del escenario:
+abajo de los botones dice "recibido" y cuánto tardó; si no llega se manda de
+nuevo sola, y si a los seis segundos no hubo caso lo dice en rojo. Al volver
+de tener el celular bloqueado, la sala se revive sola.
+
 La sala usa dos caminos a la vez, y el panel dice cuál anda: **directo**
 (WebRTC; el escenario y el celular se encuentran por un servidor público de
-PeerJS y después se hablan sin pasar por nadie) y **por relevo** (un servidor
-público de MQTT, para las redes que no dejan hablar directo, como el Wi-Fi
-de un instituto o los datos del celular). Con que uno de los dos ande, la
+PeerJS y después se hablan sin pasar por nadie) y **por relevo** (servidores
+públicos de MQTT, hasta cuatro a la vez, para las redes que no dejan hablar
+directo, como el Wi-Fi de un instituto o los datos del celular; con que
+compartan uno, alcanza). Con que uno de los dos ande, la
 sala funciona; cada mensaje va por los dos y se descarta el repetido. Lo que
 pasa por el relevo es público para quien tenga el código de la sala (seis
 letras al azar): por eso NOVA no manda claves por ahí, solo el guion y las

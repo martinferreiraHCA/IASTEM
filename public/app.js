@@ -17,6 +17,7 @@ import { Materializer } from './js/materialize.js';
 import { WordCloud } from './js/wordcloud.js';
 import { Listener, Speaker, makeSentenceSplitter, voiceSupport, vocesDisponibles, VOCES_OPENAI } from './js/voice.js';
 import { Grabaciones } from './js/grabaciones.js';
+import { huella } from './js/huella.js';
 import { VoiceMeter } from './js/audio.js';
 import { Show } from './js/show.js';
 import { Guion, parsearGuion, puntaje, GUION_EJEMPLO } from './js/guion.js';
@@ -109,6 +110,7 @@ const el = {
   guionTira: $('guionTira'),
   guionPie: $('guionPie'),
   guionDecir: $('guionDecir'),
+  guionAtras: $('guionAtras'),
 
   // asistente de ubicación
   asistenteBtn: $('asistenteBtn'),
@@ -190,6 +192,11 @@ const ANTICIPO_MS = 5000; // una frase anticipada tapa su versión final por est
 // Declarados acá arriba porque init() corre antes de que termine de
 // evaluarse el archivo, y los usa.
 let publicarTimer = null;
+const PUBLICAR_CADA_MS = 220; // como mucho un estado al panel cada tanto
+let ultimoEstado = 0;         // cuándo salió el último
+let estadoMandado = '';       // el último estado mandado, para no repetirlo
+let guionMandado = '';        // la versión del guion que ya se mandó entera
+let versionCache = { clave: null, version: '' };
 let toastTimer = null;
 let salaPintada = null; // qué código y estado de la sala está dibujado, para no rehacer el QR a cada rato
 let cargaQR = null; // la carga de la librería del QR, una sola vez
@@ -256,6 +263,10 @@ async function init() {
 
   enlace.onCambio = () => pintarEnlace();
   pintarEnlace();
+  // Un estado cada tanto aunque nada cambie: así el panel sabe que NOVA sigue ahí.
+  setInterval(() => publicar({ forzar: true }), 6000);
+  for (const evento of ['online', 'pageshow']) window.addEventListener(evento, () => enlace.reanimar());
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') enlace.reanimar(); });
   arbitro.detectar().then(() => pintarAsistente());
   el.sceneVideoEl.addEventListener('ended', () => ocultarVideo());
   el.sceneVideoEl.addEventListener('error', () => {
@@ -466,6 +477,12 @@ function wireEvents() {
     if ((event.key === 's' || event.key === 'S') && !typing) {
       event.preventDefault();
       decirSiguiente();
+    }
+    // Adelante y atrás: las flechas, y Av Pág / Re Pág, que es lo que manda
+    // un puntero de presentaciones. Con un diálogo abierto no hacen nada.
+    if (!typing && !event.repeat && !document.querySelector('dialog[open]')) {
+      if (event.key === 'ArrowRight' || event.key === 'PageDown') { event.preventDefault(); decirSiguiente(); }
+      if (event.key === 'ArrowLeft' || event.key === 'PageUp') { event.preventDefault(); retroceder(); }
     }
     if ((event.key === 'c' || event.key === 'C') && !typing) {
       event.preventDefault();
@@ -950,48 +967,81 @@ async function pintarRed() {
 }
 
 /**
- * Cuenta por el enlace todo lo que el panel necesita para ver por dónde
- * va la función. Se manda entero y seguido: es chico y así nunca queda
- * desactualizado.
+ * Cuenta por el enlace lo que el panel necesita para ver por dónde va la
+ * función. El estado es liviano y se manda seguido; el guion entero (todas
+ * las líneas, con su texto) pesa, así que viaja aparte y solo cuando cambia
+ * o cuando un panel lo pide: el estado lleva nada más que su versión.
  */
-function publicar() {
-  clearTimeout(publicarTimer);
+function publicar({ forzar = false } = {}) {
+  if (publicarTimer) {
+    if (forzar) estadoMandado = '';
+    return; // ya hay uno por salir, y va a llevar lo último
+  }
+  const falta = Math.max(40, PUBLICAR_CADA_MS - (performance.now() - ultimoEstado));
+  if (forzar) estadoMandado = '';
   publicarTimer = setTimeout(() => {
-    enlace.enviar({
-      tipo: 'estado',
-      estado: {
-        escena: state.escena,
-        modo: state.modo,
-        escenario: isStage(),
-        mic: !listener ? 'no disponible' : listener.active ? 'escuchando' : 'apagado',
-        micDiag: state.micDiag,
-        micQuerido: state.micQuerido,
-        voz: speaker.enabled,
-        vozMotor: speaker.motorActual,
-        camara: state.camara,
-        imagen: state.imagen,
-        imagenVisible: state.imagenVisible,
-        fondo: state.fondo,
-        palabra: state.palabra,
-        letrero: state.letrero,
-        video: state.video,
-        videoEn: state.videoEn,
-        apagada: state.apagada,
-        oido: state.oido,
-        ultimaRespuesta: state.ultimaRespuesta,
-        evento: state.evento,
-        guion: resumenConGrabaciones(),
-        grabaciones: grabaciones.estado(textosDelGuion()),
-        asistente: arbitro.modo,
-        asistenteConversa: arbitro.conversa,
-        turno: show.current,
-        plantel: show.speakers,
-        acuerdos: show.agreements.length,
-        enlace: enlace.servidor,
-        sala: enlace.sala,
-      },
-    });
-  }, 80);
+    publicarTimer = null;
+    ultimoEstado = performance.now();
+    const resumen = resumenConGrabaciones();
+    const version = versionDelGuion(resumen);
+    const estado = {
+      escena: state.escena,
+      modo: state.modo,
+      escenario: isStage(),
+      mic: !listener ? 'no disponible' : listener.active ? 'escuchando' : 'apagado',
+      micDiag: state.micDiag,
+      micQuerido: state.micQuerido,
+      voz: speaker.enabled,
+      vozMotor: speaker.motorActual,
+      camara: state.camara,
+      imagen: state.imagen,
+      imagenVisible: state.imagenVisible,
+      fondo: state.fondo,
+      palabra: state.palabra,
+      letrero: state.letrero,
+      video: state.video,
+      videoEn: state.videoEn,
+      apagada: state.apagada,
+      ocupada: state.busy,
+      oido: state.oido,
+      ultimaRespuesta: recortarTexto(state.ultimaRespuesta, 220),
+      evento: state.evento,
+      guion: { activo: resumen.activo, tolerancia: resumen.tolerancia, cursor: resumen.cursor, total: resumen.total, comodines: resumen.comodines, version },
+      grabaciones: grabaciones.estado(textosDelGuion()),
+      asistente: arbitro.modo,
+      asistenteConversa: arbitro.conversa,
+      turno: show.current,
+      plantel: show.speakers,
+      acuerdos: show.agreements.length,
+      enlace: enlace.servidor,
+      sala: enlace.sala,
+    };
+    // Lo mismo que la última vez no se manda de nuevo (el latido lo fuerza).
+    const texto = JSON.stringify(estado);
+    if (texto !== estadoMandado) {
+      estadoMandado = texto;
+      enlace.enviar({ tipo: 'estado', estado });
+    }
+    if (version !== guionMandado) publicarGuion(resumen, version);
+  }, falta);
+}
+
+/** La versión del guion: cambia si cambia alguna línea, o qué líneas tienen grabación. */
+function versionDelGuion(resumen) {
+  const clave = JSON.stringify(resumen.entradas);
+  if (versionCache.clave !== clave) versionCache = { clave, version: huella(clave) };
+  return versionCache.version;
+}
+
+/** El guion entero, para el panel: todas las líneas. */
+function publicarGuion(resumen = resumenConGrabaciones(), version = versionDelGuion(resumen)) {
+  guionMandado = version;
+  enlace.enviar({ tipo: 'guion', version, entradas: resumen.entradas, personajes: resumen.personajes });
+}
+
+function recortarTexto(texto, largo) {
+  const t = String(texto || '');
+  return t.length > largo ? `${t.slice(0, largo - 1)}…` : t;
 }
 
 /** Algo que al panel le sirve saber: queda como último evento y se cuenta. */
@@ -1007,7 +1057,9 @@ function recibirComando(mensaje) {
   if (state.apagada && !['hola', 'apagar'].includes(accion)) apagar(false);
 
   switch (accion) {
-    case 'hola': publicar(); break;
+    case 'hola': publicar({ forzar: true }); break;
+    case 'guion': publicarGuion(); break;
+    case 'atras': retroceder(); break;
     case 'decir': decirDelGuion(Number(mensaje.indice)); break;
     case 'siguiente': decirSiguiente(); break;
     case 'reiniciar': guion.reiniciar(); anotar('El guion vuelve al principio.'); break;
@@ -1145,6 +1197,7 @@ function wireGuion() {
     toast('El guion vuelve al principio.');
   });
   el.guionDecir.addEventListener('click', () => decirSiguiente());
+  el.guionAtras.addEventListener('click', () => retroceder());
 
   // Asistente de ubicación: la clave vive solo en este navegador.
   el.asistenteBtn.addEventListener('click', () => {
@@ -1593,6 +1646,7 @@ function pintarGuion() {
   // La tira en la consola: qué pie se espera ahora.
   el.guionTira.hidden = !enUso;
   el.guionDecir.disabled = !siguiente;
+  el.guionAtras.disabled = guion.cursor < 0;
   if (enUso) {
     if (!siguiente) {
       el.guionPie.innerHTML = '<em>Fin del guion.</em> Solo quedan los comodines.';
@@ -1615,7 +1669,24 @@ function decirSiguiente() {
   if (!guion.tiene) return toast('No hay guion cargado. Está en el botón Guion, arriba.');
   const siguiente = guion.siguiente;
   if (!siguiente) return toast('El guion ya terminó. En el panel podés volver al principio.');
+  if (state.busy) return anotar('Todavía está diciendo la línea anterior: Detener la corta.');
   decirDelGuion(siguiente.indice);
+}
+
+/**
+ * Atrás: corta lo que esté sonando y vuelve una línea. No la dice: queda
+ * como la siguiente, y "adelante" la dice. Lo que la línea había cambiado
+ * en la pantalla no se deshace.
+ */
+function retroceder() {
+  if (!guion.tiene) return toast('No hay guion cargado. Está en el botón Guion, arriba.');
+  const hablaba = state.busy || speaker.speaking;
+  abort();
+  if (state.videoEn) ocultarVideo();
+  // La última línea dicha (o la que estaba diciendo) vuelve a ser la siguiente.
+  if (!guion.retroceder()) return anotar('El guion ya está al principio.');
+  const siguiente = guion.siguiente;
+  anotar(`Atrás${hablaba ? ' (cortado)' : ''}: sigue la línea ${siguiente.indice + 1}.`);
 }
 
 /** NOVA dice un parlamento del guion por decisión del operador, sin pregunta previa. */

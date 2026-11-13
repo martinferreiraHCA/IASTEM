@@ -117,7 +117,18 @@ button { cursor: pointer; }
 .ahora__escena { font-size: 12px; color: var(--ink-dim); }
 .ahora__oido { margin: 0; font-size: 14px; color: var(--verde); min-height: 1.5em; }
 .ahora__dicho { margin: 0; font-size: 14px; color: var(--ink-dim); }
-.ahora__botones { display: grid; grid-template-columns: 1fr auto; gap: 10px; margin-top: 6px; }
+.ahora__botones { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 6px; }
+.ahora__botones .boton--grande { grid-column: 1 / -1; min-height: 92px; }
+.ahora__botones .boton--atras,
+.ahora__botones .boton--rojo { min-height: 54px; font-size: 16px; }
+/* Si la orden llegó o no: que el operador lo sepa sin mirar la tele. */
+.entrega { margin: 8px 2px 0; min-height: 1.4em; font-family: var(--mono); font-size: 11.5px; letter-spacing: .06em; color: var(--ink-dim); }
+.entrega[data-estado="enviando"] { color: var(--ambar); }
+.entrega[data-estado="ok"] { color: var(--verde); }
+.entrega[data-estado="fallo"] { color: #ff8f9f; }
+.boton.is-enviando { border-color: var(--ambar); }
+/* Los botones no se seleccionan ni hacen zoom con dos toques seguidos. */
+button, .linea { touch-action: manipulation; -webkit-tap-highlight-color: transparent; user-select: none; }
 
 /* Botones. */
 .boton {

@@ -27,6 +27,7 @@ import { Relevo } from './relevo.js';
 
 const CANAL = 'nova:enlace';
 const LATIDO_MS = 10000; // cada cuánto el panel avisa que sigue ahí
+const REINTENTOS_MS = [450, 900, 1800, 3200]; // una orden sin acuse se manda de nuevo, y al final se da por perdida
 const AUSENTE_MS = 26000; // sin latidos durante esto, el celular ya no está
 
 const PEERJS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.5/peerjs.min.js';
@@ -92,6 +93,8 @@ export class Enlace {
     this.latidoTimer = null;
     this.ausenciaTimer = null;
     this.presentes = new Map(); // quien → último latido, para contar celulares en la sala
+    this.pendientes = new Map(); // id → orden que espera el acuse del otro lado
+    this.onEntrega = null;       // ({id, estado: 'enviando'|'ok'|'fallo', ms, intento}) => void
 
     this.canal = 'BroadcastChannel' in window ? new BroadcastChannel(CANAL) : null;
     this.canal?.addEventListener('message', (event) => this.#recibir(event.data));
@@ -100,9 +103,44 @@ export class Enlace {
     else this.#setServidor('ausente');
   }
 
-  /** Manda un mensaje a todas las otras páginas, por los dos caminos. */
-  enviar(mensaje) {
+  /**
+   * Manda un mensaje a todas las otras páginas, por todos los caminos.
+   * Con `confirmar`, el otro lado acusa recibo: si el acuse no llega, la
+   * orden se manda de nuevo (el que recibe descarta la repetida), y lo que
+   * pasa se cuenta por `onEntrega`.
+   */
+  enviar(mensaje, { confirmar = false } = {}) {
     const sobre = { ...mensaje, de: this.rol, quien: this.quien, t: Date.now(), id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}` };
+    if (confirmar) {
+      sobre.confirmar = true;
+      const pendiente = { sobre, intento: 0, t0: performance.now(), timer: null };
+      this.pendientes.set(sobre.id, pendiente);
+      this.#esperarAcuse(pendiente);
+      this.onEntrega?.({ id: sobre.id, estado: 'enviando', intento: 0 });
+    }
+    this.#despachar(sobre);
+    return sobre.id;
+  }
+
+  #esperarAcuse(pendiente) {
+    const espera = REINTENTOS_MS[pendiente.intento];
+    pendiente.timer = setTimeout(() => {
+      if (!this.pendientes.has(pendiente.sobre.id)) return;
+      pendiente.intento += 1;
+      if (pendiente.intento >= REINTENTOS_MS.length) {
+        this.pendientes.delete(pendiente.sobre.id);
+        this.onEntrega?.({ id: pendiente.sobre.id, estado: 'fallo' });
+        return;
+      }
+      if (pendiente.intento === 2) this.reanimar(); // dos sin respuesta: algo se cayó
+      this.onEntrega?.({ id: pendiente.sobre.id, estado: 'enviando', intento: pendiente.intento });
+      this.#despachar(pendiente.sobre);
+      this.#esperarAcuse(pendiente);
+    }, espera);
+  }
+
+  #despachar(sobre) {
+    const mensaje = sobre;
     if (mensaje.tipo !== 'latido') this.canal?.postMessage(sobre);
     for (const conexion of this.conexiones) {
       if (conexion.open) {
@@ -121,6 +159,21 @@ export class Enlace {
 
   #recibir(mensaje) {
     if (!mensaje || mensaje.de === this.rol) return; // lo propio no interesa
+
+    // El acuse de una orden: llegó. Y una orden que lo pide se acusa siempre,
+    // también la repetida, porque el acuse anterior pudo perderse.
+    if (mensaje.tipo === 'acuse') {
+      const pendiente = this.pendientes.get(mensaje.para);
+      if (pendiente) {
+        clearTimeout(pendiente.timer);
+        this.pendientes.delete(mensaje.para);
+        this.onEntrega?.({ id: mensaje.para, estado: 'ok', ms: Math.round(performance.now() - pendiente.t0), intento: pendiente.intento });
+      }
+      return;
+    }
+    if (mensaje.confirmar && mensaje.id) {
+      this.#despachar({ tipo: 'acuse', para: mensaje.id, de: this.rol, quien: this.quien, t: Date.now() });
+    }
 
     // En la misma computadora con servidor, el mismo mensaje llega por el
     // canal local y por el servidor: la segunda vez se ignora.
@@ -187,6 +240,29 @@ export class Enlace {
   }
 
   /* ------------------------------------------------------------ la sala */
+
+  /**
+   * Revive la sala ya mismo, sin esperar los reintentos: al volver de tener
+   * el celular bloqueado, al recuperar la red, o cuando una orden no llega.
+   */
+  reanimar() {
+    if (this.sala.estado === 'cerrada' || !this.sala.codigo) return;
+    this.relevo?.reanimar();
+    const peer = this.peer;
+    const id = PREFIJO_SALA + this.sala.codigo.toLowerCase();
+    if (!peer || peer.destroyed) {
+      if (window.Peer) { clearTimeout(this.salaReintento); this.salaIntentos = 0; this.#directo(this.sala.codigo, this.rol); }
+      return;
+    }
+    if (peer.disconnected) {
+      try { peer.reconnect(); } catch { /* se rearma en el próximo reintento */ }
+    }
+    if (this.rol === 'panel' && peer.open && ![...this.conexiones].some((c) => c.open)) {
+      clearTimeout(this.salaReintento);
+      this.salaIntentos = 0;
+      this.#enlazarConEscenario(peer, id);
+    }
+  }
 
   /** El escenario abre la sala con ese código; el celular entra con él. */
   abrirSala(codigo) { return this.#sala(normalizarCodigo(codigo), 'escenario'); }

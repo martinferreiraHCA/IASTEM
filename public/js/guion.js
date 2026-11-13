@@ -439,6 +439,14 @@ export class Guion {
     this.#save();
   }
 
+  /** Vuelve una línea atrás: la que se acaba de decir queda otra vez como la siguiente. */
+  retroceder() {
+    if (this.cursor < 0) return false;
+    this.cursor -= 1;
+    this.#save();
+    return true;
+  }
+
   /**
    * Busca el parlamento cuyo pie se parece a lo que se escuchó.
    * El que sigue en el orden del guion corre con ventaja.
