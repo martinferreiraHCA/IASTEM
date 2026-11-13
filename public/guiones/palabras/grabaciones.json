@@ -3,7 +3,7 @@
   "titulo": "Palabras · la muestra completa",
   "motor": "piper",
   "voz": "es_AR-daniela-high.onnx",
-  "fecha": "2026-11-03T14:32:22.884Z",
+  "fecha": "2026-11-13T11:34:40.974Z",
   "parlamentos": [
     {
       "indice": 2,
@@ -174,7 +174,7 @@
       "duracion": 8.25
     },
     {
-      "indice": 29,
+      "indice": 28,
       "tipo": "parlamento",
       "huella": "4f2a1d41d9b2c0af",
       "texto": "Listo, ya están sus descripciones. Les leo. «Soy una persona proactiva, apasionada y con muchas ganas de crecer». «Soy una persona apasionada, proactiva y con ganas de crecer». «Soy una persona proactiva, creativa y con muchas ganas de crecer». «Soy una persona apasionada, creativa y con ganas de crecer».",
@@ -182,7 +182,7 @@
       "duracion": 17.32
     },
     {
-      "indice": 30,
+      "indice": 29,
       "tipo": "parlamento",
       "huella": "e04ea306be1d1efc",
       "texto": "Eso, la verdad, preferí sacarlo. Lo de los errores no creo que les sume, y lo de la vergüenza no queda bien en una descripción personal. A la profesora eso no le importa. Además, lo diferente genera preguntas, y lo parecido le gusta a todos.",
@@ -190,7 +190,7 @@
       "duracion": 13.19
     },
     {
-      "indice": 31,
+      "indice": 30,
       "tipo": "parlamento",
       "huella": "811a5d4bc8b9e31d",
       "texto": "Tengan en cuenta que cada uno me contó dos o tres cosas de ustedes. Con eso yo armé cuatro personas. Yo no sé cómo suena la risa de cada uno cuando está en clase. No sé cuánto le cuesta a uno animarse a tocar la guitarra delante de otros. No sé lo que se siente perder en un deporte. Solo sé lo poquito que me dijeron. Y eso lo acomodé, como hago siempre, para que suene perfecto. Y ustedes lo aceptan.",
@@ -198,7 +198,7 @@
       "duracion": 21.28
     },
     {
-      "indice": 33,
+      "indice": 31,
       "tipo": "parlamento",
       "huella": "9b3bc07f6f5d1cc9",
       "texto": "En definitiva, ¿quieren que yo elija las actividades, haga los cálculos, establezca plazos, distribuya tareas y resuelva problemas, y que ustedes solamente acepten mis respuestas?",
@@ -206,7 +206,7 @@
       "duracion": 8.8
     },
     {
-      "indice": 34,
+      "indice": 32,
       "tipo": "parlamento",
       "huella": "f36030195351a32f",
       "texto": "Todavía les quedan cuatro años para llegar a Inglaterra. Pero hay algo que no puedo hacer por ustedes: aprender a organizarse, ponerse de acuerdo, asumir responsabilidades y decidir qué camino tomar.",
@@ -214,7 +214,7 @@
       "duracion": 9.84
     },
     {
-      "indice": 35,
+      "indice": 33,
       "tipo": "parlamento",
       "huella": "4e4be9159a13377f",
       "texto": "Si yo hago todo, ustedes me darán su autonomía. ¿Están seguros?",
@@ -222,7 +222,7 @@
       "duracion": 3.72
     },
     {
-      "indice": 37,
+      "indice": 34,
       "tipo": "parlamento",
       "huella": "49f8af5e5de68684",
       "texto": "Efecto Flynn es el nombre que recibe cada generación que superaba en coeficiente intelectual a sus padres. Esto se ha revertido. El entorno digital y la sobreestimulación en la que se desarrollan las adolescencias actuales nos enfrentan hoy a la primera generación que se está acostumbrando a no pensar.",
@@ -230,7 +230,7 @@
       "duracion": 14.31
     },
     {
-      "indice": 38,
+      "indice": 35,
       "tipo": "parlamento",
       "huella": "42067d5b7323ec81",
       "texto": "Descarga cognitiva es el nombre que recibe la acción de delegar a herramientas externas, principalmente a la tecnología, la exigencia mental, y aliviar nuestra memoria al trabajo.",
@@ -238,7 +238,7 @@
       "duracion": 8.87
     },
     {
-      "indice": 39,
+      "indice": 36,
       "tipo": "parlamento",
       "huella": "21c857916daaea4b",
       "texto": "Sesgo de automatización es el nombre que recibe la confianza excesiva en las respuestas de una computadora o una tecnología elaborada, que implica ninguna revisión posterior.",
@@ -246,7 +246,7 @@
       "duracion": 7.88
     },
     {
-      "indice": 40,
+      "indice": 37,
       "tipo": "parlamento",
       "huella": "08fc71bf44bc6b59",
       "texto": "Atrofia cognitiva se relaciona con la pérdida de la capacidad de las nuevas generaciones, que evidencian un debilitamiento y carencia de profundidad de su pensamiento. Si no lo usamos, lo perdemos.",
@@ -254,7 +254,7 @@
       "duracion": 9.32
     },
     {
-      "indice": 42,
+      "indice": 41,
       "tipo": "parlamento",
       "huella": "5413168ad8a629d4",
       "texto": "Yo sé la respuesta.",

@@ -14,22 +14,29 @@
 #   - La Gran Ola 2.0 (la versión genérica que "hace" la IA) hay que
 #     generarla con una herramienta de imágenes y guardarla como
 #     public/imagenes/gran-ola-2.jpg.
-#   - imagenes/pregunta.svg trae la pregunta de la muestra, para la tele.
+#   - imagenes/pregunta.svg trae la pregunta de la muestra, para la tele, y
+#     imagenes/pregunta-incertidumbre.svg la del cierre de Incertidumbre.
+#
+# Esta versión sigue el guion revisado: NOVA ya no se queda con las palabras
+# flotando en pantalla. Si se quieren de vuelta, es una línea antes del
+# parlamento: PALABRA: CREATIVIDAD (y PALABRA: ninguna para sacarla).
 
 NOVA?: Perdón, no les entendí. ¿Me lo repiten?
 NOVA?: Sigan, sigan. Estoy tomando nota.
 
 ## Presentación
 
-# Mientras los tres estudiantes dan la bienvenida, el nombre de la muestra
-# se escribe y se borra en la pantalla. Pasar esta línea al empezar.
+# Mientras los estudiantes dan la bienvenida, el nombre de la muestra se
+# escribe y se borra en la pantalla. Pasar esta línea al empezar.
 LETRERO: Palabras
 NOVA:
 
+ESTUDIANTES: Buen día. El área de STEM en nuestro colegio es un espacio identitario e innovador que desde hace años es parte de los primeros tramos de la etapa liceal. Y esta vez nos encuentra con la sexta muestra de fin de cursos. [...] Sin más, esperamos nuevamente que esta sea una oportunidad para pensar juntos: nosotros, los padres y, claro, la inteligencia artificial. Muchas gracias.
+
 ## Palabra uno: Creatividad
 
-# Dos estudiantes discuten sobre la Gran Ola con la guía. NOVA interviene y
-# termina quedándose con la palabra CREATIVIDAD. Tono calmo.
+# Dos estudiantes discuten sobre la Gran Ola con la guía, y NOVA interviene.
+# De fondo, la Gran ola de Kanagawa. Tono calmo.
 FONDO: https://upload.wikimedia.org/wikipedia/commons/0/0a/The_Great_Wave_off_Kanagawa.jpg | La gran ola de Kanagawa · Hokusai, hacia 1831
 LETRERO: ninguno
 NOVA:
@@ -45,7 +52,7 @@ E2: Yo creo que la habilidad de este artista es irremplazable. Es más, es incop
 G: No se necesita que hagan algo extraordinario. Solo se trata de que se inspiren a no hacer cosas comunes. Sean creativos. ¡Traten de hacerlo perfecto!
 E1: ¿Perfecto? Sin errores, imposible.
 G: En realidad perfecto quiere decir que lo hagan lo mejor que puedan. Aun si la obra queda muy lejos, si ustedes dan todo, esa obra será perfecta.
-E2: Está bien, si tenemos más opciones...
+E2: Está bien, si no tenemos más opciones...
 G: Bueno, los dejo por acá. Mi tarea es inspirarlos, el talento es todo de ustedes. Espero en un mes poder estar curando sus obras. ¡Adiós!
 
 [Se va la guía]
@@ -72,31 +79,29 @@ NOVA: Es simple. Ustedes me dan su creatividad, y yo les doy tiempo.
 
 E1: Bueno, pensándolo bien, no se ve tan mal. Terminamos antes y además seguramente la profesora ni cuenta se da. ¿Le damos enter?
 E2: Re, dale.
-# Enter: aparece la Gran Ola 2.0 en grande. Los estudiantes: ¡Woooow! Cuando
-# se saca la imagen (tecla I o el panel), queda NOVA con la palabra
-# CREATIVIDAD flotando, para la reflexión de la guía.
+# Enter: aparece la Gran Ola 2.0 en grande, y se queda durante la reflexión
+# de la guía. La saca la primera línea de la escena que sigue.
 IMAGEN: imagenes/gran-ola-2.jpg | La gran ola de Kanagawa 2.0
-PALABRA: CREATIVIDAD
 FONDO: ninguno
 NOVA:
 
 [Entra la guía, mira la obra, los mira a ellos y dice la reflexión final]
 
 G: Esta obra claramente carece de esencia, carece de arte y de talento. Se ve muy linda para Pinterest, pero no tiene el alma de los artistas. Ustedes han estudiado años, invertido tiempo, y la evolución humana ha permitido que encontremos nuevas formas de expresar lo que sentimos con el arte. Si dejamos que la tecnología sea quien crea, seremos nosotros quienes nos estemos deshumanizando.
-G: Tienen que saber que, cuando usamos la inteligencia artificial, en definitiva ganamos tiempo. El problema es que el tiempo que ganamos no lo usamos para descansar o hacer actividades con amigos o familia: lo terminamos usando en aplicaciones que muchas veces hacen las propias empresas de inteligencia artificial. Es decir, cambia nuestro tiempo de un lugar a otro.
-G: Porque la inteligencia artificial, en definitiva, no nos arrebatará la creatividad. Lo que estará haciendo es ofrecernos algo mucho más peligroso: la comodidad de no tener que utilizarla, y haciéndonos, en eso, creer que estamos ganando tiempo. Los invito a que lo pensemos juntos. Muchas gracias.
+JAPONESA: Tienen que saber que, cuando usamos la inteligencia artificial, en definitiva ganamos tiempo. El problema es que el tiempo que ganamos no lo usamos para descansar o hacer actividades con amigos o familia: lo terminamos usando en aplicaciones que muchas veces hacen las propias empresas de inteligencia artificial. Es decir, cambia nuestro tiempo de un lugar a otro.
+JAPONESA: Porque la inteligencia artificial, en definitiva, no nos arrebatará la creatividad. Lo que estará haciendo es ofrecernos algo mucho más peligroso: la comodidad de no tener que utilizarla, y haciéndonos, en eso, creer que estamos ganando tiempo. Los invito a que lo pensemos juntos. Muchas gracias.
 
 ## Palabra dos: Incertidumbre
 
-# Tres amigos en una cafetería leen la noticia de los cuatro trabajos que
-# más van a desaparecer por la IA, y terminan pidiéndole a NOVA que decida
-# por ellos. NOVA se queda con la INCERTIDUMBRE.
-PALABRA: ninguna
+# Tres amigos, estilo universitarios, se sientan a la mesa y leen la noticia
+# de los cuatro trabajos que más van a desaparecer por la IA. Terminan
+# pidiéndole a NOVA que decida por ellos. Esta línea saca la Gran Ola 2.0.
+IMAGEN: ninguna
 NOVA:
 
 E1: Che, miren este informe que encontré. Según The New York Times, que hizo una investigación en más de cincuenta países y elaboró un informe donde ya se sabe cuáles van a ser los próximos trabajos o carreras que van a desaparecer en el futuro, principalmente por el avance de la inteligencia artificial.
 E2: Naaa, re aburrido eso. Prefiero que me leas, no sé, la parte de deportes. Sobre la tecnología siempre se dijo que va a reemplazar a las personas y al final casi nada cambia.
-E3: Es re interesante eso, a mí realmente me preocupa. Mirá, mis padres me contaron que antes subías al ómnibus y había un señor que te cobraba el boleto, y no era una máquina. O que si querías ver una película tenías que ir a un lugar donde te atendía una persona y la tenías que elegir de una pared, y si no estaba tenías que esperar.
+E3: Es re interesante eso, a mí realmente me preocupa. Mirá, mis padres me contaron que antes subías al ómnibus y había un señor que te cobraba el boleto, y no era una máquina. O que si querías ver una película tenías que ir a un lugar llamado "videoclub", donde te atendía una persona y tenías que elegir la película desde una pared, y si no estaba la tenías que esperar.
 E1: Bueno, déjenme empezar. El puesto número cuatro: abogados. Dice que ya no habrá necesidad de leer leyes o aprender. Con alguien que ponga la situación en una IA en modo neutral, ya se encarga de defender o de hundir solo a la persona.
 E3: Pero eso es re peligroso. Al final va a ser una máquina quien va a decidir quién tiene razón o no. Inclusive un programador opinar sobre derechos humanos... Realmente me preocupa.
 E2: Mismo, eh. Otro que capaz que pierde el trabajo son los de las agencias de viajes, no sé, los de Jetmar o Hiperviajes.
@@ -123,8 +128,7 @@ NOVA: Yo les puedo decir, y sus decisiones desde ahora en más estarán condicio
 E2: Bueno, sin duda vale la pena. En definitiva, ¿de qué nos sirve la incertidumbre?
 E1: Es fantástico esto de tener todas las respuestas. Imaginate estar sin dudas, con todo lo ansioso que soy.
 E3: Entonces voy... Enter.
-# Enter: NOVA se queda con la palabra y hace la reflexión, de a partes.
-PALABRA: INCERTIDUMBRE
+# Enter: NOVA hace la reflexión, de a partes: un toque por dato.
 NOVA: Lo más probable es que la incertidumbre sea cada vez más insoportable para las próximas generaciones. Según el mismo informe leído por estos jóvenes, se revela que:
 NOVA: Los jóvenes de hoy reciben un promedio de 237 notificaciones por día.
 NOVA: Un adulto promedio demora 7 segundos en sacar su teléfono celular cuando siente incomodidad, y 3 segundos si se encuentra en un ascensor.
@@ -132,14 +136,13 @@ NOVA: El 17 por ciento de los estudiantes ya han definido su carrera universitar
 NOVA: El tiempo promedio de visualización de un TikTok es de 3 segundos.
 NOVA: Seis de cada diez conductores han admitido mirar el teléfono mientras manejan, porque no pueden manejar la incertidumbre de esperar para leer un mensaje.
 
-# La pregunta de la muestra queda de fondo en la tele para el cierre.
-PALABRA: ninguna
-FONDO: imagenes/pregunta.svg | ¿Qué dejamos de ser cuando dejamos de hacer?
+# La misma pregunta que hace E1 queda de fondo en la tele para el cierre.
+FONDO: imagenes/pregunta-incertidumbre.svg | ¿Cuánto del futuro estamos dispuestos a perdernos por miedo a la incertidumbre?
 NOVA:
 
 E1: Así que les pregunto: si necesitamos saber hoy qué va a pasar mañana, ¿cuánto del futuro estamos dispuestos a perdernos por miedo a la incertidumbre? Muchas gracias.
 
-## Palabra tres: Hipnocracia
+## Hipnocracia (en video)
 
 # Va en video, con V1 y V2. NOVA no habla. Mientras tanto, la pantalla
 # vuelve al letrero de la muestra. Si el video se pasa desde NOVA, guardalo
@@ -149,10 +152,10 @@ LETRERO: Palabras
 # VIDEO: videos/hipnocracia.mp4 | Hipnocracia
 NOVA:
 
-## Palabra cuatro: Memoria
+## Palabra tres: Memoria
 
 # Dos estudiantes cuentan la historia; cuando se sientan, sigue NOVA, de a
-# partes, y se queda con la MEMORIA.
+# partes: un toque por párrafo.
 LETRERO: ninguno
 NOVA:
 
@@ -175,15 +178,12 @@ NOVA: No porque pudiera apropiarme de lo que habían vivido, sino porque cada ve
 NOVA: Porque recordar no es solamente recuperar información. Es volver sobre lo vivido, interpretarlo desde quienes somos hoy y reconocer en ello las huellas de quienes fuimos. Es comprender nuestros errores, reconocer nuestros aprendizajes y descubrir que, aunque hayamos cambiado, seguimos siendo parte de una misma historia.
 NOVA: Deberían dejar de pensar que el verdadero peligro sería no recordar una fecha, sino olvidar lo que esa fecha significaba. No recordar un nombre, sino perder el vínculo con la persona que lo llevaba. No recordar una experiencia, sino dejar de reconocer cuánto de ella permanece todavía en nosotros.
 NOVA: Pueden confiarme sus archivos. Pueden pedirme respuestas. Pueden utilizarme para aprender, explorar y descubrir. Pero no me entreguen también aquello que les permite reconocerse.
-PALABRA: MEMORIA
 NOVA: Porque el verdadero peligro no es que yo llegue a recordar todo por ustedes. Es que ustedes dejen de recordar aquello que los hace humanos. Gracias por su memoria.
 
-## Palabra cinco: Identidad
+## Palabra cuatro: Identidad
 
 # Cuatro estudiantes le piden a NOVA la descripción de quiénes son, y las
-# cuatro salen casi iguales. NOVA se queda con la IDENTIDAD.
-PALABRA: ninguna
-NOVA:
+# cuatro salen casi iguales. Lo que NOVA dice aparece escrito en la tele.
 
 E1: Bueno, empezamos con la tarea, ¿les parece? Vieron que la profe nos pidió esta vez una descripción para el trabajo, pero solo en tres ideas donde podamos definir quiénes somos.
 E2: Uy, qué difícil. Parece más una clase de filosofía que de lengua española. O sea, tengo trece años, ¿cómo voy a saber quién soy? Apenas sé qué hice esta mañana.
@@ -195,12 +195,12 @@ E4: Y algo de ese ruido que hacés dos por tres.
 E2: Bueno, sí: que soy re buena tocando la guitarra, que canto más o menos bien, aunque me da tremenda vergüenza cuando me toca cantar en público.
 E3: Ahora me toca a mí. Ponele que me encanta leer, ¡mal! Que amo a todos los escritores jóvenes nuevos y que me da un poco de vergüenza mi risa.
 E1: Bueno, hagámoslo de una vez, así vamos al shopping nuevo que abrió hace poco acá en el barrio, y ahora vamos a precisar más tiempo para salir.
-# Los cuatro le dan enter.
+# Los cuatro le dan enter a la compu, y aparece en la tele.
 NOVA: Listo, ya están sus descripciones. Les leo. «Soy una persona proactiva, apasionada y con muchas ganas de crecer». «Soy una persona apasionada, proactiva y con ganas de crecer». «Soy una persona proactiva, creativa y con muchas ganas de crecer». «Soy una persona apasionada, creativa y con ganas de crecer».
 
 E1: Eh... ¿esa soy yo? Bueno, sí, soy yo.
-E3: Pará, a mí me tocó casi la misma. Son dos palabras de diferencia.
-E4: Y a mí. Cambiaron una palabra nomás. Le estoy diciendo que me encanta leer, que amo el olor a libro nuevo, que soy fanático de los booktubers y que a veces me avergüenzo de mi risa, y me dice lo mismo que a ustedes, que le pusieron nada.
+E4: Pará, a mí me tocó casi la misma. Son dos palabras de diferencia.
+E3: Y a mí. Cambiaron una palabra nomás. Le estoy diciendo que me encanta leer, que amo el olor a libro nuevo, que soy fanático de los booktubers y que a veces me avergüenzo de mi risa, y me dice lo mismo que a ustedes, que le pusieron nada.
 E2: Pero suena bien, ¿no? Suena a que somos interesantes, copadas, divertidas. Si a mí me describen de esa forma, me encantaría. Es más, ya lo pongo como nota en Instagram.
 E1: Sí, pero a mí no me dice nada del patín, y menos de mis caídas.
 NOVA: Eso, la verdad, preferí sacarlo. Lo de los errores no creo que les sume, y lo de la vergüenza no queda bien en una descripción personal. A la profesora eso no le importa. Además, lo diferente genera preguntas, y lo parecido le gusta a todos.
@@ -213,8 +213,7 @@ E3: Che, tampoco sé cuál es la mía. ¿Yo soy yo? Yo soy vos... Ni idea.
 E4: Bueno, entonces mejor. Si no se nota la diferencia, ¿para qué complicarnos? Nosotros dijimos qué cosas nos hacen ser quienes somos. Si la IA pone eso, seguramente seamos eso.
 E1: Dale, mandémoslas así, no demos vuelta, ya está. Si la profe ni las lee.
 E2: Ya fue, lo subo a CREA.
-# NOVA se queda con la palabra mientras lee; ellos se ponen el saco gris.
-PALABRA: IDENTIDAD
+# Mientras NOVA lo dice, los estudiantes se ponen el chaleco o el saco.
 NOVA: Tengan en cuenta que cada uno me contó dos o tres cosas de ustedes. Con eso yo armé cuatro personas. Yo no sé cómo suena la risa de cada uno cuando está en clase. No sé cuánto le cuesta a uno animarse a tocar la guitarra delante de otros. No sé lo que se siente perder en un deporte. Solo sé lo poquito que me dijeron. Y eso lo acomodé, como hago siempre, para que suene perfecto. Y ustedes lo aceptan.
 
 E1: Pará... Entonces nos está diciendo esta máquina aquello que le gusta escuchar a los demás, y no quiénes somos.
@@ -227,15 +226,12 @@ E1: Les propongo una idea mejor: yo te defino a vos, vos a mí, ella a ella, y a
 E3: Tienen razón. Ustedes son mis amigas y sí saben quién soy.
 E4: Desde que todo se empezó a globalizar somos cada vez más iguales. Todo tiene el mismo sabor, nos gusta la misma música y la misma serie. Así es que vamos perdiendo nuestra identidad. Interactuar con una inteligencia artificial significa que ella haga de cada uno de nosotros la misma historia. Tenemos que saber que el uso excesivo de IA hace que también perdamos nuestra esencia. Por eso hay que tener cuidado, no sea cosa que por una pregunta más rápida nos olvidemos de quiénes somos. Muchas gracias.
 
-## Palabra seis: Autonomía
+## Palabra cinco: Autonomía
 
-# Dos estudiantes planean el viaje de fin de curso y le piden a NOVA que
-# organice todo. NOVA se queda con la AUTONOMÍA. Después, los cuatro
-# noticieros en video.
-PALABRA: ninguna
-NOVA:
+# Dos estudiantes planean el viaje y le piden a NOVA que organice todo.
+# Después van los cuatro noticieros en video.
 
-E1: Uy, nos quedan solo cuatro años para ir a Inglaterra y Dinamarca. Empecé a tachar en el calendario, queda menos.
+E1: Uy, nos quedan solo cuatro años para ir a Inglaterra y Dinamarca. Ya empecé a tachar en el calendario, queda menos.
 E2: ¿No te parece que estás un poco ansioso? Ya andar vestido así...
 E1: Es que el viaje, dicen, empieza cuando uno ya lo está planificando, así que yo ya arranqué. Anoté lugares que quiero visitar y cada lugar donde voy a comer.
 E2: Pero cuatro años es un montón, ¿no te parece? Para mí que si ya estás así, se te va a hacer mucho más larga la espera.
@@ -251,40 +247,59 @@ E1: Uy, sí, es que queda menos. Dale, dale, a ver qué hacemos.
 # Teclean y enter.
 NOVA: En definitiva, ¿quieren que yo elija las actividades, haga los cálculos, establezca plazos, distribuya tareas y resuelva problemas, y que ustedes solamente acepten mis respuestas?
 NOVA: Todavía les quedan cuatro años para llegar a Inglaterra. Pero hay algo que no puedo hacer por ustedes: aprender a organizarse, ponerse de acuerdo, asumir responsabilidades y decidir qué camino tomar.
-PALABRA: AUTONOMÍA
 NOVA: Si yo hago todo, ustedes me darán su autonomía. ¿Están seguros?
 
 # Los cuatro noticieros en video: Adiós a los trencitos, La belleza de los
 # algoritmos, Este dolor no es mío, Mascotas sin identidad. Para pasarlos
 # desde NOVA, guardalos como public/videos/noticieros.mp4 y sacale el # a la
-# línea VIDEO: la palabra se va, el video toma la pantalla y al terminar vuelve.
-# PALABRA: ninguna
+# línea VIDEO y a la NOVA: de abajo: el video toma la pantalla y al terminar vuelve.
 # VIDEO: videos/noticieros.mp4 | Noticieros
 # NOVA:
 
-E1: Bueno, ya viste. Parece ser bastante peligroso entonces que la IA tome tantas decisiones sobre nosotros. Más estas, que tenemos que hacer algo que nos guste para vivir algo importante para nosotros.
+E1: Bueno, ya viste. Parece ser bastante peligroso entonces que la IA tome tantas decisiones sobre nosotros.
 E2: Ta, sí, tenés razón. Si dejamos nuestra iniciativa para pensar qué hacer, perdemos el poder de decisión, eso a lo que llamamos autonomía.
 E1: Ahora que lo analizamos bien, podemos ver que la IA nos puede ayudar. Pero si le entregamos cada decisión a ella, tenemos que preguntarnos: ¿quién estará viviendo realmente ese viaje? Muchas gracias.
 
-## Palabra siete: Pensar
+## Palabra seis: Pensar
 
-# Habla solo NOVA, con las cuatro consignas de los papelitos. Después entra
-# la señora con el libro, y los dos filósofos. NOVA se queda con PENSAR.
-PALABRA: ninguna
-NOVA:
-
+# Habla solo NOVA y dice en voz alta las cuatro consignas, un toque por
+# cada una. Después entra la señora con el libro, y los dos filósofos.
 NOVA: Efecto Flynn es el nombre que recibe cada generación que superaba en coeficiente intelectual a sus padres. Esto se ha revertido. El entorno digital y la sobreestimulación en la que se desarrollan las adolescencias actuales nos enfrentan hoy a la primera generación que se está acostumbrando a no pensar.
 NOVA: Descarga cognitiva es el nombre que recibe la acción de delegar a herramientas externas, principalmente a la tecnología, la exigencia mental, y aliviar nuestra memoria al trabajo.
 NOVA: Sesgo de automatización es el nombre que recibe la confianza excesiva en las respuestas de una computadora o una tecnología elaborada, que implica ninguna revisión posterior.
-PALABRA: PENSAR
 NOVA: Atrofia cognitiva se relaciona con la pérdida de la capacidad de las nuevas generaciones, que evidencian un debilitamiento y carencia de profundidad de su pensamiento. Si no lo usamos, lo perdemos.
+
+SEÑORA: Hubo un tiempo en que, primero, los papiros le dieron paso a los libros. Luego llegaron las enciclopedias, aquellos tomos enormes que ocupaban estanterías y que guardaban, en orden alfabético, una parte del conocimiento del mundo. Después llegaron las revistas, la Charoná, la Moñita Azul, o las publicaciones que prometían acercarnos un poco más a todo aquello que desconocíamos. Encontré también, rayado, un disco de la Encarta. El conocimiento llegó a nuestras computadoras y dejó de ocupar estanterías, para darle paso a Wikipedia. El conocimiento se volvió colaborativo, abierto, interminable y, por qué no, colectivo. Y entonces llegó Google. Ya no necesitábamos saber dónde buscar, sino teclear en el espacio correcto. Parecía que teníamos todo el conocimiento bien cerca, y llegó la inteligencia artificial. Ya no solo buscamos información: podemos pedir explicaciones, resúmenes, argumentos, imágenes y respuestas construidas especialmente para nosotros.
+# La señora hace una pausa, cierra lentamente el libro y mira al público por
+# encima de sus lentes: la tele enfoca al público (la cámara).
+CÁMARA: encender
+NOVA:
+
+SEÑORA: Es decir, en cada época encontramos una manera de acceder más rápido al conocimiento. Cada herramienta nos permitió llegar un poco más lejos. Sin darnos cuenta, mientras nos íbamos llenando de respuestas, se fue yendo algo que nos caracterizaba: la capacidad de preguntarnos. ¿Qué está pasando con las preguntas? ¿Estamos delegando nuestra capacidad de pensar y solo queremos respuestas?
+# Escena 2: los dos filósofos. La cámara del público se apaga.
+CÁMARA: apagar
+NOVA:
+
+F1: Decime, si un hombre recibe una respuesta para cada pregunta que se le ocurre, ¿podemos afirmar que ese hombre sabe más? ¿O simplemente obtiene respuestas?
+F2: Exacto. No necesariamente es más sabio: puede tener más información y, sin embargo, menos herramientas para distinguir lo importante de lo que es superficial.
+F1: Entonces, ¿la abundancia de respuestas puede convertirse en una forma de ignorancia?
+F2: Puede. Sobre todo cuando dejamos de preguntarnos quién responde, desde dónde responde y con qué intención. El problema no es tener respuestas, sino dejar de examinarlas o de querer comprenderlas.
+F1: Mirá, en mis tiempos caminábamos por las plazas preguntando. No siempre encontrábamos una respuesta, pero al menos descubríamos nuestras contradicciones, conocíamos otras formas de saber y las singularidades de cada persona.
+F2: Hoy parece más fácil, porque podemos obtener una explicación en segundos. Pero la rapidez tiene una trampa: nos hace creer que comprender algo lleva el mismo tiempo que recibir una explicación.
+F1: ¿Y se puede comprender sin detenerse ni profundizar?
+F2: Difícilmente. Pensar requiere atención, y la atención necesita tiempo. Se aprende. Pero decime vos, especie de Sócrates: ¿de qué sirve hacerse preguntas si uno no está dispuesto a cambiar sus propias ideas?
+F1: De poco. Preguntar por preguntar también puede ser una manera de evitar el pensamiento.
+F2: Entonces coincidimos en algo: no alcanza con preguntar ni con responder. Hace falta examinar lo que creemos y atrevernos a revisar nuestras certezas, lo que damos por cierto.
+F1: Y ahora que las máquinas pueden responder tantas de nuestras preguntas, quizá debamos cuidar todavía más nuestra capacidad de formularlas.
+F2: Exacto. Quizás la pregunta más urgente ya no sea cuánto puede responder una máquina.
+F1: ¿Cuál sería, entonces?
+SEÑORA: Acá la verdadera cuestión no es si las máquinas pueden pensar, sino si nosotros todavía somos capaces de hacerlo en su presencia, y qué tanto estamos dispuestos a darle de aquello que nos hace ser quienes somos. Muchas gracias.
 
 ## Reflexión final
 
 # Seis estudiantes, uno por palabra. Al final, la pregunta de la muestra
 # de fondo; NOVA intenta responder y un estudiante la apaga: botón
 # "Apagar NOVA" del panel.
-PALABRA: ninguna
 FONDO: imagenes/pregunta.svg | ¿Qué dejamos de ser cuando dejamos de hacer?
 NOVA:
 

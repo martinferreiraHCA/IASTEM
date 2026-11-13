@@ -788,7 +788,8 @@ function aplicarPantalla(entrada) {
   if (entrada.palabra) ponerPalabra(entrada.palabra);
   if (entrada.letrero) ponerLetrero(entrada.letrero);
   if (entrada.video) reproducirVideo(entrada.video);
-  if (entrada.imagenes?.length) mostrarImagen(entrada.imagenes[0]);
+  if (entrada.imagenes?.[0]?.quitar) ocultarImagen({ olvidar: true });
+  else if (entrada.imagenes?.length) mostrarImagen(entrada.imagenes[0]);
   if (entrada.camara === 'encender') verCamara(true);
   if (entrada.camara === 'apagar') verCamara(false);
 
@@ -1354,7 +1355,7 @@ function describirPantalla(entrada) {
   if (entrada.video) partes.push(entrada.video === 'ninguno' ? 'parar el video' : `video ${entrada.video.pie || entrada.video.src}`);
   if (entrada.velocidad) partes.push(`velocidad ${entrada.velocidad}`);
   if (entrada.fondo) partes.push(entrada.fondo === 'ninguno' ? 'sin fondo' : `fondo ${entrada.fondo.pie || entrada.fondo.src}`);
-  if (entrada.imagenes?.length) partes.push(`imagen ${entrada.imagenes[0].pie || entrada.imagenes[0].src}`);
+  if (entrada.imagenes?.length) partes.push(entrada.imagenes[0].quitar ? 'sin imagen' : `imagen ${entrada.imagenes[0].pie || entrada.imagenes[0].src}`);
   if (entrada.palabra) partes.push(entrada.palabra === 'ninguna' ? 'sin palabra' : `palabra ${entrada.palabra}`);
   if (entrada.camara) partes.push(`cámara ${entrada.camara}`);
   return partes.join(', ') || 'nada';
@@ -1439,6 +1440,7 @@ const PLANTILLAS = {
   imagen: 'IMAGEN: ‹imagenes/foto.jpg› | pie de foto',
   fondo: 'FONDO: ‹imagenes/fondo.jpg› | pie',
   'sin-fondo': 'FONDO: ninguno',
+  'sin-imagen': 'IMAGEN: ninguna',
   video: 'VIDEO: ‹videos/clip.mp4› | título',
   palabra: 'PALABRA: ‹CREATIVIDAD›',
   'sin-palabra': 'PALABRA: ninguna',
@@ -1568,7 +1570,10 @@ async function decirDelGuion(indice) {
   if (!entrada || state.busy) return;
 
   if (entrada.muda) {
-    // Solo pantalla: NOVA no habla, pero la línea cuenta como dicha.
+    // Solo pantalla: NOVA no habla, pero la línea cuenta como dicha. Lo
+    // último que dijo se borra de la pantalla: empieza otro momento.
+    sceneWriter.clear();
+    el.scene.dataset.limpia = 'on';
     guion.marcar(indice);
     aplicarPantalla(entrada);
     if (state.palabra && entrada.palabra === 'ninguna') ponerPalabra('ninguna');
@@ -1915,6 +1920,7 @@ async function send(text, { fromVoice = false } = {}) {
   if (isStage()) {
     el.scene.dataset.speaker = 'human';
     el.sceneLabel.textContent = show.current ? show.current.name.toUpperCase() : 'EL PÚBLICO';
+    delete el.scene.dataset.limpia;
     sceneWriter.clear();
     sceneWriter.push(text);
   }
@@ -2052,6 +2058,7 @@ async function responder(fuente, { origen, velocidad = 1 }) {
           if (isStage()) {
             el.scene.dataset.speaker = 'ai';
             el.sceneLabel.textContent = 'NOVA';
+            delete el.scene.dataset.limpia;
             sceneWriter.clear();
           }
           // Si la voz ya está sonando (una grabación), eso es lo que se muestra.
@@ -2245,6 +2252,7 @@ function setStageMode(on) {
     if (last && !sceneWriter.isBusy && !el.sceneText.textContent) {
       el.scene.dataset.speaker = last.role === 'user' ? 'human' : 'ai';
       el.sceneLabel.textContent = last.role === 'user' ? 'VOS' : 'NOVA';
+      delete el.scene.dataset.limpia;
       sceneWriter.writeInstantly(last.content);
     }
   } else if (document.fullscreenElement) {

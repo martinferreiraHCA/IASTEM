@@ -158,18 +158,19 @@ export function parsearGuion(texto) {
     const muda = !dicho && ALIAS_NOVA.has(rotulo) && Boolean(imagenes.length || camara || fondo || palabra || letrero || video);
     if (!dicho && !muda) continue;
     if (ROTULO_IMAGEN.has(rotulo)) {
-      const imagen = leerImagen(dicho);
+      // IMAGEN: ninguna saca la que esté puesta.
+      const imagen = esQuitar(dicho) ? { quitar: true, src: '', pie: '', segundos: 0 } : leerImagen(dicho);
       if (imagen) imagenes.push(imagen);
     } else if (ROTULO_CAMARA.has(rotulo)) {
       camara = /^(apag|off|no|cerr|sac)/i.test(normalizar(dicho)) ? 'apagar' : 'encender';
     } else if (ROTULO_FONDO.has(rotulo)) {
-      fondo = /^(ningun|no|sin|sac|quit|off)/i.test(normalizar(dicho)) ? 'ninguno' : leerImagen(dicho);
+      fondo = esQuitar(dicho) ? 'ninguno' : leerImagen(dicho);
     } else if (ROTULO_PALABRA.has(rotulo)) {
-      palabra = /^(ningun|no|sin|sac|quit|off)/i.test(normalizar(dicho)) ? 'ninguna' : dicho.trim();
+      palabra = esQuitar(dicho) ? 'ninguna' : dicho.trim();
     } else if (ROTULO_LETRERO.has(rotulo)) {
-      letrero = /^(ningun|no|sin|sac|quit|off)/i.test(normalizar(dicho)) ? 'ninguno' : dicho.trim();
+      letrero = esQuitar(dicho) ? 'ninguno' : dicho.trim();
     } else if (ROTULO_VIDEO.has(rotulo)) {
-      video = /^(ningun|no|sin|sac|quit|off|par)/i.test(normalizar(dicho)) ? 'ninguno' : leerImagen(dicho);
+      video = esQuitar(dicho) ? 'ninguno' : leerImagen(dicho);
     } else if (ROTULO_VELOCIDAD.has(rotulo)) {
       velocidad = Math.min(2, Math.max(0.5, Number(String(dicho).replace(',', '.').replace(/[^\d.]/g, '')) || 0));
     } else if (esComodin(quien)) {
@@ -191,6 +192,15 @@ export function parsearGuion(texto) {
   }
 
   return { entradas, comodines, personajes: [...personajes] };
+}
+
+/**
+ * "ninguno", "ninguna", "no", "sin", "sacar", "quitar", "fuera", "parar": la
+ * indicación saca lo que esté puesto. Tiene que ser toda la línea: un
+ * archivo que se llame "noche.jpg" no es un "no".
+ */
+function esQuitar(texto) {
+  return /^(ningun[oa]?|no|sin|sacar?|quitar?|off|fuera|nada|parar?)\.?$/.test(normalizar(texto).trim());
 }
 
 /** Sin tiempo, la imagen se queda hasta que otra la reemplace o la saquen. */
@@ -393,7 +403,7 @@ export class Guion {
         pie: e.pies.at(-1) || '',
         parlamento: e.parlamento,
         muda: Boolean(e.muda),
-        imagen: e.imagenes?.[0]?.src || '',
+        imagen: e.imagenes?.[0]?.quitar ? 'ninguna' : e.imagenes?.[0]?.src || '',
         segundos: e.imagenes?.[0]?.segundos || 0,
         camara: e.camara || null,
         fondo: e.fondo ? (e.fondo === 'ninguno' ? 'ninguno' : e.fondo.pie || e.fondo.src) : null,

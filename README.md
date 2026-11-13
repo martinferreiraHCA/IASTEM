@@ -90,6 +90,7 @@ Las reglas son pocas:
     grande, y se queda**, sin ningún texto encima: NOVA se oye pero no se lee.
     Sigue hasta que otra la reemplace o la saques con la tecla **I** o desde
     el panel. Con un tiempo al final, `| 10s`, se va sola al cumplirse.
+    `IMAGEN: ninguna` saca la que esté puesta.
   - `FONDO: dirección | pie`: una imagen de fondo que **se queda**, detrás
     del texto, hasta que otra la reemplace o `FONDO: ninguno` la saque.
   - `PALABRA: CREATIVIDAD`: la palabra queda **flotando junto a NOVA**, y
@@ -109,7 +110,8 @@ Las reglas son pocas:
     conviene que estén en el sitio: no dependen de internet ni de Drive.
   - Una línea `NOVA:` **sin texto**, con indicaciones antes, es una línea
     **muda**: solo cambia la pantalla, NOVA no habla. Se pasa igual, con
-    *Decir el siguiente*.
+    *Decir el siguiente*. Al pasarla se borra de la pantalla lo último que
+    dijo NOVA, y el fondo se ve entero, sin oscurecer.
   - `## Título` abre una **escena**: el panel agrupa las líneas por escena.
   - `VELOCIDAD: 1.2`: ese parlamento va más rápido (o más lento, `0.9`).
   - En el diálogo del guion, la botonera **Insertar acá** pone cualquiera de
