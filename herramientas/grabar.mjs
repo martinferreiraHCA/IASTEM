@@ -25,7 +25,10 @@
  *                   y --instrucciones "cómo tiene que sonar".
  *
  * Otras opciones: --velocidad 1.0 (0.7 lento, 1.3 rápido), --titulo "...",
- * --rehacer (vuelve a grabar todo).
+ * --rehacer (vuelve a grabar todo), --entrada 0.3 (segundos de silencio al
+ * principio de cada audio, para que la salida de sonido no se coma la
+ * primera sílaba; hace falta ffmpeg), --por-defecto (este guion es el que
+ * NOVA carga sola al abrir).
  */
 
 import fs from 'node:fs';
@@ -65,6 +68,9 @@ const anterior = leerJson(path.join(carpeta, 'grabaciones.json')) || { parlament
 const yaGrabados = new Map((opciones.rehacer ? [] : anterior.parlamentos).map((p) => [p.huella, p]));
 const motor = opciones.motor;
 const conFfmpeg = hay('ffmpeg');
+const COLA = 0.2; // un respiro al final, para que tampoco se corte la última sílaba
+const entrada = conFfmpeg ? opciones.entrada : 0;
+const aire = entrada ? ['-af', `adelay=${Math.round(entrada * 1000)}:all=1,apad=pad_dur=${COLA}`] : [];
 console.log(`Guion «${titulo}» (${nombre}): ${guion.entradas.length} parlamentos y ${guion.comodines.length} comodines. Motor: ${motor}${conFfmpeg ? ', con ffmpeg (mp3)' : ', sin ffmpeg (wav)'}.`);
 
 const resultado = [];
@@ -72,15 +78,16 @@ let grabados = 0;
 for (const p of parlamentos) {
   const h = huella(p.texto);
   const previo = yaGrabados.get(h);
-  if (previo && fs.existsSync(path.join(carpeta, previo.archivo))) {
+  if (previo && (previo.entrada || 0) === entrada && fs.existsSync(path.join(carpeta, previo.archivo))) {
     resultado.push({ ...previo, indice: p.indice, tipo: p.tipo });
     continue;
   }
-  const base = `${String(p.tipo === 'comodin' ? 'c' : '')}${String(p.indice + 1).padStart(2, '0')}-${h.slice(0, 8)}`;
+  // El nombre lleva la entrada: si cambia, es otro archivo y nadie se queda con el viejo en caché.
+  const base = `${String(p.tipo === 'comodin' ? 'c' : '')}${String(p.indice + 1).padStart(2, '0')}-${h.slice(0, 8)}${entrada ? `-e${Math.round(entrada * 100)}` : ''}`;
   process.stdout.write(`  ${p.tipo === 'comodin' ? 'comodín' : 'parlamento'} ${p.indice + 1}: «${p.texto.slice(0, 60)}${p.texto.length > 60 ? '…' : ''}» `);
   const { archivo, duracion } = grabar(textoParaHuella(p.texto), base);
   console.log(`→ ${archivo} (${duracion.toFixed(1)} s)`);
-  resultado.push({ indice: p.indice, tipo: p.tipo, huella: h, texto: p.texto, archivo, duracion: Number(duracion.toFixed(2)) });
+  resultado.push({ indice: p.indice, tipo: p.tipo, huella: h, texto: p.texto, archivo, duracion: Number(duracion.toFixed(2)), entrada });
   grabados += 1;
 }
 
@@ -94,13 +101,18 @@ const manifiesto = {
   titulo,
   motor,
   voz: motor === 'piper' ? path.basename(opciones.voz) : opciones.voz,
+  entrada,
+  version: huella(texto),
   fecha: new Date().toISOString(),
   parlamentos: resultado,
 };
 fs.writeFileSync(path.join(carpeta, 'grabaciones.json'), `${JSON.stringify(manifiesto, null, 2)}\n`);
 
-const indice = (leerJson(path.join(GUIONES, 'indice.json')) || []).filter((g) => g.nombre !== nombre);
-indice.push({ nombre, titulo, parlamentos: guion.entradas.filter((e) => !e.muda).length, grabaciones: resultado.length, fecha: manifiesto.fecha });
+const indiceViejo = leerJson(path.join(GUIONES, 'indice.json')) || [];
+const eraPorDefecto = indiceViejo.find((g) => g.nombre === nombre)?.porDefecto;
+const indice = indiceViejo.filter((g) => g.nombre !== nombre);
+if (opciones['por-defecto']) for (const g of indice) delete g.porDefecto;
+indice.push({ nombre, titulo, parlamentos: guion.entradas.filter((e) => !e.muda).length, grabaciones: resultado.length, version: manifiesto.version, fecha: manifiesto.fecha, ...(opciones['por-defecto'] || eraPorDefecto ? { porDefecto: true } : {}) });
 indice.sort((a, b) => a.titulo.localeCompare(b.titulo, 'es'));
 fs.writeFileSync(path.join(GUIONES, 'indice.json'), `${JSON.stringify(indice, null, 2)}\n`);
 
@@ -118,10 +130,10 @@ function grabar(texto, base) {
   const duracion = duracionWav(wav);
   if (!conFfmpeg) return { archivo: `audio/${base}.wav`, duracion };
   const mp3 = path.join(audioDir, `${base}.mp3`);
-  const r = spawnSync('ffmpeg', ['-v', 'error', '-y', '-i', wav, '-ac', '1', '-ar', '24000', '-b:a', '48k', mp3]);
+  const r = spawnSync('ffmpeg', ['-v', 'error', '-y', '-i', wav, ...aire, '-ac', '1', '-ar', '24000', '-b:a', '64k', mp3]);
   if (r.status !== 0) { console.error(String(r.stderr)); process.exit(1); }
   fs.unlinkSync(wav);
-  return { archivo: `audio/${base}.mp3`, duracion };
+  return { archivo: `audio/${base}.mp3`, duracion: duracion + (entrada ? entrada + COLA : 0) };
 }
 
 function grabarPiper(texto, wav) {
@@ -151,6 +163,13 @@ function grabarOpenAI(texto, base) {
   const r = spawnSync('curl', ['-sS', '-f', '-o', mp3, '-X', 'POST', `${(process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1').replace(/\/+$/, '')}/audio/speech`,
     '-H', 'Content-Type: application/json', '-H', `Authorization: Bearer ${clave}`, '--data-binary', '@-'], { input: cuerpo });
   if (r.status !== 0) { console.error(`\nLa API de OpenAI falló: ${r.stderr}`); process.exit(1); }
+  if (entrada) {
+    const crudo = path.join(audioDir, `${base}.crudo.mp3`);
+    fs.renameSync(mp3, crudo);
+    const e = spawnSync('ffmpeg', ['-v', 'error', '-y', '-i', crudo, ...aire, '-ac', '1', '-b:a', '96k', mp3]);
+    if (e.status !== 0) { console.error(String(e.stderr)); process.exit(1); }
+    fs.unlinkSync(crudo);
+  }
   return { archivo: `audio/${base}.mp3`, duracion: duracionConFfprobe(mp3) ?? texto.length * 0.065 };
 }
 
@@ -190,14 +209,17 @@ function tituloDelGuion(texto) {
 }
 
 function leerOpciones(args) {
-  const o = { motor: 'piper', piper: 'piper', voz: '', velocidad: 1, instrucciones: 'Hablás en español rioplatense, con acento uruguayo, cálida y clara, como una presencia serena en un escenario. Ritmo pausado pero vivo.', rehacer: false };
+  const o = { motor: 'piper', piper: 'piper', voz: '', velocidad: 1, instrucciones: 'Hablás en español rioplatense, con acento uruguayo, cálida y clara, como una presencia serena en un escenario. Ritmo pausado pero vivo.', rehacer: false, entrada: 0.3 };
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
     if (a === '--ayuda' || a === '-h' || a === '--help') o.ayuda = true;
     else if (a === '--rehacer') o.rehacer = true;
+    else if (a === '--por-defecto') o['por-defecto'] = true;
     else if (a.startsWith('--')) { o[a.slice(2)] = args[++i]; }
     else o.archivo = a;
   }
   o.velocidad = Math.min(1.5, Math.max(0.6, Number(o.velocidad) || 1));
+  o.entrada = Math.min(2, Math.max(0, Number(o.entrada)));
+  if (!Number.isFinite(o.entrada)) o.entrada = 0.3;
   return o;
 }

@@ -302,11 +302,15 @@ repositorio y se publica con el sitio.
    línea y volvés a correrlo, graba solo esa. Las grabaciones se encuentran
    por lo que dicen (una huella del texto), así que reordenar o agregar
    líneas no las rompe; cambiar una palabra sí, y hay que regrabar esa.
-2. **Cargar.** En NOVA, *Guion → Guiones de la muestra* lista los guiones
+2. **Cargar.** NOVA carga sola, al abrir, el guion de la muestra (el grabado
+   con `--por-defecto`, o el único que haya), y lo vuelve a cargar cuando se
+   publica una versión nueva. Un guion guardado a mano en el diálogo se
+   respeta: ahí solo avisa que hay una versión nueva. Además,
+   *Guion → Guiones de la muestra* lista los guiones
    grabados: elegís uno y queda cargado, con sus grabaciones precargadas en
    memoria (abajo del texto dice cuántas están listas). También podés pegar
    el guion a mano: cada línea que coincida con una grabación suena grabada.
-   Cada grabación arranca tras una entrada corta de silencio, y desde el
+   Cada audio trae 0,3 s de silencio al principio (`--entrada`), y desde el
    primer toque en la página un ruido inaudible mantiene despierta la salida
    de audio: las teles por HDMI y los parlantes Bluetooth se duermen en los
    silencios y, si no, se comen el principio de cada parlamento.

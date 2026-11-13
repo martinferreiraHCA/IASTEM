@@ -273,7 +273,7 @@ async function init() {
   // La salida de audio se mantiene despierta desde el primer toque en la
   // página, para que no se corte el principio de cada grabación.
   for (const gesto of ['pointerdown', 'keydown']) document.addEventListener(gesto, () => grabaciones.despertar(), { passive: true });
-  grabaciones.cargarIndice().then(() => { pintarPaquetes(); precargarGrabaciones(); });
+  grabaciones.cargarIndice().then(async () => { pintarPaquetes(); await cargarGuionPorDefecto(); precargarGrabaciones(); });
   guion.subscribe(() => precargarGrabaciones());
 
   if (!listener) {
@@ -1015,6 +1015,7 @@ function recibirComando(mensaje) {
     case 'tolerancia': guion.setTolerancia(String(mensaje.nombre)); break;
     case 'cargar': {
       const cuantos = guion.cargar(String(mensaje.texto || ''));
+      anotarOrigen({ manual: true, visto: paquetePorDefecto()?.version || '' });
       anotar(cuantos ? `Guion cargado desde el panel: ${cuantos} parlamentos.` : 'Guion quitado desde el panel.');
       toast(cuantos ? `Guion cargado desde el panel: ${cuantos} parlamentos.` : 'Guion quitado desde el panel.');
       break;
@@ -1102,6 +1103,7 @@ function wireGuion() {
     try {
       el.guionTexto.value = await grabaciones.textoDelPaquete(nombre);
       guardarGuion();
+      anotarOrigen({ nombre, version: grabaciones.paquetes.find((p) => p.nombre === nombre)?.version || '' });
       describirGuion(el.guionTexto.value);
       pintarGrabaciones();
     } catch (err) {
@@ -1431,8 +1433,57 @@ function guardarGuion() {
   if (!cuantos && el.guionTexto.value.trim()) {
     return toast('No encontré parlamentos de NOVA. Las líneas tienen que empezar con "NOVA:".');
   }
+  // Guardado a mano: es el guion del operador, y no se pisa con el de la muestra.
+  anotarOrigen({ manual: true, visto: paquetePorDefecto()?.version || '' });
   toast(cuantos ? `Guion cargado: ${cuantos} ${cuantos === 1 ? 'parlamento' : 'parlamentos'}.` : 'Guion vacío.');
   anotar(cuantos ? `Guion cargado: ${cuantos} parlamentos.` : 'Guion vacío.');
+}
+
+/* ------------------------------------------------ el guion por defecto */
+
+const ORIGEN_CLAVE = 'nova:guion-origen'; // de dónde salió el guion cargado: {nombre, version} o {manual, visto}
+
+function leerOrigen() {
+  try { return JSON.parse(localStorage.getItem(ORIGEN_CLAVE) || 'null'); } catch { return null; }
+}
+
+function anotarOrigen(origen) {
+  try { localStorage.setItem(ORIGEN_CLAVE, JSON.stringify(origen)); } catch { /* sin lugar: no es grave */ }
+}
+
+/** El guion de la muestra que NOVA carga sola: el marcado, o el único que hay. */
+function paquetePorDefecto() {
+  const paquetes = grabaciones.paquetes;
+  return paquetes.find((p) => p.porDefecto) || (paquetes.length === 1 ? paquetes[0] : null);
+}
+
+/**
+ * Al abrir, NOVA carga sola el guion de la muestra, y lo vuelve a cargar
+ * cuando se publica una versión nueva. Un guion guardado a mano (editado en
+ * el diálogo o cargado desde el panel) se respeta: ahí solo se avisa, una
+ * vez, que hay una versión nueva.
+ */
+async function cargarGuionPorDefecto() {
+  const paquete = paquetePorDefecto();
+  if (!paquete) return;
+  const origen = leerOrigen();
+  if (guion.tiene && origen?.manual) {
+    if (origen.visto !== paquete.version) {
+      anotarOrigen({ ...origen, visto: paquete.version });
+      toast('Hay una versión nueva del guion de la muestra. Está en Guion → Guiones de la muestra.');
+    }
+    return;
+  }
+  if (guion.tiene && origen?.nombre === paquete.nombre && origen.version === paquete.version) return;
+  if (state.busy) return;
+  try {
+    const habia = guion.tiene;
+    const cuantos = guion.cargar(await grabaciones.textoDelPaquete(paquete.nombre));
+    anotarOrigen({ nombre: paquete.nombre, version: paquete.version || '' });
+    const texto = `${habia ? 'Guion de la muestra actualizado' : 'Guion de la muestra cargado'}: ${paquete.titulo}, ${cuantos} líneas.`;
+    anotar(texto);
+    toast(texto);
+  } catch { /* sin red: queda el guion que había */ }
 }
 
 /**

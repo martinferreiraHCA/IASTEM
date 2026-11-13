@@ -16,8 +16,9 @@ import { huella, textoParaHuella } from './huella.js';
 // Cuánto se espera antes de que empiece a sonar una grabación. La salida de
 // audio (una tele por HDMI, un parlante Bluetooth) se duerme en los silencios
 // y tarda en despertar: si el audio arranca de golpe, se come el principio.
-const ENTRADA_MS = 180;      // con la salida ya despierta
-const ENTRADA_FRIA_MS = 600; // la primera vez, o si estaba dormida
+// Las grabaciones ya traen además su propio silencio al principio.
+const ENTRADA_MS = 80;       // con la salida ya despierta
+const ENTRADA_FRIA_MS = 450; // la primera vez, o si estaba dormida
 
 export class Grabaciones {
   constructor() {
