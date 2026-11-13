@@ -20,10 +20,14 @@
  *                     cualquier red. Por dentro son dos caminos a la vez:
  *                     directo (WebRTC, con PeerJS para encontrarse) y por
  *                     relevo (un servidor público de MQTT, ver relevo.js),
- *                     para las redes que no dejan hablar directo.
+ *                     para las redes que no dejan hablar directo. Y si el
+ *                     colegio configuró su nube (una base de Firebase, ver
+ *                     nube.js), ese es el camino firme: los otros dos
+ *                     quedan de respaldo.
  */
 
 import { Relevo } from './relevo.js';
+import { Nube, limpiarUrlDeNube } from './nube.js';
 
 const CANAL = 'nova:enlace';
 const LATIDO_MS = 10000; // cada cuánto el panel avisa que sigue ahí
@@ -82,11 +86,13 @@ export class Enlace {
     // Del panel: cerrada, entrando, esperando (el escenario no está),
     // conectada, perdida, sin-internet.
     // `via` dice por dónde llegan los mensajes: directo, relevo o nada.
-    this.sala = { codigo: '', estado: 'cerrada', conectados: 0, detalle: '', via: '' };
+    this.sala = { codigo: '', estado: 'cerrada', conectados: 0, detalle: '', via: '', nube: '' };
     this.quien = `${rol}-${Math.random().toString(36).slice(2, 10)}`; // esta página, para contar celulares
     this.peer = null;
     this.conexiones = new Set();
     this.relevo = null;
+    this.nube = null;        // el camino firme, si hay una base configurada
+    this.nubeUrl = '';
     this.senalCaida = false; // el servidor de PeerJS no responde
     this.salaReintento = null;
     this.salaIntentos = 0;
@@ -148,6 +154,7 @@ export class Enlace {
       }
     }
     this.relevo?.enviar(sobre);
+    this.nube?.enviar(sobre);
     if (this.servidor === 'conectado') {
       fetch('api/control', {
         method: 'POST',
@@ -247,6 +254,7 @@ export class Enlace {
    */
   reanimar() {
     if (this.sala.estado === 'cerrada' || !this.sala.codigo) return;
+    this.nube?.reanimar();
     this.relevo?.reanimar();
     const peer = this.peer;
     const id = PREFIJO_SALA + this.sala.codigo.toLowerCase();
@@ -261,6 +269,21 @@ export class Enlace {
       clearTimeout(this.salaReintento);
       this.salaIntentos = 0;
       this.#enlazarConEscenario(peer, id);
+    }
+  }
+
+  /**
+   * La dirección de la base de la nube. Si cambia con la sala abierta, la
+   * sala se rearma con el camino nuevo.
+   */
+  configurarNube(url) {
+    const limpia = limpiarUrlDeNube(url);
+    if (limpia === this.nubeUrl) return;
+    this.nubeUrl = limpia;
+    const { codigo, estado } = this.sala;
+    if (estado !== 'cerrada' && codigo) {
+      this.cerrarSala();
+      this.#sala(codigo, this.rol);
     }
   }
 
@@ -292,7 +315,12 @@ export class Enlace {
       this.relevo = null;
       relevo.cerrar();
     }
-    this.#setSala({ codigo: '', estado: 'cerrada', conectados: 0, detalle: '', via: '' });
+    if (this.nube) {
+      const nube = this.nube;
+      this.nube = null;
+      nube.cerrar();
+    }
+    this.#setSala({ codigo: '', estado: 'cerrada', conectados: 0, detalle: '', via: '', nube: '' });
   }
 
   async #sala(codigo, rol) {
@@ -300,6 +328,18 @@ export class Enlace {
     if ((this.peer || this.relevo) && this.sala.codigo === codigo && !['sin-internet', 'ocupada', 'perdida'].includes(this.sala.estado)) return;
     this.cerrarSala();
     this.#setSala({ codigo, estado: rol === 'escenario' ? 'abriendo' : 'entrando', conectados: 0, detalle: '', via: '' });
+
+    // La nube, si está configurada: el camino firme.
+    if (this.nubeUrl) {
+      this.nube = new Nube({
+        url: this.nubeUrl,
+        sala: codigo,
+        rol,
+        onMensaje: (mensaje) => this.#recibir(mensaje),
+        onCambio: () => this.#revisarSala(),
+      });
+      this.nube.conectar();
+    }
 
     // El relevo arranca ya: no necesita cargar nada y pasa por casi cualquier red.
     this.relevo = new Relevo(`nova/sala/${codigo}`, {
@@ -401,15 +441,18 @@ export class Enlace {
     if (this.sala.estado === 'cerrada') return;
     const directo = [...this.conexiones].some((c) => c.open);
     const relevo = this.relevo?.estado === 'conectado';
-    const via = directo ? 'directo' : relevo ? 'relevo' : '';
+    const nube = this.nube?.estado === 'conectada';
+    const via = nube ? 'nube' : directo ? 'directo' : relevo ? 'relevo' : '';
+    // Cómo está la nube, para mostrarlo: '', conectando, conectada, o por qué no anda.
+    const deNube = !this.nube ? '' : nube ? 'conectada' : this.nube.detalle || this.nube.estado;
 
     if (this.rol === 'escenario') {
       const ahora = Date.now();
       for (const [quien, t] of this.presentes) if (ahora - t > AUSENTE_MS) this.presentes.delete(quien);
-      const abierta = relevo || (this.peer && this.peer.open);
+      const abierta = nube || relevo || (this.peer && this.peer.open);
       let estado = abierta ? 'abierta' : this.sala.estado === 'ocupada' ? 'ocupada' : 'abriendo';
       if (!abierta && this.senalCaida && this.relevo?.estado === 'caido') estado = 'sin-internet';
-      this.#setSala({ estado, conectados: this.presentes.size, via, detalle: estado === 'sin-internet' ? (detalleCaida || 'Sin conexión.') : '' });
+      this.#setSala({ estado, conectados: this.presentes.size, via, nube: deNube, detalle: estado === 'sin-internet' ? (detalleCaida || 'Sin conexión.') : '' });
       return;
     }
 
@@ -418,7 +461,7 @@ export class Enlace {
     else if (this.sala.estado === 'conectada') estado = 'perdida';
     else if (this.senalCaida && this.relevo?.estado === 'caido') estado = 'sin-internet';
     else estado = this.sala.estado === 'sin-internet' ? 'entrando' : this.sala.estado;
-    this.#setSala({ estado, via, conectados: via ? 1 : 0, detalle: estado === 'sin-internet' ? (detalleCaida || 'Sin conexión.') : estado === 'perdida' ? 'Se cortó la conexión con el escenario.' : '' });
+    this.#setSala({ estado, via, nube: deNube, conectados: via ? 1 : 0, detalle: estado === 'sin-internet' ? (detalleCaida || 'Sin conexión.') : estado === 'perdida' ? 'Se cortó la conexión con el escenario.' : '' });
   }
 
   #reintentarSala(accion, base = 5000) {

@@ -18,6 +18,7 @@ import { WordCloud } from './js/wordcloud.js';
 import { Listener, Speaker, makeSentenceSplitter, voiceSupport, vocesDisponibles, VOCES_OPENAI } from './js/voice.js';
 import { Grabaciones } from './js/grabaciones.js';
 import { huella } from './js/huella.js';
+import { urlDeNube, guardarUrlDeNube, probarNube } from './js/nube.js';
 import { VoiceMeter } from './js/audio.js';
 import { Show } from './js/show.js';
 import { Guion, parsearGuion, puntaje, GUION_EJEMPLO } from './js/guion.js';
@@ -146,6 +147,10 @@ const el = {
   panelClose: $('panelClose'),
   panelAbrir: $('panelAbrir'),
   panelSala: $('panelSala'),
+  nubeForm: $('nubeForm'),
+  nubeUrl: $('nubeUrl'),
+  nubeQuitar: $('nubeQuitar'),
+  nubeEstado: $('nubeEstado'),
   panelRed: $('panelRed'),
 };
 
@@ -277,7 +282,11 @@ async function init() {
   });
   // Si había una sala para el celular, se reabre sola con el mismo código.
   const sala = localStorage.getItem(SALA_CLAVE);
-  if (sala) enlace.abrirSala(sala);
+  // Primero se mira si hay nube configurada: es el camino firme de la sala.
+  urlDeNube().then((url) => {
+    enlace.configurarNube(url);
+    if (sala) enlace.abrirSala(sala);
+  });
 
   // Las grabaciones de los parlamentos: se busca qué hay y se precarga lo del guion.
   grabaciones.onCambio = () => { pintarGrabaciones(); publicar(); };
@@ -827,6 +836,11 @@ function wirePanel() {
   el.panelAbrir.addEventListener('click', () => {
     window.open('control.html', 'nova-panel', 'width=480,height=820');
   });
+  el.nubeForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    guardarNube(el.nubeUrl.value);
+  });
+  el.nubeQuitar.addEventListener('click', () => { el.nubeUrl.value = ''; guardarNube(''); });
   el.panelSala.addEventListener('click', (event) => {
     const boton = event.target.closest('[data-sala]');
     if (!boton) return;
@@ -857,7 +871,9 @@ function cargarQR() {
 
 /** La dirección que abre el panel en el celular, ya con el código puesto. */
 function direccionSala(codigo) {
-  return new URL(`control.html?sala=${encodeURIComponent(codigo)}`, location.href).href;
+  // La dirección de la nube viaja en el enlace: el celular la toma de ahí.
+  const nube = enlace.nubeUrl ? `&nube=${encodeURIComponent(enlace.nubeUrl)}` : '';
+  return new URL(`control.html?sala=${encodeURIComponent(codigo)}${nube}`, location.href).href;
 }
 
 const SALA_TEXTOS = {
@@ -871,7 +887,8 @@ const SALA_TEXTOS = {
 function pintarSala() {
   const sala = enlace.sala;
   const abierta = sala.estado !== 'cerrada';
-  const clave = `${abierta}:${sala.codigo}`;
+  const clave = `${abierta}:${sala.codigo}:${enlace.nubeUrl}`;
+  pintarNube();
 
   if (salaPintada !== clave) {
     salaPintada = clave;
@@ -917,11 +934,54 @@ function pintarSala() {
   let [clase, texto] = SALA_TEXTOS[sala.estado] || ['buscando', sala.detalle || sala.estado];
   if (sala.estado === 'abierta' && sala.conectados) {
     clase = 'bien';
-    const via = sala.via === 'directo' ? ' (directo)' : sala.via === 'relevo' ? ' (por relevo)' : '';
+    const via = sala.via === 'nube' ? ' (por la nube)' : sala.via === 'directo' ? ' (directo)' : sala.via === 'relevo' ? ' (por relevo)' : '';
     texto = sala.conectados === 1 ? `Celular conectado${via}: lo que toques ahí pasa acá.` : `${sala.conectados} celulares conectados${via}.`;
   }
   estado.dataset.estado = clase;
   estado.textContent = texto;
+}
+
+/** El estado de la nube, en la sección del diálogo Panel. */
+function pintarNube() {
+  const sala = enlace.sala;
+  const hay = Boolean(enlace.nubeUrl);
+  if (document.activeElement !== el.nubeUrl) el.nubeUrl.value = enlace.nubeUrl;
+  el.nubeQuitar.hidden = !hay;
+  let clase = '';
+  let texto;
+  if (!hay) texto = 'Sin nube: la sala usa los servidores públicos, que andan según el día y la red.';
+  else if (sala.estado === 'cerrada') texto = 'Nube configurada. Se usa al crear la sala.';
+  else if (sala.nube === 'conectada') { clase = 'bien'; texto = 'Nube conectada: es el camino firme de la sala.'; }
+  else if (sala.nube === 'conectando' || !sala.nube) { clase = 'esperando'; texto = 'Conectando con la nube…'; }
+  else { clase = 'mal'; texto = `La nube no anda: ${sala.nube === 'caida' ? 'sin respuesta, reintentando' : sala.nube}`; }
+  if (!el.nubeEstado.dataset.fijo) {
+    el.nubeEstado.dataset.estado = clase;
+    el.nubeEstado.textContent = texto;
+  }
+}
+
+async function guardarNube(url) {
+  const limpia = guardarUrlDeNube(url);
+  if (url.trim() && !limpia) {
+    el.nubeEstado.dataset.estado = 'mal';
+    el.nubeEstado.textContent = 'Esa dirección no parece la de una base. Es algo como https://nombre-default-rtdb.firebaseio.com';
+    return;
+  }
+  el.nubeEstado.dataset.fijo = '1';
+  el.nubeEstado.dataset.estado = 'esperando';
+  el.nubeEstado.textContent = limpia ? 'Probando la base…' : 'Nube quitada.';
+  const nueva = limpia || await urlDeNube(); // sin la de este navegador, vale la del sitio
+  if (limpia) {
+    const prueba = await probarNube(limpia);
+    el.nubeEstado.dataset.estado = prueba.ok ? 'bien' : 'mal';
+    el.nubeEstado.textContent = prueba.texto;
+    anotar(`Nube: ${prueba.texto}`);
+    if (!prueba.ok) { guardarUrlDeNube(''); delete el.nubeEstado.dataset.fijo; return; }
+  }
+  enlace.configurarNube(nueva);
+  salaPintada = null;
+  pintarSala();
+  setTimeout(() => { delete el.nubeEstado.dataset.fijo; pintarNube(); }, 4000);
 }
 
 function abrirSala(codigo = codigoNuevo()) {
@@ -1028,7 +1088,7 @@ function publicar({ forzar = false } = {}) {
 
 /** La versión del guion: cambia si cambia alguna línea, o qué líneas tienen grabación. */
 function versionDelGuion(resumen) {
-  const clave = JSON.stringify(resumen.entradas);
+  const clave = JSON.stringify([resumen.entradas, resumen.medios]);
   if (versionCache.clave !== clave) versionCache = { clave, version: huella(clave) };
   return versionCache.version;
 }
@@ -1036,7 +1096,7 @@ function versionDelGuion(resumen) {
 /** El guion entero, para el panel: todas las líneas. */
 function publicarGuion(resumen = resumenConGrabaciones(), version = versionDelGuion(resumen)) {
   guionMandado = version;
-  enlace.enviar({ tipo: 'guion', version, entradas: resumen.entradas, personajes: resumen.personajes });
+  enlace.enviar({ tipo: 'guion', version, entradas: resumen.entradas, medios: resumen.medios, personajes: resumen.personajes });
 }
 
 function recortarTexto(texto, largo) {
@@ -1060,6 +1120,8 @@ function recibirComando(mensaje) {
     case 'hola': publicar({ forzar: true }); break;
     case 'guion': publicarGuion(); break;
     case 'atras': retroceder(); break;
+    case 'poner': ponerMedio(mensaje); break;
+    case 'limpiar': limpiarPantalla(); break;
     case 'decir': decirDelGuion(Number(mensaje.indice)); break;
     case 'siguiente': decirSiguiente(); break;
     case 'reiniciar': guion.reiniciar(); anotar('El guion vuelve al principio.'); break;
@@ -1429,8 +1491,84 @@ function textosDelGuion() {
 /** El resumen del guion para el panel, con si cada línea tiene grabación. */
 function resumenConGrabaciones() {
   const resumen = guion.resumen();
-  if (!grabaciones.porHuella.size) return resumen;
-  return { ...resumen, entradas: resumen.entradas.map((e) => ({ ...e, grabada: e.muda ? true : grabaciones.tiene(e.parlamento) })) };
+  const hayGrabaciones = grabaciones.porHuella.size > 0;
+  return {
+    ...resumen,
+    medios: mediosDelGuion(),
+    entradas: resumen.entradas.map((e) => {
+      const entrada = guion.entradas[e.indice];
+      return {
+        ...e,
+        // Qué cambia en la pantalla, en palabras: para el botón del panel.
+        pantallaTexto: e.pantalla ? describirPantalla(entrada) : '',
+        // Va sola, sin tocar nada, al terminar la línea anterior.
+        sola: seEncadena(entrada),
+        ...(hayGrabaciones ? { grabada: e.muda ? true : grabaciones.tiene(e.parlamento) } : {}),
+      };
+    }),
+  };
+}
+
+/**
+ * Todo lo que el guion pone en pantalla, sin repetir: fondos, imágenes,
+ * videos, letreros y palabras. El panel lo muestra como botones, para
+ * ponerlo o sacarlo a mano en cualquier momento.
+ */
+function mediosDelGuion() {
+  const vistos = new Set();
+  const medios = [];
+  const sumar = (tipo, valor, rotulo) => {
+    if (!valor || vistos.has(`${tipo}:${valor}`)) return;
+    vistos.add(`${tipo}:${valor}`);
+    medios.push({ tipo, valor, rotulo: rotulo || String(valor).split('/').pop() });
+  };
+  for (const e of guion.entradas) {
+    if (e.fondo && e.fondo !== 'ninguno') sumar('fondo', e.fondo.src, e.fondo.pie);
+    for (const imagen of e.imagenes || []) if (!imagen.quitar) sumar('imagen', imagen.src, imagen.pie);
+    if (e.video && e.video !== 'ninguno') sumar('video', e.video.src, e.video.pie);
+    if (e.letrero && e.letrero !== 'ninguno') sumar('letrero', e.letrero, e.letrero);
+    if (e.palabra && e.palabra !== 'ninguna') sumar('palabra', e.palabra, e.palabra);
+  }
+  return medios;
+}
+
+/**
+ * Pone o saca algo de la pantalla a pedido del panel. Solo vale lo que
+ * está en el guion cargado: desde afuera no se puede mandar otra dirección.
+ */
+function ponerMedio({ que: tipo, valor, on }) {
+  const medio = mediosDelGuion().find((m) => m.tipo === tipo && m.valor === valor);
+  if (!medio) return anotar('Eso no está en el guion cargado: no se pone.');
+  const sacar = on === false;
+  if (tipo === 'fondo') ponerFondo(sacar ? 'ninguno' : { src: medio.valor, pie: medio.rotulo });
+  else if (tipo === 'imagen') sacar ? ocultarImagen({ olvidar: true }) : mostrarImagen({ src: medio.valor, pie: medio.rotulo, segundos: 0 });
+  else if (tipo === 'video') sacar ? ocultarVideo() : reproducirVideo({ src: medio.valor, pie: medio.rotulo });
+  else if (tipo === 'letrero') ponerLetrero(sacar ? 'ninguno' : medio.valor);
+  else if (tipo === 'palabra') ponerPalabra(sacar ? 'ninguna' : medio.valor);
+}
+
+/** Pantalla limpia: se saca todo lo puesto y queda NOVA sola. */
+function limpiarPantalla() {
+  ocultarVideo();
+  ocultarImagen({ olvidar: true });
+  ponerFondo('ninguno');
+  ponerLetrero('ninguno');
+  ponerPalabra('ninguna');
+  if (state.camara) verCamara(false);
+  sceneWriter.clear();
+  el.scene.dataset.limpia = 'on';
+  anotar('Pantalla limpia.');
+}
+
+/**
+ * Una línea de solo pantalla que viene pegada a un parlamento de NOVA, sin
+ * que nadie hable en el medio, va sola: se aplica cuando NOVA termina de
+ * decir el parlamento, sin tocar nada.
+ */
+function seEncadena(entrada) {
+  if (!entrada?.muda || entrada.pies.length) return false;
+  const anterior = guion.entradas[entrada.indice - 1];
+  return Boolean(anterior && !anterior.muda);
 }
 
 function precargarGrabaciones() {
@@ -1711,7 +1849,10 @@ async function decirDelGuion(indice) {
   // Si después se fija como acuerdo, el pie sirve de título.
   state.ultimaPregunta = entrada.pies.at(-1) || '';
   anotar(`Dice el parlamento ${indice + 1} a pedido.`);
-  await responder(entrada.parlamento, { origen: 'guion', velocidad: entrada.velocidad || 1 });
+  const completa = await responder(entrada.parlamento, { origen: 'guion', velocidad: entrada.velocidad || 1 });
+  // Si lo que sigue es solo pantalla y va pegado, pasa solo.
+  const siguiente = guion.entradas[indice + 1];
+  if (completa && guion.cursor === indice && seEncadena(siguiente)) decirDelGuion(siguiente.indice);
 }
 
 /** NOVA dice un texto que el operador escribió en el momento. */
@@ -2161,6 +2302,7 @@ async function responder(fuente, { origen, velocidad = 1 }) {
   const bubbleWriter = new Materializer(bubble, { charsPerSecond: 70 });
   let firstChunk = true;
   let answer = '';
+  let completa = false; // se dijo entera, sin corte ni error
 
   state.controller = new AbortController();
 
@@ -2203,6 +2345,7 @@ async function responder(fuente, { origen, velocidad = 1 }) {
     // El parlamento termina cuando termina de sonar: hasta entonces no entra
     // otro (salvo Detener), así una orden apurada no corta la voz.
     await speaker.esperarFin();
+    completa = !state.controller?.signal.aborted;
     bubbleWriter.flush();
     bubble.classList.remove('is-streaming');
 
@@ -2252,6 +2395,7 @@ async function responder(fuente, { origen, velocidad = 1 }) {
     }
     publicar();
   }
+  return completa;
 }
 
 function abort() {

@@ -200,6 +200,37 @@ Hay dos maneras de abrirlo, y el botón **Panel** del escenario las explica:
 | **Desde el celular, por internet** | *Panel → Crear la sala para el celular.* NOVA muestra un código y un QR. En el celular se escanea el QR (o se abre `control.html` y se escribe el código) y listo: lo que se toca en el celular pasa en la computadora y en la tele. | Internet en los dos. El celular puede estar en cualquier red, hasta con sus datos. Anda desde GitHub Pages. |
 | **Desde el celular, en la misma red** | Correr `npm start` en la computadora que proyecta y abrir en el celular la dirección que muestra la consola, algo como `http://192.168.1.20:3000/control.html`. | Node, y que los dos estén en la misma red Wi-Fi. No necesita internet. |
 
+**La nube: la conexión firme.** Los caminos de la sala que no necesitan
+nada (directo y relevo) pasan por servidores públicos y anónimos: andan o no
+según el día y la red, y nadie los garantiza. Para que el celular con sus
+datos y la computadora en otra red se hablen siempre, NOVA puede usar una
+base en tiempo real de Firebase (Google), que el colegio crea una vez,
+gratis. Con eso:
+
+- va por HTTPS común, que pasa por cualquier red, y cifrado;
+- la base guarda el último estado: el celular que se bloquea o se recarga
+  vuelve a estar al día al instante;
+- entra solo quien tiene el código de la sala: las reglas no dejan listar
+  las salas;
+- los otros dos caminos quedan de respaldo, a la vez.
+
+Se configura en *Panel → La nube*, donde están los pasos para crear la base
+(cinco minutos) y un botón que la prueba. La dirección queda en ese
+navegador y viaja en el QR, así el celular la toma solo. Para dejarla fija
+para todos, va en `public/nube.json`: `{ "url": "https://…firebaseio.com" }`.
+Las reglas de la base:
+
+```json
+{ "rules": { "nova": { "$sala": { ".read": true, ".write": true } } } }
+```
+
+**La pantalla desde el celular.** El guion cambia la pantalla solo al
+avanzar. Una línea de solo pantalla que viene pegada a un parlamento de NOVA,
+sin que nadie hable en el medio, **va sola** cuando NOVA termina de decirlo.
+Además, el panel tiene un botón por cada cosa que el guion pone en pantalla
+(fondos, imágenes, videos, letreros, palabras): tocarlo la pone, tocar la
+que está puesta la saca, y *Pantalla limpia* saca todo.
+
 **Adelante y atrás.** La función se conduce con dos órdenes: *Adelante* dice
 la línea que sigue del guion, y *Atrás* corta lo que suena y vuelve una línea
 (no la dice: queda como la siguiente). Están en el panel, en la consola de
@@ -472,6 +503,7 @@ public/                  El sitio. Esto es lo que se publica en Pages.
     guion.js             El guion: pies, parlamentos, comodines y la comparación tolerante
     enlace.js            El enlace entre escenario y panel: ventana a ventana, por el servidor, o por la sala
     relevo.js            El relevo de la sala: un cliente MQTT mínimo sobre WebSocket, para redes cerradas
+    nube.js              La nube: el camino firme de la sala, por una base de Firebase (REST y EventSource)
     huella.js            La huella de un parlamento, para encontrar su grabación por lo que dice
     grabaciones.js       Las grabaciones: índice, precarga y reproducción al instante
     arbitro.js           El asistente de ubicación: le pregunta a una IA en qué pie estamos

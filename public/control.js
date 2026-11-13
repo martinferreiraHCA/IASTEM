@@ -7,6 +7,7 @@
  */
 
 import { Enlace, normalizarCodigo } from './js/enlace.js';
+import { urlDeNube, guardarUrlDeNube } from './js/nube.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -26,6 +27,8 @@ const el = {
   dicho: $('dicho'),
   siguiente: $('siguiente'),
   atras: $('atras'),
+  limpiar: $('limpiar'),
+  medios: $('medios'),
   entrega: $('entrega'),
   siguienteDetalle: $('siguienteDetalle'),
   detener: $('detener'),
@@ -76,7 +79,8 @@ let ultimaSenal = 0;
 const eventos = []; // los últimos, por orden de llegada
 
 // El guion entero llega aparte del estado, y solo cuando cambia: acá se guarda.
-let guionGuardado = { version: '', entradas: [] };
+let guionGuardado = { version: '', entradas: [], medios: [] };
+let mediosPintados = null; // qué versión de la botonera de pantalla está dibujada
 let guionPedido = 0;       // cuándo se pidió por última vez
 let listaPintada = null;   // qué versión del guion está dibujada en la lista
 let plantelPintado = '';   // y qué plantel
@@ -84,13 +88,21 @@ let cursorPintado = null;
 
 const enlace = new Enlace('panel', (mensaje) => {
   if (mensaje.tipo === 'guion') {
-    guionGuardado = { version: mensaje.version, entradas: mensaje.entradas || [] };
+    guionGuardado = { version: mensaje.version, entradas: mensaje.entradas || [], medios: mensaje.medios || [] };
     if (estado) { completarGuion(); pintar(); }
     return;
   }
   if (mensaje.tipo !== 'estado') return;
-  estado = mensaje.estado;
-  ultimaSenal = Date.now();
+  // Lo que la nube tenía guardado de antes se muestra, pero no cuenta como
+  // señal: el escenario puede haberse ido. Se le pregunta si está.
+  if (mensaje.deAntes) {
+    if (estado) return;
+    estado = mensaje.estado;
+    pedir();
+  } else {
+    estado = mensaje.estado;
+    ultimaSenal = Date.now();
+  }
   completarGuion();
   pintar();
 });
@@ -102,9 +114,11 @@ function completarGuion() {
   const { guion } = estado;
   if (guion.version === guionGuardado.version) {
     guion.entradas = guionGuardado.entradas;
+    guion.medios = guionGuardado.medios;
     return;
   }
-  guion.entradas = guion.total ? [] : [];
+  guion.entradas = [];
+  guion.medios = [];
   guion.esperando = guion.total > 0;
   if (Date.now() - guionPedido > 1500) {
     guionPedido = Date.now();
@@ -164,7 +178,7 @@ function pedir() {
   enlace.enviar({ tipo: 'comando', accion: 'hola' });
 }
 
-const NOMBRES_ORDEN = { siguiente: 'Adelante', atras: 'Atrás', detener: 'Detener', decir: 'Decir línea', pantalla: 'Solo pantalla', apagar: 'Apagar', reiniciar: 'Al principio' };
+const NOMBRES_ORDEN = { siguiente: 'Adelante', atras: 'Atrás', detener: 'Detener', decir: 'Decir línea', pantalla: 'Solo pantalla', apagar: 'Apagar', reiniciar: 'Al principio', poner: 'Pantalla', limpiar: 'Pantalla limpia' };
 
 /** Manda una orden al escenario y espera su acuse; lo que pasa se ve abajo de los botones. */
 function mandar(accion, extra = {}) {
@@ -179,13 +193,17 @@ function mandar(accion, extra = {}) {
 /* --------------------------------------------------------------- sala */
 
 /** Entra a la sala del QR (?sala=CODIGO) o a la última que se usó. */
-function entrarSalaGuardada() {
+async function entrarSalaGuardada() {
   const url = new URL(location.href);
   const delQR = normalizarCodigo(url.searchParams.get('sala'));
-  if (delQR) {
+  const nubeDelQR = url.searchParams.get('nube');
+  if (nubeDelQR) guardarUrlDeNube(nubeDelQR); // la dirección de la nube viene en el QR
+  if (delQR || nubeDelQR) {
     url.searchParams.delete('sala');
-    history.replaceState(null, '', url); // el código queda guardado, no en la barra
+    url.searchParams.delete('nube');
+    history.replaceState(null, '', url); // queda guardado, no en la barra
   }
+  enlace.configurarNube(await urlDeNube());
   const codigo = delQR || normalizarCodigo(localStorage.getItem(SALA_CLAVE));
   if (codigo) entrarSala(codigo);
 }
@@ -230,6 +248,13 @@ function wire() {
 
   el.siguiente.addEventListener('click', () => mandar('siguiente'));
   el.atras.addEventListener('click', () => mandar('atras'));
+  el.limpiar.addEventListener('click', () => mandar('limpiar'));
+  // La botonera de pantalla: tocar pone, tocar lo que está puesto lo saca.
+  el.medios.addEventListener('click', (event) => {
+    const boton = event.target.closest('.medio');
+    if (!boton) return;
+    mandar('poner', { que: boton.dataset.tipo, valor: boton.dataset.valor, on: boton.getAttribute('aria-pressed') !== 'true' }); // `tipo` es del sobre: acá va `que`
+  });
   // Con teclado (el panel abierto en la notebook, o un puntero de presentaciones).
   document.addEventListener('keydown', (event) => {
     if (event.repeat || (event.target instanceof Element && event.target.matches('input, textarea, select'))) return;
@@ -321,7 +346,7 @@ function pintarEnlace() {
   el.formSala.hidden = enSala;
   el.salaDentro.hidden = !enSala;
   if (enSala) {
-    const via = sala.estado === 'conectada' && sala.via ? (sala.via === 'directo' ? ' directo' : ' por relevo') : '';
+    const via = sala.estado === 'conectada' && sala.via ? (sala.via === 'nube' ? ' por la nube' : sala.via === 'directo' ? ' directo' : ' por relevo') : '';
     el.salaTexto.innerHTML = `Sala <strong>${sala.codigo}</strong> · ${SALA_TEXTOS[sala.estado] || sala.estado}${via}`;
   }
   // Si ya hay escenario por otro camino (misma computadora o servidor), el campo sobra.
@@ -364,7 +389,7 @@ function pintar() {
     : guion.esperando && !guion.entradas.length
       ? `${Math.min(guion.cursor + 2, guion.total)}/${guion.total} · bajando el guion…`
     : siguiente
-      ? `${siguiente.indice + 1}/${guion.total} · ${siguiente.muda ? 'solo pantalla' : recortar(siguiente.parlamento, 90)}`
+      ? `${siguiente.indice + 1}/${guion.total} · ${siguiente.muda ? `Pantalla: ${recortar(siguiente.pantallaTexto || 'cambia', 80)}${siguiente.sola ? ' (va sola)' : ''}` : recortar(siguiente.parlamento, 90)}`
       : 'Fin del guion';
 
   // Guion.
@@ -408,7 +433,7 @@ function pintar() {
       fila.innerHTML = `
         <span class="linea__numero">${entrada.indice + 1}</span>
         <span class="linea__pie">${entrada.pie ? escapar(entrada.pie) : '<em>sin pie</em>'}${marcas}</span>
-        <span class="linea__parlamento">${entrada.muda ? '<em>Solo pantalla, NOVA no habla.</em>' : escapar(entrada.parlamento)}</span>${entrada.pantalla && !entrada.muda ? '<button type="button" class="linea__pantalla" title="Aplicar la imagen, el fondo, la palabra o la cámara de esta línea sin que NOVA hable">Solo pantalla</button>' : ''}`;
+        <span class="linea__parlamento">${entrada.muda ? `<em>Solo pantalla${entrada.sola ? ', va sola al terminar la anterior' : ''}: ${escapar(entrada.pantallaTexto || '')}.</em>` : escapar(entrada.parlamento)}</span>${entrada.pantalla && !entrada.muda ? '<button type="button" class="linea__pantalla" title="Aplicar la imagen, el fondo, la palabra o la cámara de esta línea sin que NOVA hable">Solo pantalla</button>' : ''}`;
       partes.appendChild(fila);
     }
     el.lineas.appendChild(partes);
@@ -421,6 +446,33 @@ function pintar() {
       fila.classList.toggle('is-siguiente', indice === guion.cursor + 1);
     }
     el.lineas.querySelector('.is-siguiente')?.scrollIntoView({ block: 'nearest' });
+  }
+
+  // Lo que el guion tiene para poner en pantalla: un botón por cosa, dibujados una vez.
+  const TIPOS = { fondo: 'Fondo', imagen: 'Imagen', video: 'Video', letrero: 'Letrero', palabra: 'Palabra' };
+  const claveMedios = `${guion.version}:${(guion.medios || []).length}`; // el guion puede llegar después que el estado
+  if (mediosPintados !== claveMedios) {
+    mediosPintados = claveMedios;
+    el.medios.innerHTML = '';
+    for (const medio of guion.medios || []) {
+      const boton = document.createElement('button');
+      boton.type = 'button';
+      boton.className = 'medio';
+      boton.dataset.tipo = medio.tipo;
+      boton.dataset.valor = medio.valor;
+      boton.innerHTML = `<span class="medio__tipo">${TIPOS[medio.tipo] || medio.tipo}</span><span class="medio__rotulo">${escapar(recortar(medio.rotulo, 60))}</span>`;
+      el.medios.appendChild(boton);
+    }
+  }
+  const puesto = {
+    fondo: estado.fondo?.src,
+    imagen: estado.imagenVisible ? estado.imagen?.src : '',
+    video: estado.videoEn ? estado.video?.src : '',
+    letrero: estado.letrero,
+    palabra: estado.palabra,
+  };
+  for (const boton of el.medios.querySelectorAll('.medio')) {
+    boton.setAttribute('aria-pressed', String(Boolean(puesto[boton.dataset.tipo]) && puesto[boton.dataset.tipo] === boton.dataset.valor));
   }
 
   // Pantalla.

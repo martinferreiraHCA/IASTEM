@@ -82,7 +82,12 @@
 
     <!-- Escena, micrófono y voz. -->
     <section class="bloque">
-      <header class="bloque__cabeza"><h2>Pantalla</h2></header>
+      <header class="bloque__cabeza">
+        <h2>Pantalla</h2>
+        <div class="bloque__acciones"><button class="chip" id="limpiar" type="button">Pantalla limpia</button></div>
+      </header>
+      <p class="nota">El guion cambia la pantalla solo, al avanzar. Acá se pone o se saca a mano lo que quieras, en cualquier momento.</p>
+      <div class="medios" id="medios"></div>
       <div class="grilla">
         <button class="boton" data-escena="portada" type="button">Portada</button>
         <button class="boton" data-escena="charla" type="button">Charla</button>

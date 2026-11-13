@@ -509,6 +509,39 @@
       </section>
 
       <section class="bloque">
+        <h3 class="bloque__titulo">La nube: la conexión firme</h3>
+        <p class="sheet__note">
+          Con una base propia en la nube, el celular y esta computadora se hablan por un servicio de Google
+          (Firebase), cada uno en la red que sea: Wi-Fi, datos, lo que haya. Se crea una vez, es gratis, y
+          entra solo quien tiene el código de la sala.
+        </p>
+        <form class="alta" id="nubeForm">
+          <input type="url" id="nubeUrl" placeholder="https://nombre-default-rtdb.firebaseio.com" autocomplete="off" spellcheck="false" aria-label="Dirección de la base de Firebase" />
+          <button class="primary" type="submit">Guardar y probar</button>
+          <button class="ghost" id="nubeQuitar" type="button" hidden>Quitar</button>
+        </form>
+        <p class="sala__estado" id="nubeEstado"></p>
+        <details class="nube__pasos">
+          <summary>Cómo crear la base (cinco minutos, una sola vez)</summary>
+          <ol>
+            <li>Entrá a <a href="https://console.firebase.google.com" target="_blank" rel="noopener">console.firebase.google.com</a> con una cuenta de Google y tocá <strong>Crear un proyecto</strong>. Ponele un nombre (por ejemplo, <em>nova-stem</em>); Google Analytics no hace falta.</li>
+            <li>En el menú de la izquierda: <strong>Compilación → Realtime Database → Crear una base de datos</strong>. Elegí cualquier ubicación y <strong>modo bloqueado</strong>.</li>
+            <li>En la pestaña <strong>Reglas</strong>, reemplazá todo por esto y tocá <strong>Publicar</strong>:
+              <pre>{
+  "rules": {
+    "nova": {
+      "$sala": { ".read": true, ".write": true }
+    }
+  }
+}</pre>
+            </li>
+            <li>En la pestaña <strong>Datos</strong>, copiá la dirección de arriba (termina en <code>firebaseio.com</code> o <code>firebasedatabase.app</code>), pegala acá y tocá <strong>Guardar y probar</strong>.</li>
+          </ol>
+          <p class="sheet__note">Con esas reglas nadie puede ver qué salas hay: para leer o escribir hay que saber el código. Si después volvés a mostrar el QR, el celular toma la dirección de ahí.</p>
+        </details>
+      </section>
+
+      <section class="bloque">
         <h3 class="bloque__titulo">En la misma red, con el servidor</h3>
         <div id="panelRed"></div>
       </section>
