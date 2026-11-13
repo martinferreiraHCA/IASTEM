@@ -270,6 +270,9 @@ async function init() {
 
   // Las grabaciones de los parlamentos: se busca qué hay y se precarga lo del guion.
   grabaciones.onCambio = () => { pintarGrabaciones(); publicar(); };
+  // La salida de audio se mantiene despierta desde el primer toque en la
+  // página, para que no se corte el principio de cada grabación.
+  for (const gesto of ['pointerdown', 'keydown']) document.addEventListener(gesto, () => grabaciones.despertar(), { passive: true });
   grabaciones.cargarIndice().then(() => { pintarPaquetes(); precargarGrabaciones(); });
   guion.subscribe(() => precargarGrabaciones());
 

@@ -306,6 +306,10 @@ repositorio y se publica con el sitio.
    grabados: elegís uno y queda cargado, con sus grabaciones precargadas en
    memoria (abajo del texto dice cuántas están listas). También podés pegar
    el guion a mano: cada línea que coincida con una grabación suena grabada.
+   Cada grabación arranca tras una entrada corta de silencio, y desde el
+   primer toque en la página un ruido inaudible mantiene despierta la salida
+   de audio: las teles por HDMI y los parlantes Bluetooth se duermen en los
+   silencios y, si no, se comen el principio de cada parlamento.
 3. **Conducir.** Desde el panel, *Decir el siguiente* o tocar la línea. En
    la pantalla el texto se forma al ritmo de la voz y termina con ella. Las
    líneas sin grabación aparecen marcadas en el panel y salen con el

@@ -13,13 +13,23 @@
 
 import { huella, textoParaHuella } from './huella.js';
 
+// Cuánto se espera antes de que empiece a sonar una grabación. La salida de
+// audio (una tele por HDMI, un parlante Bluetooth) se duerme en los silencios
+// y tarda en despertar: si el audio arranca de golpe, se come el principio.
+const ENTRADA_MS = 180;      // con la salida ya despierta
+const ENTRADA_FRIA_MS = 600; // la primera vez, o si estaba dormida
+
 export class Grabaciones {
   constructor() {
     this.paquetes = [];           // lo que dice indice.json
     this.porHuella = new Map();   // huella → { url, duracion, texto, paquete }
     this.buffers = new Map();     // huella → { url (blob), duracion }, ya bajado
     this.fallidas = new Set();    // huellas cuyo audio no se pudo bajar
-    this.actual = null;           // el <audio> que está sonando
+    this.actual = null;           // el <audio> que está sonando o por sonar
+    this.soltarActual = null;     // lo que hay que llamar para darlo por terminado
+    this.entradaTimer = null;
+    this.ctx = null;              // el contexto de la "vela"
+    this.vela = null;             // un ruido inaudible que mantiene despierta la salida
     this.onCambio = null;         // algo cambió: índice cargado, precarga avanzó
     this.precargando = 0;
   }
@@ -95,36 +105,85 @@ export class Grabaciones {
   }
 
   /**
+   * Mantiene despierta la salida de audio con un ruido que no se oye. Sin
+   * esto, la tele o el parlante se duermen entre parlamento y parlamento y
+   * cortan el principio del que sigue. Se puede llamar muchas veces; el
+   * navegador lo deja arrancar recién después de un toque en la página.
+   */
+  despertar() {
+    try {
+      if (!this.ctx) {
+        this.ctx = new AudioContext();
+        const buffer = this.ctx.createBuffer(1, this.ctx.sampleRate * 2, this.ctx.sampleRate);
+        const datos = buffer.getChannelData(0);
+        for (let i = 0; i < datos.length; i++) datos[i] = Math.random() * 2 - 1;
+        const fuente = this.ctx.createBufferSource();
+        fuente.buffer = buffer;
+        fuente.loop = true;
+        const ganancia = this.ctx.createGain();
+        ganancia.gain.value = 0.0008; // unos 60 dB por debajo de la voz: no se oye
+        fuente.connect(ganancia).connect(this.ctx.destination);
+        fuente.start();
+        this.vela = fuente;
+      }
+      if (this.ctx.state === 'suspended') this.ctx.resume().catch(() => {});
+    } catch { /* sin Web Audio: se sigue sin la vela */ }
+  }
+
+  /** La salida lleva un rato despierta: alcanza con una entrada corta. */
+  get despierta() {
+    return this.ctx?.state === 'running' && this.ctx.currentTime > 1;
+  }
+
+  /**
    * Toca la grabación de ese texto, si está lista, a esa velocidad (1 es la
-   * grabada; el tono se conserva). Devuelve cuánto va a durar y una promesa
-   * que se cumple al terminar; null si no hay grabación.
+   * grabada; el tono se conserva). Arranca después de una entrada corta de
+   * silencio, para que no se corte el principio. Devuelve cuánto va a durar
+   * (con la entrada) y una promesa que se cumple al terminar; null si no hay
+   * grabación.
    */
   tocar(texto, velocidad = 1) {
     const h = huella(texto);
     const grabacion = this.buffers.get(h);
     if (!grabacion) return null;
     this.parar();
+    const entrada = this.despierta ? ENTRADA_MS : ENTRADA_FRIA_MS;
+    this.despertar();
     const v = Math.min(2, Math.max(0.5, Number(velocidad) || 1));
-    const audio = new Audio(grabacion.url);
+    const audio = new Audio();
+    audio.preload = 'auto';
+    audio.src = grabacion.url;
     audio.preservesPitch = true;
     audio.playbackRate = v;
     const fin = new Promise((resolve) => {
-      const listo = () => { if (this.actual === audio) this.actual = null; resolve(); };
+      const listo = () => {
+        if (this.actual === audio) { this.actual = null; this.soltarActual = null; }
+        resolve();
+      };
+      this.soltarActual = listo;
       audio.onended = listo;
       audio.onerror = listo;
-      audio.onpause = () => { if (audio.ended || this.actual !== audio) listo(); };
     });
     this.actual = audio;
-    audio.play().catch(() => { if (this.actual === audio) this.actual = null; });
-    return { duracion: grabacion.duracion / v, fin };
+    this.entradaTimer = setTimeout(() => {
+      if (this.actual !== audio) return;
+      audio.play().catch(() => { if (this.actual === audio) this.soltarActual?.(); });
+    }, entrada);
+    return { duracion: grabacion.duracion / v + entrada / 1000, fin };
   }
 
   parar() {
+    clearTimeout(this.entradaTimer);
     const audio = this.actual;
     if (!audio) return;
+    const soltar = this.soltarActual;
     this.actual = null;
+    this.soltarActual = null;
+    audio.onended = null;
+    audio.onerror = null;
     audio.pause();
     audio.removeAttribute('src');
+    soltar?.();
   }
 }
 
