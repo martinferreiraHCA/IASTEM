@@ -11,8 +11,7 @@
 # Imágenes:
 #   - La gran ola se toma de Wikimedia; para no depender de internet, bajala
 #     a public/imagenes/gran-ola-kanagawa.jpg y cambiá la dirección.
-#   - La Gran Ola 2.0 (la versión genérica que "hace" la IA) hay que
-#     generarla con una herramienta de imágenes y guardarla como
+#   - La Gran Ola 2.0 (la versión genérica que "hace" la IA) está en
 #     public/imagenes/gran-ola-2.jpg.
 #   - imagenes/pregunta.svg trae la pregunta de la muestra, para la tele, y
 #     imagenes/pregunta-incertidumbre.svg la del cierre de Incertidumbre.
