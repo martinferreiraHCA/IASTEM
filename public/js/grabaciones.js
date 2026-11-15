@@ -30,7 +30,7 @@ export class Grabaciones {
     this.soltarActual = null;     // lo que hay que llamar para darlo por terminado
     this.entradaTimer = null;
     this.ctx = null;              // el contexto de la "vela"
-    this.vela = null;             // un ruido inaudible que mantiene despierta la salida
+    this.vela = null;             // lo que mantiene abierta la salida, en silencio
     this.onCambio = null;         // algo cambió: índice cargado, precarga avanzó
     this.precargando = 0;
   }
@@ -106,29 +106,25 @@ export class Grabaciones {
   }
 
   /**
-   * Mantiene despierta la salida de audio con un ruido que no se oye. Sin
-   * esto, la tele o el parlante se duermen entre parlamento y parlamento y
-   * cortan el principio del que sigue. Se puede llamar muchas veces; el
-   * navegador lo deja arrancar recién después de un toque en la página.
+   * Mantiene abierta la salida de audio, en silencio total. Con la salida
+   * abierta, la tele o el parlante no tienen que "arrancar" con cada
+   * parlamento, que es cuando se comen el principio. No suena nada: es un
+   * tono con el volumen en cero. Se puede llamar muchas veces; el navegador
+   * lo deja arrancar recién después de un toque en la página.
    */
   despertar() {
     try {
       if (!this.ctx) {
         this.ctx = new AudioContext();
-        const buffer = this.ctx.createBuffer(1, this.ctx.sampleRate * 2, this.ctx.sampleRate);
-        const datos = buffer.getChannelData(0);
-        for (let i = 0; i < datos.length; i++) datos[i] = Math.random() * 2 - 1;
-        const fuente = this.ctx.createBufferSource();
-        fuente.buffer = buffer;
-        fuente.loop = true;
+        const fuente = this.ctx.createOscillator();
         const ganancia = this.ctx.createGain();
-        ganancia.gain.value = 0.0008; // unos 60 dB por debajo de la voz: no se oye
+        ganancia.gain.value = 0; // silencio de verdad: no llega nada al parlante
         fuente.connect(ganancia).connect(this.ctx.destination);
         fuente.start();
         this.vela = fuente;
       }
       if (this.ctx.state === 'suspended') this.ctx.resume().catch(() => {});
-    } catch { /* sin Web Audio: se sigue sin la vela */ }
+    } catch { /* sin Web Audio: se sigue sin esto */ }
   }
 
   /** La salida lleva un rato despierta: alcanza con una entrada corta. */
