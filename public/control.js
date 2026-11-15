@@ -381,7 +381,8 @@ function pintar() {
   el.ahora.dataset.modo = estado.modo;
   el.modo.textContent = MODOS[estado.modo] || estado.modo;
   el.escena.textContent = `${ESCENAS[estado.escena] || estado.escena}${estado.escenario ? ' · proyectando' : ''}`;
-  el.oido.textContent = estado.oido ? `Oyó: «${estado.oido}»` : 'Todavía no oyó nada.';
+  // Lo que oyó solo importa si el micrófono está prendido: la puesta en escena va sin él.
+  el.oido.textContent = estado.oido ? `Oyó: «${estado.oido}»` : estado.mic === 'escuchando' ? 'Todavía no oyó nada.' : '';
   el.dicho.textContent = estado.ultimaRespuesta ? `Dijo: «${recortar(estado.ultimaRespuesta, 140)}»` : '';
 
   // El siguiente parlamento, en el botón grande.

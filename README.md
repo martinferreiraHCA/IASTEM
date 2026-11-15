@@ -88,8 +88,9 @@ Las reglas son pocas:
   del parlamento de NOVA en el que pasan:
   - `IMAGEN: dirección | pie de foto`: la imagen **toma la pantalla, en
     grande, y se queda**, sin ningún texto encima: NOVA se oye pero no se lee.
-    Sigue hasta que otra la reemplace o la saques con la tecla **I** o desde
-    el panel. Con un tiempo al final, `| 10s`, se va sola al cumplirse.
+    Sale sola cuando el guion sigue con otra línea (con `| fija` al final
+    se queda hasta que la saques con la tecla **I** o desde el panel). Con
+    un tiempo al final, `| 10s`, se va sola al cumplirse.
     `IMAGEN: ninguna` saca la que esté puesta.
   - `FONDO: dirección | pie`: una imagen de fondo que **se queda**, detrás
     del texto, hasta que otra la reemplace o `FONDO: ninguno` la saque.
@@ -224,9 +225,24 @@ Las reglas de la base:
 { "rules": { "nova": { "$sala": { ".read": true, ".write": true } } } }
 ```
 
-**La pantalla desde el celular.** El guion cambia la pantalla solo al
-avanzar. Una línea de solo pantalla que viene pegada a un parlamento de NOVA,
-sin que nadie hable en el medio, **va sola** cuando NOVA termina de decirlo.
+**La pantalla se maneja sola.** Mientras corre el guion:
+
+- **Cada escena arranca limpia.** Al pasar la primera línea de una escena
+  (`## Título`) se saca todo lo que había puesto la anterior: imagen, video,
+  fondo, letrero, palabra y cámara.
+- **La imagen y el video salen solos** cuando el guion sigue con otra
+  línea. El fondo, el letrero y la palabra son de toda la escena y se
+  quedan. Una imagen con `| fija` al final no sale sola.
+- **Lo que viene pegado va solo.** Una línea de solo pantalla que sigue a un
+  parlamento de NOVA, sin que nadie hable en el medio, se aplica cuando NOVA
+  termina de decirlo; y lo mismo cuando termina un video.
+- **Por el pie, con el micrófono prendido.** Si la línea de solo pantalla es
+  la que sigue y NOVA oye su pie, la pantalla cambia sola.
+
+Lo que depende de lo que dicen los estudiantes necesita el *Adelante*: es la
+señal de que llegó ese momento.
+
+**La pantalla desde el celular.**
 Además, el panel tiene un botón por cada cosa que el guion pone en pantalla
 (fondos, imágenes, videos, letreros, palabras): tocarlo la pone, tocar la
 que está puesta la saca, y *Pantalla limpia* saca todo.

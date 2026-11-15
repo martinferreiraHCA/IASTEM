@@ -6,7 +6,18 @@
 # "Decir el siguiente" o tocar la línea.
 #
 # Las líneas "NOVA:" sin texto son solo pantalla: cambian el fondo, el
-# letrero o la palabra sin que NOVA hable. Se pasan igual, con "siguiente".
+# letrero o la imagen sin que NOVA hable. Se pasan igual, con "Adelante".
+#
+# La pantalla se maneja sola mientras corre el guion:
+#   - Cada escena (## Título) arranca limpia: al pasar su primera línea se
+#     saca todo lo que había puesto la escena anterior.
+#   - Una imagen o un video salen solos cuando el guion sigue con otra línea.
+#     El fondo y el letrero son de toda la escena y se quedan.
+#   - Una línea de solo pantalla pegada a un parlamento de NOVA (sin que
+#     nadie hable en el medio) va sola cuando NOVA termina de decirlo. Lo
+#     mismo después de un video.
+#   - Lo que depende de lo que dicen los estudiantes necesita el "Adelante":
+#     es la señal de que llegó ese momento.
 #
 # Imágenes:
 #   - La gran ola se toma de Wikimedia; para no depender de internet, bajala
@@ -79,7 +90,7 @@ NOVA: Es simple. Ustedes me dan su creatividad, y yo les doy tiempo.
 E1: Bueno, pensándolo bien, no se ve tan mal. Terminamos antes y además seguramente la profesora ni cuenta se da. ¿Le damos enter?
 E2: Re, dale.
 # Enter: aparece la Gran Ola 2.0 en grande, y se queda durante la reflexión
-# de la guía. La saca la primera línea de la escena que sigue.
+# de la guía. Sale sola cuando arranca la escena que sigue.
 IMAGEN: imagenes/gran-ola-2.jpg | La gran ola de Kanagawa 2.0
 FONDO: ninguno
 NOVA:
@@ -94,7 +105,8 @@ JAPONESA: Porque la inteligencia artificial, en definitiva, no nos arrebatará l
 
 # Tres amigos, estilo universitarios, se sientan a la mesa y leen la noticia
 # de los cuatro trabajos que más van a desaparecer por la IA. Terminan
-# pidiéndole a NOVA que decida por ellos. Esta línea saca la Gran Ola 2.0.
+# pidiéndole a NOVA que decida por ellos. Esta línea abre la escena: al
+# pasarla, la Gran Ola 2.0 sale sola.
 IMAGEN: ninguna
 NOVA:
 

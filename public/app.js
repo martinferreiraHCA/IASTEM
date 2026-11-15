@@ -183,6 +183,7 @@ const state = {
   video: null,           // {src, pie} del video de este momento
   videoEn: false,        // el video está en pantalla
   apagada: false,        // NOVA apagada: pantalla a negro (el final)
+  escenaGuion: '',       // en qué escena del guion está la pantalla, para limpiarla al cambiar
   evento: null,          // lo último que pasó, para el panel
   abriendoMic: false,
   servidorVoz: false,    // el servidor tiene clave de OpenAI: la voz por API no necesita clave acá
@@ -196,6 +197,7 @@ const ANTICIPO_MS = 5000; // una frase anticipada tapa su versión final por est
 
 // Declarados acá arriba porque init() corre antes de que termine de
 // evaluarse el archivo, y los usa.
+const MIC_CLAVE = 'nova:microfono'; // 'on' solo si alguien prendió el micrófono a propósito
 let publicarTimer = null;
 const PUBLICAR_CADA_MS = 220; // como mucho un estado al panel cada tanto
 let ultimoEstado = 0;         // cuándo salió el último
@@ -273,7 +275,7 @@ async function init() {
   for (const evento of ['online', 'pageshow']) window.addEventListener(evento, () => enlace.reanimar());
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') enlace.reanimar(); });
   arbitro.detectar().then(() => pintarAsistente());
-  el.sceneVideoEl.addEventListener('ended', () => ocultarVideo());
+  el.sceneVideoEl.addEventListener('ended', () => ocultarVideo({ terminado: true }));
   el.sceneVideoEl.addEventListener('error', () => {
     if (!state.videoEn) return;
     toast('Video: no se pudo cargar. Fijate la dirección o el formato (mp4).');
@@ -368,7 +370,9 @@ function writeStored(key, value) {
  * es una decisión, y se recuerda.
  */
 function setupMicPreference() {
-  state.micQuerido = Boolean(listener) && readStored('nova:mic') !== 'off';
+  // NOVA es una puesta en escena que se conduce desde el panel: el micrófono
+  // arranca apagado, y solo se prende (y se recuerda) si alguien lo pide.
+  state.micQuerido = Boolean(listener) && readStored(MIC_CLAVE) === 'on';
   if (state.micQuerido) encenderMic({ automatico: true });
 
   setInterval(() => {
@@ -629,7 +633,7 @@ function mostrarImagen(imagen) {
   clearTimeout(state.imagenTimer);
   state.imagenTimer = null;
   const segundos = Number(imagen.segundos) > 0 ? Number(imagen.segundos) : 0; // 0: se queda
-  state.imagen = { src: imagen.src, pie: imagen.pie || '', segundos };
+  state.imagen = { src: imagen.src, pie: imagen.pie || '', segundos, ...(imagen.fija ? { fija: true } : {}) };
   state.imagenVisible = true;
   el.sceneImagen.classList.remove('se-va');
   el.sceneImagen.classList.toggle('con-tiempo', segundos > 0);
@@ -639,7 +643,7 @@ function mostrarImagen(imagen) {
   el.sceneImagen.style.setProperty('--segundos', `${segundos || 1}s`);
   el.scene.dataset.imagen = 'on';
   if (segundos > 0) state.imagenTimer = setTimeout(() => ocultarImagen(), segundos * 1000);
-  anotar(segundos > 0 ? `Imagen en pantalla ${segundos} s: ${imagen.pie || imagen.src}.` : `Imagen en pantalla: ${imagen.pie || imagen.src}. Queda hasta que la saques.`);
+  anotar(segundos > 0 ? `Imagen en pantalla ${segundos} s: ${imagen.pie || imagen.src}.` : `Imagen en pantalla: ${imagen.pie || imagen.src}. ${imagen.fija ? 'Queda hasta que la saques.' : 'Sale sola cuando el guion sigue.'}`);
   publicar();
 }
 
@@ -775,9 +779,18 @@ function reproducirVideo(video) {
   publicar();
 }
 
-function ocultarVideo() {
+function ocultarVideo({ terminado = false } = {}) {
   if (!state.videoEn) return;
   state.videoEn = false;
+  // Terminó solo (nadie lo paró): si lo que sigue en el guion es solo
+  // pantalla y viene pegado, pasa solo.
+  if (terminado && !state.busy) {
+    const actual = guion.entradas[guion.cursor];
+    const siguiente = guion.entradas[guion.cursor + 1];
+    if (actual?.video && actual.video !== 'ninguno' && actual.video.src === state.video?.src && seEncadena(siguiente)) {
+      setTimeout(() => { if (guion.cursor === actual.indice && !state.busy) decirDelGuion(siguiente.indice); }, 600);
+    }
+  }
   el.sceneVideoEl.pause();
   el.sceneVideo.classList.add('se-va');
   setTimeout(() => {
@@ -810,6 +823,48 @@ function apagar(on = true) {
     anotar('NOVA encendida de nuevo.');
   }
   publicar();
+}
+
+/**
+ * El guion avanza a esta línea: la pantalla se acomoda sola antes de aplicar
+ * lo que la línea pide.
+ *   - Si la línea abre otra escena, se saca todo lo de la escena anterior
+ *     (imagen, video, fondo, letrero, palabra, cámara): cada escena arranca
+ *     limpia.
+ *   - Dentro de la escena, la imagen y el video puestos antes salen solos
+ *     (el fondo, el letrero y la palabra son de toda la escena y se quedan).
+ *     Una imagen marcada "| fija" no sale sola.
+ */
+function avanzarPantalla(entrada) {
+  const otraEscena = Boolean(entrada.escena) && entrada.escena !== state.escenaGuion;
+  if (entrada.escena) state.escenaGuion = entrada.escena;
+  const traeImagen = entrada.imagenes?.[0] && !entrada.imagenes[0].quitar;
+  const traeVideo = entrada.video && entrada.video !== 'ninguno';
+  if (otraEscena) {
+    if (state.videoEn && !traeVideo) ocultarVideo();
+    if (state.imagenVisible && !traeImagen) ocultarImagen({ olvidar: true });
+    if (state.fondo && !(entrada.fondo && entrada.fondo !== 'ninguno')) ponerFondo('ninguno');
+    if (state.letrero && !(entrada.letrero && entrada.letrero !== 'ninguno')) ponerLetrero('ninguno');
+    if (state.palabra && !(entrada.palabra && entrada.palabra !== 'ninguna')) ponerPalabra('ninguna');
+    if (state.camara && entrada.camara !== 'encender') verCamara(false);
+  } else {
+    if (state.videoEn && !traeVideo) ocultarVideo();
+    if (state.imagenVisible && !state.imagen?.fija && !traeImagen) ocultarImagen({ olvidar: true });
+  }
+  aplicarPantalla(entrada);
+}
+
+/** Una línea de solo pantalla: NOVA no habla, pero la línea cuenta como dicha. */
+function pasarMuda(entrada) {
+  // Lo último que dijo se borra de la pantalla: empieza otro momento. Si el
+  // texto todavía se estaba formando, ya no hay nada que esperar.
+  sceneWriter.onSettle = null;
+  sceneWriter.clear();
+  if (!state.busy && el.orb.dataset.state !== 'error') setMode(speaker.enabled && speaker.speaking ? 'speaking' : listener?.active ? 'listening' : 'idle');
+  el.scene.dataset.limpia = 'on';
+  guion.marcar(entrada.indice);
+  avanzarPantalla(entrada);
+  anotar(`Línea ${entrada.indice + 1}: solo pantalla.`);
 }
 
 function aplicarPantalla(entrada) {
@@ -1125,7 +1180,7 @@ function recibirComando(mensaje) {
     case 'limpiar': limpiarPantalla(); break;
     case 'decir': decirDelGuion(Number(mensaje.indice)); break;
     case 'siguiente': decirSiguiente(); break;
-    case 'reiniciar': guion.reiniciar(); anotar('El guion vuelve al principio.'); break;
+    case 'reiniciar': guion.reiniciar(); state.escenaGuion = ''; anotar('El guion vuelve al principio.'); break;
     case 'activo': guion.setActivo(Boolean(mensaje.on)); break;
     case 'tolerancia': guion.setTolerancia(String(mensaje.nombre)); break;
     case 'cargar': {
@@ -1562,14 +1617,15 @@ function limpiarPantalla() {
 }
 
 /**
- * Una línea de solo pantalla que viene pegada a un parlamento de NOVA, sin
- * que nadie hable en el medio, va sola: se aplica cuando NOVA termina de
- * decir el parlamento, sin tocar nada.
+ * Una línea de solo pantalla que viene pegada a un parlamento de NOVA o a
+ * un video, sin que nadie hable en el medio, va sola: se aplica cuando NOVA
+ * termina de decir el parlamento (o el video termina), sin tocar nada.
  */
 function seEncadena(entrada) {
   if (!entrada?.muda || entrada.pies.length) return false;
   const anterior = guion.entradas[entrada.indice - 1];
-  return Boolean(anterior && !anterior.muda);
+  // Después de un parlamento, o de un video (que al terminar le da paso).
+  return Boolean(anterior && (!anterior.muda || (anterior.video && anterior.video !== 'ninguno')));
 }
 
 function precargarGrabaciones() {
@@ -1796,9 +1852,12 @@ function pintarGuion() {
     }
   }
 
-  el.sceneHint.textContent = enUso
-    ? 'Espacio: micrófono · S: guion · C: cámara · I: imagen · A: fijar acuerdo · M: muro · F: salir'
-    : 'Espacio: micrófono · C: cámara · A: fijar acuerdo · M: muro · F: salir';
+  // En la tele no van ayudas de teclado mientras corre la puesta en escena:
+  // solo si alguien prendió el micrófono para charlar con NOVA.
+  el.sceneHint.textContent = !state.micQuerido ? ''
+    : enUso
+      ? 'Espacio: micrófono · S: guion · C: cámara · I: imagen · A: fijar acuerdo · M: muro · F: salir'
+      : 'Espacio: micrófono · C: cámara · A: fijar acuerdo · M: muro · F: salir';
 
   publicar();
 }
@@ -1833,20 +1892,10 @@ async function decirDelGuion(indice) {
   const entrada = guion.entradas[indice];
   if (!entrada || state.busy) return;
 
-  if (entrada.muda) {
-    // Solo pantalla: NOVA no habla, pero la línea cuenta como dicha. Lo
-    // último que dijo se borra de la pantalla: empieza otro momento.
-    sceneWriter.clear();
-    el.scene.dataset.limpia = 'on';
-    guion.marcar(indice);
-    aplicarPantalla(entrada);
-    if (state.palabra && entrada.palabra === 'ninguna') ponerPalabra('ninguna');
-    anotar(`Línea ${indice + 1}: solo pantalla.`);
-    return;
-  }
+  if (entrada.muda) return pasarMuda(entrada);
   prepararRespuesta();
   guion.marcar(indice);
-  aplicarPantalla(entrada);
+  avanzarPantalla(entrada);
   // Si después se fija como acuerdo, el pie sirve de título.
   state.ultimaPregunta = entrada.pies.at(-1) || '';
   anotar(`Dice el parlamento ${indice + 1} a pedido.`);
@@ -2050,7 +2099,7 @@ async function toggleMic() {
   // pero no pudo (sin permiso todavía), el toque es para prenderlo.
   if (listener.active) {
     state.micQuerido = false;
-    writeStored('nova:mic', 'off');
+    writeStored(MIC_CLAVE, 'off');
     listener.stop();
     micApagado();
     anotar('Micrófono apagado a mano. Queda apagado hasta que lo vuelvas a prender.');
@@ -2059,7 +2108,7 @@ async function toggleMic() {
 
   state.micQuerido = true;
   state.micFatal = '';
-  writeStored('nova:mic', 'on');
+  writeStored(MIC_CLAVE, 'on');
   await encenderMic({ automatico: false });
 }
 
@@ -2207,16 +2256,23 @@ async function send(text, { fromVoice = false } = {}) {
   if (!hallado && arbitro.disponible && guion.activo && guion.tiene) {
     setMode('thinking');
     const veredicto = await arbitro.ubicar({ oido: text, cursor: guion.cursor, entradas: guion.entradas });
-    if (veredicto?.indice != null && veredicto.confianza >= 0.6 && guion.entradas[veredicto.indice]?.pies.length) {
+    if (veredicto?.indice != null && veredicto.confianza >= 0.6 && guion.entradas[veredicto.indice]?.pies.length && !guion.entradas[veredicto.indice].muda) {
       hallado = { entrada: guion.entradas[veredicto.indice], puntaje: veredicto.confianza, porAsistente: true };
     } else if (veredicto?.error) {
       anotar(`El asistente no respondió: ${veredicto.error}`);
     }
   }
 
+  if (hallado?.entrada.muda) {
+    // El pie de una línea de solo pantalla: la pantalla cambia sola, NOVA no habla.
+    anotar(`Reconoció el pie ${hallado.entrada.indice + 1}: «${text}».`);
+    pasarMuda(hallado.entrada);
+    if (!listener?.active) setMode('idle');
+    return;
+  }
   if (hallado) {
     guion.marcar(hallado.entrada.indice);
-    aplicarPantalla(hallado.entrada);
+    avanzarPantalla(hallado.entrada);
     anotar(`${hallado.porAsistente ? 'El asistente ubicó' : 'Reconoció'} el pie ${hallado.entrada.indice + 1}: «${text}».`);
     await responder(hallado.entrada.parlamento, { origen: 'guion' });
     return;
@@ -2249,10 +2305,10 @@ function conversarConIA(text) {
       signal,
     );
 
-    if (veredicto.indice != null && guion.entradas[veredicto.indice]?.pies.length) {
+    if (veredicto.indice != null && guion.entradas[veredicto.indice]?.pies.length && !guion.entradas[veredicto.indice].muda) {
       const entrada = guion.entradas[veredicto.indice];
       guion.marcar(entrada.indice);
-      aplicarPantalla(entrada);
+      avanzarPantalla(entrada);
       marcar('guion');
       anotar(`La IA ubicó el pie ${entrada.indice + 1}: «${text}».`);
       return gotear(entrada.parlamento, onDelta, signal);

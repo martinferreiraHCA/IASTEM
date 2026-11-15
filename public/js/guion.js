@@ -217,12 +217,14 @@ export function leerImagen(texto) {
   if (!src) return null;
   let segundos = SEGUNDOS_IMAGEN;
   let pie = '';
+  let fija = false; // "| fija": no sale sola al seguir el guion
   for (const parte of partes) {
     const tiempo = /^(\d+(?:[.,]\d+)?)\s*(?:s|seg|segundos?)?$/i.exec(parte);
     if (tiempo) segundos = Math.max(1, Math.min(600, Number(tiempo[1].replace(',', '.'))));
+    else if (/^(fija|queda|se queda)$/i.test(parte)) fija = true;
     else if (parte) pie = pie ? `${pie} | ${parte}` : parte;
   }
-  return { src, pie, segundos };
+  return { src, pie, segundos, ...(fija ? { fija: true } : {}) };
 }
 
 /**
@@ -460,8 +462,11 @@ export class Guion {
     let mejor = null;
     let mejorValor = 0;
     for (const entrada of this.entradas) {
-      if (!entrada.pies.length || entrada.muda) continue; // las mudas se pasan desde el panel
+      if (!entrada.pies.length) continue;
       const esSiguiente = entrada.indice === this.cursor + 1;
+      // Una línea de solo pantalla entra por su pie solo si es la que sigue:
+      // así un cambio de pantalla no salta fuera de orden por una frase parecida.
+      if (entrada.muda && !esSiguiente) continue;
       const crudo = Math.max(...entrada.pies.map((pie) => puntaje(oido, pie)));
       if (crudo < this.umbral - (esSiguiente ? 0.1 : 0)) continue;
 
