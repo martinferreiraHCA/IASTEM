@@ -11,6 +11,9 @@
  * (H.264 y AAC, 720p como mucho), sea cual sea su formato, y queda en
  * public/videos/, con un public/videos/indice.json que NOVA lee.
  *
+ * Con --comprobar no baja nada: dice si la carpeta cambió respecto de lo que
+ * ya está en el sitio (sale con código 3 si hay algo para traer o sacar).
+ *
  * Es una caché: un video que ya se trajo y no cambió de nombre no se baja de
  * nuevo (--rehacer los trae todos). Lo que ya no está en la carpeta se borra.
  * La carpeta de Drive tiene que estar compartida como "Cualquier persona con
@@ -29,10 +32,11 @@ const CARPETA_DE_LA_MUESTRA = '100VXG1CE7_o2c8x0HGFv30VWdoVJmtoI';
 const MAXIMO_MB = 90; // GitHub no acepta archivos de más de 100 MB
 const DE_VIDEO = /\.(mp4|m4v|mov|webm|mkv|avi|wmv|mpg|mpeg|3gp|flv|ogv)$/i;
 
-const opciones = { carpeta: CARPETA_DE_LA_MUESTRA, local: '', rehacer: false };
+const opciones = { carpeta: CARPETA_DE_LA_MUESTRA, local: '', rehacer: false, comprobar: false };
 const args = process.argv.slice(2);
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '--rehacer') opciones.rehacer = true;
+  else if (args[i] === '--comprobar') opciones.comprobar = true;
   else if (args[i] === '--local') opciones.local = args[++i];
   else if (args[i] === '--carpeta') opciones.carpeta = args[++i];
   else if (args[i] === '--ayuda' || args[i] === '-h') {
@@ -49,34 +53,61 @@ const origenes = (opciones.local ? listarLocal(opciones.local) : listarDrive(opc
   .filter((o) => DE_VIDEO.test(o.nombre))
   .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { numeric: true, sensitivity: 'base' }));
 
+const nombreDe = (origen, numero) => `${String(numero).padStart(2, '0')}-${slug(origen.nombre.replace(DE_VIDEO, '').trim())}.mp4`;
+const yaEsta = (origen, numero) => {
+  const archivo = nombreDe(origen, numero);
+  const previo = indiceViejo.find((v) => v.origen === origen.clave && v.archivo === archivo);
+  return previo && fs.existsSync(path.join(DESTINO, archivo)) ? previo : null;
+};
+
+if (opciones.comprobar) {
+  // ¿La carpeta dice lo mismo que el sitio? Mismos videos, mismo orden.
+  const nuevos = origenes.filter((o, i) => !yaEsta(o, i + 1)).length;
+  const sobran = indiceViejo.length - (origenes.length - nuevos);
+  const cambio = nuevos > 0 || sobran > 0;
+  console.log(cambio ? `La carpeta cambió: ${nuevos} para traer, ${Math.max(0, sobran)} para sacar.` : `Sin cambios: ${origenes.length} ${origenes.length === 1 ? 'video' : 'videos'}.`);
+  fs.rmSync(temporal, { recursive: true, force: true });
+  process.exit(cambio ? 3 : 0);
+}
+
 console.log(origenes.length
   ? `${origenes.length} ${origenes.length === 1 ? 'video' : 'videos'}, en orden:`
   : 'La carpeta no tiene videos todavía.');
 
 const indice = [];
+let fallaron = 0;
 for (const [i, origen] of origenes.entries()) {
   const numero = i + 1;
   const titulo = origen.nombre.replace(DE_VIDEO, '').trim();
-  const archivo = `${String(numero).padStart(2, '0')}-${slug(titulo)}.mp4`;
-  const previo = indiceViejo.find((v) => v.origen === origen.clave && v.archivo === archivo);
-  if (previo && !opciones.rehacer && fs.existsSync(path.join(DESTINO, archivo))) {
+  const archivo = nombreDe(origen, numero);
+  const previo = opciones.rehacer ? null : yaEsta(origen, numero);
+  if (previo) {
     console.log(`  ${numero}. ${origen.nombre}  (ya estaba)`);
     indice.push({ ...previo, numero });
     continue;
   }
   process.stdout.write(`  ${numero}. ${origen.nombre}  `);
-  const crudo = origen.ruta || bajarDeDrive(origen.id, path.join(temporal, `crudo-${numero}`));
-  const { mb, segundos } = pasarAMp4(crudo, path.join(DESTINO, archivo));
-  console.log(`→ videos/${archivo} (${segundos.toFixed(0)} s, ${mb.toFixed(1)} MB)`);
-  indice.push({ numero, archivo, titulo, origen: origen.clave, segundos: Number(segundos.toFixed(1)), mb: Number(mb.toFixed(1)) });
+  try {
+    const crudo = origen.ruta || bajarDeDrive(origen.id, path.join(temporal, `crudo-${numero}`));
+    const { mb, segundos } = pasarAMp4(crudo, path.join(DESTINO, archivo));
+    console.log(`→ videos/${archivo} (${segundos.toFixed(0)} s, ${mb.toFixed(1)} MB)`);
+    indice.push({ numero, archivo, titulo, origen: origen.clave, segundos: Number(segundos.toFixed(1)), mb: Number(mb.toFixed(1)) });
+  } catch (error) {
+    // Un video que falla no frena a los demás: su lugar queda vacío y el
+    // guion lo pasa de largo. La próxima vez se intenta de nuevo.
+    fallaron += 1;
+    console.log(`NO SE PUDO: ${String(error.message).trim()}`);
+    fs.rmSync(path.join(DESTINO, archivo), { force: true });
+    indice.push(null);
+  }
 }
 
 // Lo que ya no corresponde a ningún video de la carpeta se borra.
-const vigentes = new Set(indice.map((v) => v.archivo));
+const vigentes = new Set(indice.filter(Boolean).map((v) => v.archivo));
 for (const f of fs.readdirSync(DESTINO)) if (/\.mp4$/i.test(f) && !vigentes.has(f)) fs.unlinkSync(path.join(DESTINO, f));
 fs.writeFileSync(path.join(DESTINO, 'indice.json'), `${JSON.stringify(indice, null, 2)}\n`);
 fs.rmSync(temporal, { recursive: true, force: true });
-console.log(`Listo: public/videos/indice.json con ${indice.length} ${indice.length === 1 ? 'video' : 'videos'}.`);
+console.log(`Listo: public/videos/indice.json con ${indice.filter(Boolean).length} de ${indice.length} ${indice.length === 1 ? 'video' : 'videos'}${fallaron ? `; ${fallaron} no se pudieron traer` : ''}.`);
 
 /* ------------------------------------------------------------- listar */
 
@@ -103,10 +134,10 @@ function listarDrive(id) {
 function bajarDeDrive(id, destino) {
   const r = spawnSync('curl', ['-sS', '-L', '-f', '-m', '1800', '-o', destino,
     `https://drive.usercontent.google.com/download?id=${encodeURIComponent(id)}&export=download&confirm=t`], { encoding: 'utf8' });
-  if (r.status !== 0) fallar(`\nNo se pudo bajar el archivo ${id}: ${r.stderr}`);
+  if (r.status !== 0) throw new Error(`no se pudo bajar de Drive (${String(r.stderr).trim().slice(0, 160)})`);
   // Si Drive devolvió una página en vez del archivo, no es un video.
   const cabeza = fs.readFileSync(destino).subarray(0, 64).toString('latin1');
-  if (/^\s*<(!doctype|html)/i.test(cabeza)) fallar(`\nDrive no entregó el archivo ${id}: revisá que esté compartido con el enlace.`);
+  if (/^\s*<(!doctype|html)/i.test(cabeza)) throw new Error('Drive no entregó el archivo: revisá que esté compartido con el enlace');
   return destino;
 }
 
@@ -119,12 +150,11 @@ function pasarAMp4(origen, destino) {
     const r = spawnSync('ffmpeg', ['-v', 'error', '-y', '-i', origen,
       '-vf', `scale='min(${ancho},iw)':-2`, '-c:v', 'libx264', '-preset', 'medium', '-crf', String(crf), '-pix_fmt', 'yuv420p',
       '-c:a', 'aac', '-b:a', '112k', '-ac', '2', '-movflags', '+faststart', destino], { encoding: 'utf8' });
-    if (r.status !== 0) fallar(`\nffmpeg no pudo convertir el video: ${String(r.stderr).slice(0, 400)}`);
+    if (r.status !== 0) throw new Error(`no se pudo convertir (${String(r.stderr).trim().slice(0, 200)})`);
     const mb = fs.statSync(destino).size / 1048576;
     if (mb <= MAXIMO_MB) return { mb, segundos: duracion(destino) };
   }
-  fallar(`\nEl video pesa más de ${MAXIMO_MB} MB aun comprimido: hay que partirlo o acortarlo.`);
-  return null;
+  throw new Error(`pesa más de ${MAXIMO_MB} MB aun comprimido: hay que partirlo o acortarlo`);
 }
 
 function duracion(archivo) {

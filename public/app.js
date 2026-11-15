@@ -292,11 +292,20 @@ async function init() {
   });
 
   // Los videos de la carpeta, en orden: el guion los nombra por número.
-  fetch('videos/indice.json', { cache: 'no-cache' }).then((r) => (r.ok ? r.json() : [])).then((lista) => {
-    state.videosCarpeta = Array.isArray(lista) ? lista : [];
+  // Se vuelve a mirar cada tanto: un video recién subido a la carpeta aparece
+  // sin recargar la página.
+  const mirarVideos = () => fetch('videos/indice.json', { cache: 'no-cache' }).then((r) => (r.ok ? r.json() : [])).then((lista) => {
+    const nueva = Array.isArray(lista) ? lista : [];
+    if (JSON.stringify(nueva) === JSON.stringify(state.videosCarpeta)) return;
+    const antes = state.videosCarpeta.filter(Boolean).length;
+    state.videosCarpeta = nueva;
     resolverVideos();
-    publicar();
+    const ahora = nueva.filter(Boolean).length;
+    if (ahora !== antes) anotar(`Videos de la carpeta: ${ahora}.`);
+    publicar({ forzar: true });
   }).catch(() => {});
+  mirarVideos();
+  setInterval(mirarVideos, 120000);
   guion.subscribe(() => resolverVideos());
 
   // Las grabaciones de los parlamentos: se busca qué hay y se precarga lo del guion.
