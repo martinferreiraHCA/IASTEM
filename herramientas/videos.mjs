@@ -134,8 +134,16 @@ function listarDrive(id) {
   const html = r.stdout;
   if (!/flip-entries|flip-contents/.test(html)) fallar('Drive no mostró la carpeta: ¿está compartida como "Cualquier persona con el enlace"?');
   const archivos = [];
-  const entrada = /id="entry-([\w-]+)"[\s\S]*?class="flip-entry-title">([\s\S]*?)<\/div>/g;
-  for (let m; (m = entrada.exec(html));) archivos.push({ id: m[1], nombre: sinEntidades(m[2].trim()), clave: `drive:${m[1]}` });
+  // Cada archivo es un bloque: su id, su nombre y cuándo se modificó. La
+  // fecha entra en la clave, así una versión nueva del mismo archivo se
+  // vuelve a traer.
+  for (const bloque of html.split('id="entry-').slice(1)) {
+    const id = /^([\w-]+)"/.exec(bloque)?.[1];
+    const nombre = /class="flip-entry-title">([\s\S]*?)<\/div>/.exec(bloque)?.[1];
+    if (!id || nombre == null) continue;
+    const modificado = /class="flip-entry-last-modified">\s*<div>([^<]*)/.exec(bloque)?.[1] || '';
+    archivos.push({ id, nombre: sinEntidades(nombre.trim()), clave: `drive:${id}:${sinEntidades(modificado).replace(/\s+/g, ' ').trim()}` });
+  }
   return archivos;
 }
 
