@@ -259,9 +259,14 @@ parlamento; el guion de la muestra no lo usa.)
 
 **Los videos.** Donde el guion dice que va un video, la línea es
 `VIDEO: 1`, `VIDEO: 2`…: el primero, el segundo de la carpeta de Drive de la
-muestra, en orden alfabético. Se traen con `node herramientas/videos.mjs`,
-que los baja, los pasa a mp4 (sea cual sea su formato) y los deja en
-`public/videos/` con su índice. El video toma la pantalla, al terminar se va
+muestra, en orden alfabético. **El sistema los trae solo:** una tarea del
+repositorio (`.github/workflows/videos.yml`) mira la carpeta cada diez
+minutos y, si hay algo nuevo, lo baja, lo pasa a mp4 (sea cual sea su
+formato) y lo publica en `public/videos/` con su índice. Subir el video a la
+carpeta alcanza; en un rato aparece, y NOVA lo toma sin recargar. También se
+puede correr a mano (`node herramientas/videos.mjs`, o *Actions → Videos de
+la carpeta → Run workflow* en GitHub). Un archivo de la carpeta que no va en
+la obra se anota en `public/videos/excluir.json` y queda afuera. El video toma la pantalla, al terminar se va
 solo, y si lo que sigue viene pegado, pasa solo: varios videos seguidos
 corren uno atrás del otro. Un video que todavía no está en la carpeta se
 pasa de largo.

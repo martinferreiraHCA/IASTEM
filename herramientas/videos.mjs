@@ -11,6 +11,10 @@
  * (H.264 y AAC, 720p como mucho), sea cual sea su formato, y queda en
  * public/videos/, con un public/videos/indice.json que NOVA lee.
  *
+ * Para dejar afuera un archivo que está en la carpeta pero no va en la obra
+ * (una prueba), se anota su id de Drive en public/videos/excluir.json: no se
+ * trae ni cuenta para el orden.
+ *
  * Con --comprobar no baja nada: dice si la carpeta cambió respecto de lo que
  * ya está en el sitio (sale con código 3 si hay algo para traer o sacar).
  *
@@ -49,8 +53,12 @@ fs.mkdirSync(DESTINO, { recursive: true });
 const indiceViejo = leerJson(path.join(DESTINO, 'indice.json')) || [];
 const temporal = fs.mkdtempSync(path.join(os.tmpdir(), 'nova-videos-'));
 
+// Lo que está en la carpeta pero no va en la obra: [{ "id": "...", "nombre": "...", "motivo": "..." }]
+const excluidos = new Set((leerJson(path.join(DESTINO, 'excluir.json')) || []).map((e) => e.id));
+
 const origenes = (opciones.local ? listarLocal(opciones.local) : listarDrive(opciones.carpeta))
   .filter((o) => DE_VIDEO.test(o.nombre))
+  .filter((o) => !excluidos.has(o.id))
   .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { numeric: true, sensitivity: 'base' }));
 
 const nombreDe = (origen, numero) => `${String(numero).padStart(2, '0')}-${slug(origen.nombre.replace(DE_VIDEO, '').trim())}.mp4`;
