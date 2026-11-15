@@ -228,13 +228,15 @@ export function leerImagen(texto) {
   let segundos = SEGUNDOS_IMAGEN;
   let pie = '';
   let fija = false; // "| fija": no sale sola al seguir el guion
+  let completa = false; // "| completa": ocupa toda la pantalla, sin marco ni pie (una portada)
   for (const parte of partes) {
     const tiempo = /^(\d+(?:[.,]\d+)?)\s*(?:s|seg|segundos?)?$/i.exec(parte);
     if (tiempo) segundos = Math.max(1, Math.min(600, Number(tiempo[1].replace(',', '.'))));
     else if (/^(fija|queda|se queda)$/i.test(parte)) fija = true;
+    else if (/^(completa|entera|pantalla completa|portada)$/i.test(parte)) completa = true;
     else if (parte) pie = pie ? `${pie} | ${parte}` : parte;
   }
-  return { src, pie, segundos, ...(fija ? { fija: true } : {}) };
+  return { src, pie, segundos, ...(fija ? { fija: true } : {}), ...(completa ? { completa: true } : {}) };
 }
 
 /**

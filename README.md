@@ -88,6 +88,7 @@ Las reglas son pocas:
   del parlamento de NOVA en el que pasan:
   - `IMAGEN: dirección | pie de foto`: la imagen **toma la pantalla, en
     grande, y se queda**, sin ningún texto encima: NOVA se oye pero no se lee.
+    Con `| completa` ocupa toda la pantalla, sin marco ni pie (una portada).
     Sale sola cuando el guion sigue con otra línea (con `| fija` al final
     se queda hasta que la saques con la tecla **I** o desde el panel). Con
     un tiempo al final, `| 10s`, se va sola al cumplirse.
@@ -242,9 +243,15 @@ Las reglas de la base:
 Lo que depende de lo que dicen los estudiantes necesita el *Adelante*: es la
 señal de que llegó ese momento.
 
-**Las palabras de cada acto.** Al final de cada acto aparece su palabra
-(`PALABRA: CREATIVIDAD`), flotando con NOVA, y se va sola cuando arranca el
-acto siguiente. Mientras NOVA habla, sus palabras quedan flotando alrededor;
+**La portada.** La primera línea del guion de la muestra es la portada
+(`IMAGEN: imagenes/portada.png | completa`: toda la pantalla, sin marco ni
+pie). Se pone sola al proyectar con el guion en el principio, y vuelve con
+*Al principio*.
+
+**Las palabras de cada acto.** Cada acto abre con su palabra
+(`PALABRA: CREATIVIDAD`), flotando con NOVA: así se sabe de qué se va a
+hablar. Con el *Adelante* siguiente se va, y queda NOVA sola, como
+escuchando, mientras actúan los estudiantes. Mientras NOVA habla, sus palabras quedan flotando alrededor;
 los datos que importan (`DATO: 237 notificaciones por día`, antes del
 parlamento en el que se dicen) quedan flotando también, más grandes y en
 ámbar, y no se disuelven. Al cambiar de acto se van todos y empiezan los del

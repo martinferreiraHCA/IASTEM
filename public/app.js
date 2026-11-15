@@ -642,10 +642,11 @@ function mostrarImagen(imagen) {
   clearTimeout(state.imagenTimer);
   state.imagenTimer = null;
   const segundos = Number(imagen.segundos) > 0 ? Number(imagen.segundos) : 0; // 0: se queda
-  state.imagen = { src: imagen.src, pie: imagen.pie || '', segundos, ...(imagen.fija ? { fija: true } : {}) };
+  state.imagen = { src: imagen.src, pie: imagen.pie || '', segundos, ...(imagen.fija ? { fija: true } : {}), ...(imagen.completa ? { completa: true } : {}) };
   state.imagenVisible = true;
   el.sceneImagen.classList.remove('se-va');
   el.sceneImagen.classList.toggle('con-tiempo', segundos > 0);
+  el.sceneImagen.classList.toggle('completa', Boolean(imagen.completa)); // una portada: toda la pantalla, sin marco ni pie
   el.sceneImagenImg.src = imagen.src;
   el.sceneImagenImg.alt = imagen.pie || '';
   el.sceneImagenPie.textContent = imagen.pie || '';
@@ -1213,7 +1214,7 @@ function recibirComando(mensaje) {
     case 'limpiar': limpiarPantalla(); break;
     case 'decir': decirDelGuion(Number(mensaje.indice)); break;
     case 'siguiente': decirSiguiente(); break;
-    case 'reiniciar': guion.reiniciar(); state.escenaGuion = ''; anotar('El guion vuelve al principio.'); break;
+    case 'reiniciar': guion.reiniciar(); state.escenaGuion = ''; limpiarPantalla(); anotar('El guion vuelve al principio.'); ponerPortada(); break;
     case 'activo': guion.setActivo(Boolean(mensaje.on)); break;
     case 'tolerancia': guion.setTolerancia(String(mensaje.nombre)); break;
     case 'cargar': {
@@ -1607,14 +1608,14 @@ function resumenConGrabaciones() {
 function mediosDelGuion() {
   const vistos = new Set();
   const medios = [];
-  const sumar = (tipo, valor, rotulo) => {
+  const sumar = (tipo, valor, rotulo, completa = false) => {
     if (!valor || vistos.has(`${tipo}:${valor}`)) return;
     vistos.add(`${tipo}:${valor}`);
-    medios.push({ tipo, valor, rotulo: rotulo || String(valor).split('/').pop() });
+    medios.push({ tipo, valor, rotulo: rotulo || String(valor).split('/').pop(), ...(completa ? { completa: true } : {}) });
   };
   for (const e of guion.entradas) {
     if (e.fondo && e.fondo !== 'ninguno') sumar('fondo', e.fondo.src, e.fondo.pie);
-    for (const imagen of e.imagenes || []) if (!imagen.quitar) sumar('imagen', imagen.src, imagen.pie);
+    for (const imagen of e.imagenes || []) if (!imagen.quitar) sumar('imagen', imagen.src, imagen.pie, imagen.completa);
     if (e.video && e.video !== 'ninguno') sumar('video', e.video.src, e.video.pie);
     if (e.letrero && e.letrero !== 'ninguno') sumar('letrero', e.letrero, e.letrero);
     if (e.palabra && e.palabra !== 'ninguna') sumar('palabra', e.palabra, e.palabra);
@@ -1631,7 +1632,7 @@ function ponerMedio({ que: tipo, valor, on }) {
   if (!medio) return anotar('Eso no está en el guion cargado: no se pone.');
   const sacar = on === false;
   if (tipo === 'fondo') ponerFondo(sacar ? 'ninguno' : { src: medio.valor, pie: medio.rotulo });
-  else if (tipo === 'imagen') sacar ? ocultarImagen({ olvidar: true }) : mostrarImagen({ src: medio.valor, pie: medio.rotulo, segundos: 0 });
+  else if (tipo === 'imagen') sacar ? ocultarImagen({ olvidar: true }) : mostrarImagen({ src: medio.valor, pie: medio.rotulo, segundos: 0, completa: medio.completa });
   else if (tipo === 'video') sacar ? ocultarVideo() : reproducirVideo({ src: medio.valor, pie: medio.rotulo });
   else if (tipo === 'letrero') ponerLetrero(sacar ? 'ninguno' : medio.valor);
   else if (tipo === 'palabra') ponerPalabra(sacar ? 'ninguna' : medio.valor);
@@ -1765,9 +1766,11 @@ async function cargarGuionPorDefecto() {
     const habia = guion.tiene;
     const cuantos = guion.cargar(await grabaciones.textoDelPaquete(paquete.nombre));
     anotarOrigen({ nombre: paquete.nombre, version: paquete.version || '' });
+    state.escenaGuion = '';
     const texto = `${habia ? 'Guion de la muestra actualizado' : 'Guion de la muestra cargado'}: ${paquete.titulo}, ${cuantos} líneas.`;
     anotar(texto);
     toast(texto);
+    ponerPortada();
   } catch { /* sin red: queda el guion que había */ }
 }
 
@@ -2582,6 +2585,9 @@ function scrollLog() {
 /* -------------------------------------------------------------- estados */
 
 function setMode(mode) {
+  // En la puesta en escena (sin micrófono), NOVA en reposo se ve como si
+  // escuchara: está atenta a lo que pasa en el escenario.
+  if (mode === 'idle' && !state.micQuerido) mode = 'listening';
   state.modo = mode;
   el.orb.dataset.state = mode === 'answering' ? 'thinking' : mode;
   el.sceneOrb.dataset.state = mode === 'answering' ? 'thinking' : mode;
@@ -2599,6 +2605,17 @@ function setStatus(stateName, label) {
 
 function toggleStage() {
   setStageMode(!isStage());
+}
+
+/**
+ * Con el guion en el principio y la tele proyectando, la primera línea, si
+ * es de solo pantalla (la portada), se pone sola: así la sala se encuentra
+ * con la portada sin que nadie toque nada.
+ */
+function ponerPortada() {
+  const primera = guion.entradas[0];
+  if (!isStage() || state.busy || guion.cursor !== -1 || !primera?.muda || primera.pies.length) return;
+  pasarMuda(primera);
 }
 
 function setStageMode(on) {
@@ -2627,6 +2644,7 @@ function setStageMode(on) {
   cloud.setClearZone(on ? zonaDelTexto : null);
   cloud.setEscenario(on);
   cloud.resize();
+  if (on) ponerPortada();
   publicar();
 }
 

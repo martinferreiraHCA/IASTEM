@@ -20,8 +20,9 @@
 #     es la señal de que llegó ese momento.
 #
 # Las palabras:
-#   - Al final de cada acto aparece su palabra (PALABRA: ...), flotando con
-#     NOVA, y se va sola cuando arranca el acto siguiente.
+#   - Cada acto abre con su palabra (PALABRA: ...), flotando con NOVA: así
+#     se sabe de qué se va a hablar. Con el Adelante siguiente se va, y
+#     queda NOVA sola, como escuchando, mientras actúan los estudiantes.
 #   - Mientras NOVA habla, sus palabras quedan flotando alrededor. Los datos
 #     que importan (DATO: ...) quedan flotando también, más grandes y en otro
 #     color. Al cambiar de acto se van todos y empiezan los del acto nuevo.
@@ -42,21 +43,24 @@
 NOVA?: Perdón, no les entendí. ¿Me lo repiten?
 NOVA?: Sigan, sigan. Estoy tomando nota.
 
-## Presentación
+## Portada
 
-# Mientras los estudiantes dan la bienvenida, el nombre de la muestra se
-# escribe y se borra en la pantalla. Pasar esta línea al empezar.
-LETRERO: Palabras
+# La portada de la muestra. Se pone sola al proyectar con el guion en el
+# principio, y se queda mientras los estudiantes dan la bienvenida.
+IMAGEN: imagenes/portada.png | Palabras · Muestra STEM 7º | completa
 NOVA:
 
 ESTUDIANTES: Buen día. El área de STEM en nuestro colegio es un espacio identitario e innovador que desde hace años es parte de los primeros tramos de la etapa liceal. Y esta vez nos encuentra con la sexta muestra de fin de cursos. [...] Sin más, esperamos nuevamente que esta sea una oportunidad para pensar juntos: nosotros, los padres y, claro, la inteligencia artificial. Muchas gracias.
 
 ## Palabra uno: Creatividad
 
-# Dos estudiantes discuten sobre la Gran Ola con la guía, y NOVA interviene.
-# De fondo, la Gran ola de Kanagawa. Tono calmo.
+# El acto abre con su palabra: así se sabe de qué se va a hablar.
+PALABRA: CREATIVIDAD
+NOVA:
+# Adelante: se va la palabra y queda NOVA escuchando, con la Gran Ola de
+# fondo. Dos estudiantes discuten sobre la obra con la guía. Tono calmo.
+PALABRA: ninguna
 FONDO: https://upload.wikimedia.org/wikipedia/commons/0/0a/The_Great_Wave_off_Kanagawa.jpg | La gran ola de Kanagawa · Hokusai, hacia 1831
-LETRERO: ninguno
 NOVA:
 
 E1: Es impresionante cómo la pintura provoca que nosotros estemos mirando hacia el centro enseguida. Parece como que la pintura, por cómo está diseñada, tuviera movimiento. Sí, como si nos hiciera notar la fuerza del agua. Me impresionan los colores, principalmente el azul.
@@ -110,17 +114,16 @@ NOVA:
 G: Esta obra claramente carece de esencia, carece de arte y de talento. Se ve muy linda para Pinterest, pero no tiene el alma de los artistas. Ustedes han estudiado años, invertido tiempo, y la evolución humana ha permitido que encontremos nuevas formas de expresar lo que sentimos con el arte. Si dejamos que la tecnología sea quien crea, seremos nosotros quienes nos estemos deshumanizando.
 JAPONESA: Tienen que saber que, cuando usamos la inteligencia artificial, en definitiva ganamos tiempo. El problema es que el tiempo que ganamos no lo usamos para descansar o hacer actividades con amigos o familia: lo terminamos usando en aplicaciones que muchas veces hacen las propias empresas de inteligencia artificial. Es decir, cambia nuestro tiempo de un lugar a otro.
 JAPONESA: Porque la inteligencia artificial, en definitiva, no nos arrebatará la creatividad. Lo que estará haciendo es ofrecernos algo mucho más peligroso: la comodidad de no tener que utilizarla, y haciéndonos, en eso, creer que estamos ganando tiempo. Los invito a que lo pensemos juntos. Muchas gracias.
-# Fin del acto: la palabra queda flotando con NOVA (la Gran Ola 2.0 sale sola).
-PALABRA: CREATIVIDAD
-NOVA:
 
 ## Palabra dos: Incertidumbre
 
-# Tres amigos, estilo universitarios, se sientan a la mesa y leen la noticia
-# de los cuatro trabajos que más van a desaparecer por la IA. Terminan
-# pidiéndole a NOVA que decida por ellos. Esta línea abre la escena: al
-# pasarla, la Gran Ola 2.0 sale sola.
-IMAGEN: ninguna
+# El acto abre con su palabra (la Gran Ola 2.0 del acto anterior sale sola).
+PALABRA: INCERTIDUMBRE
+NOVA:
+# Adelante: se va la palabra y queda NOVA escuchando. Tres amigos, estilo
+# universitarios, se sientan a la mesa y leen la noticia de los cuatro
+# trabajos que más van a desaparecer por la IA.
+PALABRA: ninguna
 NOVA:
 
 E1: Che, miren este informe que encontré. Según The New York Times, que hizo una investigación en más de cincuenta países y elaboró un informe donde ya se sabe cuáles van a ser los próximos trabajos o carreras que van a desaparecer en el futuro, principalmente por el avance de la inteligencia artificial.
@@ -171,24 +174,27 @@ FONDO: imagenes/pregunta-incertidumbre.svg | ¿Cuánto del futuro estamos dispue
 NOVA:
 
 E1: Así que les pregunto: si necesitamos saber hoy qué va a pasar mañana, ¿cuánto del futuro estamos dispuestos a perdernos por miedo a la incertidumbre? Muchas gracias.
-# Fin del acto: se va la pregunta y queda la palabra, con los datos alrededor.
-FONDO: ninguno
-PALABRA: INCERTIDUMBRE
-NOVA:
 
 ## Hipnocracia (en video)
 
-# Va en video, con V1 y V2: es el primer video de la carpeta. NOVA no habla.
-# Al terminar el video queda el letrero de la muestra.
-LETRERO: Palabras
+# El nexo abre con su palabra.
+PALABRA: HIPNOCRACIA
+NOVA:
+# Adelante: se va la palabra y arranca el video, con V1 y V2: es el primer
+# video de la carpeta. NOVA no habla. Al terminar queda NOVA escuchando.
+PALABRA: ninguna
 VIDEO: 1 | Hipnocracia
 NOVA:
 
 ## Palabra tres: Memoria
 
-# Dos estudiantes cuentan la historia; cuando se sientan, sigue NOVA, de a
-# partes: un toque por párrafo.
-LETRERO: ninguno
+# El acto abre con su palabra.
+PALABRA: MEMORIA
+NOVA:
+# Adelante: se va la palabra y queda NOVA escuchando. Dos estudiantes
+# cuentan la historia; cuando se sientan, sigue NOVA, de a partes: un toque
+# por párrafo.
+PALABRA: ninguna
 NOVA:
 
 E1: Al principio nadie se preocupó. Olvidar una fecha ya no era un problema. Para eso estaban los calendarios, las alarmas y los recordatorios. Olvidar un nombre tampoco: bastaba con buscarlo en los mensajes. Las fotografías conservaban los viajes, las grabaciones guardaban las voces y la inteligencia artificial podía reconstruir cualquier conversación.
@@ -213,14 +219,17 @@ NOVA: Porque recordar no es solamente recuperar información. Es volver sobre lo
 NOVA: Deberían dejar de pensar que el verdadero peligro sería no recordar una fecha, sino olvidar lo que esa fecha significaba. No recordar un nombre, sino perder el vínculo con la persona que lo llevaba. No recordar una experiencia, sino dejar de reconocer cuánto de ella permanece todavía en nosotros.
 NOVA: Pueden confiarme sus archivos. Pueden pedirme respuestas. Pueden utilizarme para aprender, explorar y descubrir. Pero no me entreguen también aquello que les permite reconocerse.
 NOVA: Porque el verdadero peligro no es que yo llegue a recordar todo por ustedes. Es que ustedes dejen de recordar aquello que los hace humanos. Gracias por su memoria.
-# Fin del acto: la palabra aparece sola cuando NOVA termina de hablar.
-PALABRA: MEMORIA
-NOVA:
 
 ## Palabra cuatro: Identidad
 
-# Cuatro estudiantes le piden a NOVA la descripción de quiénes son, y las
-# cuatro salen casi iguales. Lo que NOVA dice aparece escrito en la tele.
+# El acto abre con su palabra.
+PALABRA: IDENTIDAD
+NOVA:
+# Adelante: se va la palabra y queda NOVA escuchando. Cuatro estudiantes le
+# piden a NOVA la descripción de quiénes son, y las cuatro salen casi
+# iguales. Lo que NOVA dice aparece escrito en la tele.
+PALABRA: ninguna
+NOVA:
 
 E1: Bueno, empezamos con la tarea, ¿les parece? Vieron que la profe nos pidió esta vez una descripción para el trabajo, pero solo en tres ideas donde podamos definir quiénes somos.
 E2: Uy, qué difícil. Parece más una clase de filosofía que de lengua española. O sea, tengo trece años, ¿cómo voy a saber quién soy? Apenas sé qué hice esta mañana.
@@ -264,14 +273,17 @@ E2: Seguramente nos lleve más tiempo, pero si sabemos quiénes somos...
 E1: Les propongo una idea mejor: yo te defino a vos, vos a mí, ella a ella, y así todas.
 E3: Tienen razón. Ustedes son mis amigas y sí saben quién soy.
 E4: Desde que todo se empezó a globalizar somos cada vez más iguales. Todo tiene el mismo sabor, nos gusta la misma música y la misma serie. Así es que vamos perdiendo nuestra identidad. Interactuar con una inteligencia artificial significa que ella haga de cada uno de nosotros la misma historia. Tenemos que saber que el uso excesivo de IA hace que también perdamos nuestra esencia. Por eso hay que tener cuidado, no sea cosa que por una pregunta más rápida nos olvidemos de quiénes somos. Muchas gracias.
-# Fin del acto.
-PALABRA: IDENTIDAD
-NOVA:
 
 ## Palabra cinco: Autonomía
 
-# Dos estudiantes planean el viaje y le piden a NOVA que organice todo.
-# Después van los cuatro noticieros en video.
+# El acto abre con su palabra.
+PALABRA: AUTONOMÍA
+NOVA:
+# Adelante: se va la palabra y queda NOVA escuchando. Dos estudiantes
+# planean el viaje y le piden a NOVA que organice todo. Después van los
+# cuatro noticieros en video.
+PALABRA: ninguna
+NOVA:
 
 E1: Uy, nos quedan solo cuatro años para ir a Inglaterra y Dinamarca. Ya empecé a tachar en el calendario, queda menos.
 E2: ¿No te parece que estás un poco ansioso? Ya andar vestido así...
@@ -312,14 +324,16 @@ NOVA:
 E1: Bueno, ya viste. Parece ser bastante peligroso entonces que la IA tome tantas decisiones sobre nosotros.
 E2: Ta, sí, tenés razón. Si dejamos nuestra iniciativa para pensar qué hacer, perdemos el poder de decisión, eso a lo que llamamos autonomía.
 E1: Ahora que lo analizamos bien, podemos ver que la IA nos puede ayudar. Pero si le entregamos cada decisión a ella, tenemos que preguntarnos: ¿quién estará viviendo realmente ese viaje? Muchas gracias.
-# Fin del acto.
-PALABRA: AUTONOMÍA
-NOVA:
 
 ## Palabra seis: Pensar
 
-# Habla solo NOVA y dice en voz alta las cuatro consignas, un toque por
-# cada una. Después entra la señora con el libro, y los dos filósofos.
+# El acto abre con su palabra.
+PALABRA: PENSAR
+NOVA:
+# Adelante: se va la palabra y habla NOVA sola: dice en voz alta las cuatro
+# consignas, un toque por cada una. Después entra la señora con el libro, y
+# los dos filósofos.
+PALABRA: ninguna
 DATO: Efecto Flynn
 NOVA: Efecto Flynn es el nombre que recibe cada generación que superaba en coeficiente intelectual a sus padres. Esto se ha revertido. El entorno digital y la sobreestimulación en la que se desarrollan las adolescencias actuales nos enfrentan hoy a la primera generación que se está acostumbrando a no pensar.
 DATO: Descarga cognitiva
@@ -354,9 +368,6 @@ F1: Y ahora que las máquinas pueden responder tantas de nuestras preguntas, qui
 F2: Exacto. Quizás la pregunta más urgente ya no sea cuánto puede responder una máquina.
 F1: ¿Cuál sería, entonces?
 SEÑORA: Acá la verdadera cuestión no es si las máquinas pueden pensar, sino si nosotros todavía somos capaces de hacerlo en su presencia, y qué tanto estamos dispuestos a darle de aquello que nos hace ser quienes somos. Muchas gracias.
-# Fin del acto.
-PALABRA: PENSAR
-NOVA:
 
 ## Reflexión final
 

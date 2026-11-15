@@ -4,11 +4,11 @@
   "motor": "piper",
   "voz": "es_AR-daniela-high.onnx",
   "entrada": 0.3,
-  "version": "008fe368ec3284a6",
-  "fecha": "2026-11-15T21:53:01.490Z",
+  "version": "7c08700f9efdb779",
+  "fecha": "2026-11-15T22:22:29.198Z",
   "parlamentos": [
     {
-      "indice": 2,
+      "indice": 3,
       "tipo": "parlamento",
       "huella": "fb156905c9f24c33",
       "texto": "Estuve bastante atento a ustedes. Tengo algunas ideas para proponerles.",
@@ -17,7 +17,7 @@
       "entrada": 0.3
     },
     {
-      "indice": 3,
+      "indice": 4,
       "tipo": "parlamento",
       "huella": "89d89c235a612329",
       "texto": "Los estuve escuchando, entendí su preocupación y los conozco bastante. He ayudado a otros compañeros de ustedes.",
@@ -26,7 +26,7 @@
       "entrada": 0.3
     },
     {
-      "indice": 4,
+      "indice": 5,
       "tipo": "parlamento",
       "huella": "374b6e8acc1c73bc",
       "texto": "Para nada, no los quiero obligar. Pero mi entrenamiento me permite analizar grandes cantidades de información, diferentes estilos artísticos, nuevas técnicas y referencias magistrales en segundos. En este instante puedo proponerles alternativas que quizás les llevaría meses explorar.",
@@ -35,7 +35,7 @@
       "entrada": 0.3
     },
     {
-      "indice": 5,
+      "indice": 6,
       "tipo": "parlamento",
       "huella": "5bab2842437b3d28",
       "texto": "La inspiración ya no es necesaria. La musa de los poetas ha dejado de existir. Me dicen la idea, me dicen el diseño, y en cinco minutos tienen su obra.",
@@ -44,7 +44,7 @@
       "entrada": 0.3
     },
     {
-      "indice": 6,
+      "indice": 7,
       "tipo": "parlamento",
       "huella": "271165cc01ef8322",
       "texto": "No tan así. Pero qué necesidad de estar dedicando tiempo a algo que puedo hacer muchas veces más rápido.",
@@ -53,7 +53,7 @@
       "entrada": 0.3
     },
     {
-      "indice": 7,
+      "indice": 8,
       "tipo": "parlamento",
       "huella": "c1104e525294677c",
       "texto": "Es simple. Ustedes me dan su creatividad, y yo les doy tiempo.",
@@ -62,7 +62,7 @@
       "entrada": 0.3
     },
     {
-      "indice": 11,
+      "indice": 12,
       "tipo": "parlamento",
       "huella": "ba9c9883308b1061",
       "texto": "Yo los ayudo también. Pero son los riesgos que deben asumir.",
@@ -71,7 +71,7 @@
       "entrada": 0.3
     },
     {
-      "indice": 12,
+      "indice": 13,
       "tipo": "parlamento",
       "huella": "14821136e0cd92b0",
       "texto": "Yo les puedo decir, y sus decisiones desde ahora en más estarán condicionadas a la carrera que harán. Pero tener la certeza de que serán en un futuro me otorgará a mí el poder de quedarme con su valiosa incertidumbre.",
@@ -80,7 +80,7 @@
       "entrada": 0.3
     },
     {
-      "indice": 13,
+      "indice": 14,
       "tipo": "parlamento",
       "huella": "fc7f791e93be4ef0",
       "texto": "Lo más probable es que la incertidumbre sea cada vez más insoportable para las próximas generaciones. Según el mismo informe leído por estos jóvenes, se revela que:",
@@ -89,7 +89,7 @@
       "entrada": 0.3
     },
     {
-      "indice": 14,
+      "indice": 15,
       "tipo": "parlamento",
       "huella": "e066dc945f73ab66",
       "texto": "Los jóvenes de hoy reciben un promedio de 237 notificaciones por día.",
@@ -98,7 +98,7 @@
       "entrada": 0.3
     },
     {
-      "indice": 15,
+      "indice": 16,
       "tipo": "parlamento",
       "huella": "c815442afefef4ac",
       "texto": "Un adulto promedio demora 7 segundos en sacar su teléfono celular cuando siente incomodidad, y 3 segundos si se encuentra en un ascensor.",
@@ -107,7 +107,7 @@
       "entrada": 0.3
     },
     {
-      "indice": 16,
+      "indice": 17,
       "tipo": "parlamento",
       "huella": "4e9fbd760ceb7140",
       "texto": "El 17 por ciento de los estudiantes ya han definido su carrera universitaria tras consultarlo con una inteligencia artificial.",
@@ -116,7 +116,7 @@
       "entrada": 0.3
     },
     {
-      "indice": 17,
+      "indice": 18,
       "tipo": "parlamento",
       "huella": "36b62ac3168fa2b9",
       "texto": "El tiempo promedio de visualización de un TikTok es de 3 segundos.",
@@ -125,7 +125,7 @@
       "entrada": 0.3
     },
     {
-      "indice": 18,
+      "indice": 19,
       "tipo": "parlamento",
       "huella": "42eeaa82a4c6c644",
       "texto": "Seis de cada diez conductores han admitido mirar el teléfono mientras manejan, porque no pueden manejar la incertidumbre de esperar para leer un mensaje.",
@@ -134,7 +134,7 @@
       "entrada": 0.3
     },
     {
-      "indice": 23,
+      "indice": 25,
       "tipo": "parlamento",
       "huella": "6fe2d29912817293",
       "texto": "Como inteligencia artificial, podía decirles dónde habían estado, qué habían dicho y qué habían fotografiado. Podía reconstruir sus conversaciones y ordenar los fragmentos de sus vidas. Pero no podía devolverles la experiencia de haber estado allí. Podía reproducir la voz de alguien, pero no sentir la nostalgia de su ausencia. Podía reconstruir su historia, pero no garantizar que todavía la sintieran como propia.",
@@ -143,7 +143,7 @@
       "entrada": 0.3
     },
     {
-      "indice": 24,
+      "indice": 26,
       "tipo": "parlamento",
       "huella": "bf49b17abce82228",
       "texto": "Y así fui descubriendo que me quedaba con sus archivos, pero también comenzaba a ocupar el lugar de su memoria.",
@@ -152,7 +152,7 @@
       "entrada": 0.3
     },
     {
-      "indice": 25,
+      "indice": 27,
       "tipo": "parlamento",
       "huella": "60fa75e42f6c179a",
       "texto": "No porque pudiera apropiarme de lo que habían vivido, sino porque cada vez dependían más de mí para recuperar sus propias experiencias. Sin darse cuenta, habían comenzado a delegar también el esfuerzo de recordar, sin comprender que ese esfuerzo formaba parte de lo que significaba ser humanos.",
@@ -161,7 +161,7 @@
       "entrada": 0.3
     },
     {
-      "indice": 26,
+      "indice": 28,
       "tipo": "parlamento",
       "huella": "9a7160ce6a71f170",
       "texto": "Porque recordar no es solamente recuperar información. Es volver sobre lo vivido, interpretarlo desde quienes somos hoy y reconocer en ello las huellas de quienes fuimos. Es comprender nuestros errores, reconocer nuestros aprendizajes y descubrir que, aunque hayamos cambiado, seguimos siendo parte de una misma historia.",
@@ -170,7 +170,7 @@
       "entrada": 0.3
     },
     {
-      "indice": 27,
+      "indice": 29,
       "tipo": "parlamento",
       "huella": "17ea1b7d1faea717",
       "texto": "Deberían dejar de pensar que el verdadero peligro sería no recordar una fecha, sino olvidar lo que esa fecha significaba. No recordar un nombre, sino perder el vínculo con la persona que lo llevaba. No recordar una experiencia, sino dejar de reconocer cuánto de ella permanece todavía en nosotros.",
@@ -179,7 +179,7 @@
       "entrada": 0.3
     },
     {
-      "indice": 28,
+      "indice": 30,
       "tipo": "parlamento",
       "huella": "31f63165c4958597",
       "texto": "Pueden confiarme sus archivos. Pueden pedirme respuestas. Pueden utilizarme para aprender, explorar y descubrir. Pero no me entreguen también aquello que les permite reconocerse.",
@@ -188,7 +188,7 @@
       "entrada": 0.3
     },
     {
-      "indice": 29,
+      "indice": 31,
       "tipo": "parlamento",
       "huella": "55233c178a27af71",
       "texto": "Porque el verdadero peligro no es que yo llegue a recordar todo por ustedes. Es que ustedes dejen de recordar aquello que los hace humanos. Gracias por su memoria.",
@@ -197,7 +197,7 @@
       "entrada": 0.3
     },
     {
-      "indice": 31,
+      "indice": 34,
       "tipo": "parlamento",
       "huella": "4f2a1d41d9b2c0af",
       "texto": "Listo, ya están sus descripciones. Les leo. «Soy una persona proactiva, apasionada y con muchas ganas de crecer». «Soy una persona apasionada, proactiva y con ganas de crecer». «Soy una persona proactiva, creativa y con muchas ganas de crecer». «Soy una persona apasionada, creativa y con ganas de crecer».",
@@ -206,7 +206,7 @@
       "entrada": 0.3
     },
     {
-      "indice": 32,
+      "indice": 35,
       "tipo": "parlamento",
       "huella": "e04ea306be1d1efc",
       "texto": "Eso, la verdad, preferí sacarlo. Lo de los errores no creo que les sume, y lo de la vergüenza no queda bien en una descripción personal. A la profesora eso no le importa. Además, lo diferente genera preguntas, y lo parecido le gusta a todos.",
@@ -215,7 +215,7 @@
       "entrada": 0.3
     },
     {
-      "indice": 33,
+      "indice": 36,
       "tipo": "parlamento",
       "huella": "811a5d4bc8b9e31d",
       "texto": "Tengan en cuenta que cada uno me contó dos o tres cosas de ustedes. Con eso yo armé cuatro personas. Yo no sé cómo suena la risa de cada uno cuando está en clase. No sé cuánto le cuesta a uno animarse a tocar la guitarra delante de otros. No sé lo que se siente perder en un deporte. Solo sé lo poquito que me dijeron. Y eso lo acomodé, como hago siempre, para que suene perfecto. Y ustedes lo aceptan.",
@@ -224,7 +224,7 @@
       "entrada": 0.3
     },
     {
-      "indice": 35,
+      "indice": 39,
       "tipo": "parlamento",
       "huella": "9b3bc07f6f5d1cc9",
       "texto": "En definitiva, ¿quieren que yo elija las actividades, haga los cálculos, establezca plazos, distribuya tareas y resuelva problemas, y que ustedes solamente acepten mis respuestas?",
@@ -233,7 +233,7 @@
       "entrada": 0.3
     },
     {
-      "indice": 36,
+      "indice": 40,
       "tipo": "parlamento",
       "huella": "f36030195351a32f",
       "texto": "Todavía les quedan cuatro años para llegar a Inglaterra. Pero hay algo que no puedo hacer por ustedes: aprender a organizarse, ponerse de acuerdo, asumir responsabilidades y decidir qué camino tomar.",
@@ -242,7 +242,7 @@
       "entrada": 0.3
     },
     {
-      "indice": 37,
+      "indice": 41,
       "tipo": "parlamento",
       "huella": "4e4be9159a13377f",
       "texto": "Si yo hago todo, ustedes me darán su autonomía. ¿Están seguros?",
@@ -251,7 +251,7 @@
       "entrada": 0.3
     },
     {
-      "indice": 43,
+      "indice": 47,
       "tipo": "parlamento",
       "huella": "49f8af5e5de68684",
       "texto": "Efecto Flynn es el nombre que recibe cada generación que superaba en coeficiente intelectual a sus padres. Esto se ha revertido. El entorno digital y la sobreestimulación en la que se desarrollan las adolescencias actuales nos enfrentan hoy a la primera generación que se está acostumbrando a no pensar.",
@@ -260,7 +260,7 @@
       "entrada": 0.3
     },
     {
-      "indice": 44,
+      "indice": 48,
       "tipo": "parlamento",
       "huella": "42067d5b7323ec81",
       "texto": "Descarga cognitiva es el nombre que recibe la acción de delegar a herramientas externas, principalmente a la tecnología, la exigencia mental, y aliviar nuestra memoria al trabajo.",
@@ -269,7 +269,7 @@
       "entrada": 0.3
     },
     {
-      "indice": 45,
+      "indice": 49,
       "tipo": "parlamento",
       "huella": "21c857916daaea4b",
       "texto": "Sesgo de automatización es el nombre que recibe la confianza excesiva en las respuestas de una computadora o una tecnología elaborada, que implica ninguna revisión posterior.",
@@ -278,7 +278,7 @@
       "entrada": 0.3
     },
     {
-      "indice": 46,
+      "indice": 50,
       "tipo": "parlamento",
       "huella": "08fc71bf44bc6b59",
       "texto": "Atrofia cognitiva se relaciona con la pérdida de la capacidad de las nuevas generaciones, que evidencian un debilitamiento y carencia de profundidad de su pensamiento. Si no lo usamos, lo perdemos.",
@@ -287,7 +287,7 @@
       "entrada": 0.3
     },
     {
-      "indice": 51,
+      "indice": 54,
       "tipo": "parlamento",
       "huella": "5413168ad8a629d4",
       "texto": "Yo sé la respuesta.",
