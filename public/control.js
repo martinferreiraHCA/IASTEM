@@ -27,6 +27,7 @@ const el = {
   dicho: $('dicho'),
   siguiente: $('siguiente'),
   atras: $('atras'),
+  tocar: $('tocar'),
   limpiar: $('limpiar'),
   medios: $('medios'),
   entrega: $('entrega'),
@@ -384,6 +385,8 @@ function pintar() {
   // Lo que oyó solo importa si el micrófono está prendido: la puesta en escena va sin él.
   el.oido.textContent = estado.oido ? `Oyó: «${estado.oido}»` : estado.mic === 'escuchando' ? 'Todavía no oyó nada.' : '';
   el.dicho.textContent = estado.ultimaRespuesta ? `Dijo: «${recortar(estado.ultimaRespuesta, 140)}»` : '';
+
+  el.tocar.hidden = estado.tocada !== false; // solo si el escenario dice que nadie lo tocó todavía
 
   // El siguiente parlamento, en el botón grande.
   const siguiente = guion.entradas[guion.cursor + 1] || null;

@@ -184,6 +184,7 @@ const state = {
   videoEn: false,        // el video está en pantalla
   apagada: false,        // NOVA apagada: pantalla a negro (el final)
   escenaGuion: '',       // en qué escena del guion está la pantalla, para limpiarla al cambiar
+  tocada: Boolean(navigator.userActivation?.hasBeenActive), // alguien tocó esta página: el navegador deja sonar
   videosCarpeta: [],     // los videos de la carpeta, en orden: "VIDEO: 2" es el segundo
   evento: null,          // lo último que pasó, para el panel
   abriendoMic: false,
@@ -312,7 +313,14 @@ async function init() {
   grabaciones.onCambio = () => { pintarGrabaciones(); publicar(); };
   // La salida de audio se mantiene despierta desde el primer toque en la
   // página, para que no se corte el principio de cada grabación.
-  for (const gesto of ['pointerdown', 'keydown']) document.addEventListener(gesto, () => grabaciones.despertar(), { passive: true });
+  for (const gesto of ['pointerdown', 'keydown']) {
+    document.addEventListener(gesto, () => {
+      grabaciones.despertar();
+      // Con el primer toque el navegador ya deja sonar: si un video venía mudo, recupera el sonido.
+      if (state.videoEn && el.sceneVideoEl.muted) el.sceneVideoEl.muted = false;
+      if (!state.tocada) { state.tocada = true; publicar({ forzar: true }); }
+    }, { passive: true });
+  }
   grabaciones.cargarIndice().then(async () => { pintarPaquetes(); await cargarGuionPorDefecto(); precargarGrabaciones(); });
   guion.subscribe(() => precargarGrabaciones());
 
@@ -803,13 +811,21 @@ function reproducirVideo(video) {
   el.sceneVideoEl.src = video.src;
   el.scene.dataset.video = 'on';
   listener?.pauseForPlayback();
-  el.sceneVideoEl.play().catch((err) => {
-    const motivo = err?.name === 'NotAllowedError'
-      ? 'el navegador no dejó reproducirlo solo: tocá la pantalla de NOVA una vez y volvé a pasarlo'
-      : 'no se pudo cargar';
+  const noSePudo = (motivo) => {
     toast(`Video: ${motivo}.`);
     anotar(`El video no se pudo reproducir (${motivo}).`);
     ocultarVideo();
+  };
+  el.sceneVideoEl.muted = false;
+  el.sceneVideoEl.play().catch((err) => {
+    if (err?.name !== 'NotAllowedError') return noSePudo('no se pudo cargar');
+    // El navegador no deja sonar nada hasta que alguien toque la página.
+    // Antes que no mostrarlo, va sin sonido, y se avisa.
+    el.sceneVideoEl.muted = true;
+    el.sceneVideoEl.play().then(() => {
+      toast('El video va sin sonido: tocá esta pantalla una vez para habilitarlo.');
+      anotar('El video va SIN SONIDO: en la computadora, tocá la pantalla de NOVA una vez.');
+    }).catch(() => noSePudo('el navegador no dejó reproducirlo: tocá la pantalla de NOVA una vez y volvé a pasarlo'));
   });
   anotar(`Video en pantalla: ${video.pie || video.src}.`);
   publicar();
@@ -871,7 +887,17 @@ function apagar(on = true) {
  *     (el fondo, el letrero y la palabra son de toda la escena y se quedan).
  *     Una imagen marcada "| fija" no sale sola.
  */
+/**
+ * Todo lo de pantalla (imágenes, videos, fondos, palabras) vive en la vista
+ * de proyección. Si la puesta en escena se mueve y NOVA está en la consola,
+ * pasa sola a proyectar: si no, un video sonaría sin verse.
+ */
+function asegurarEscenario() {
+  if (!isStage()) setStageMode(true);
+}
+
 function avanzarPantalla(entrada) {
+  asegurarEscenario();
   const otraEscena = Boolean(entrada.escena) && entrada.escena !== state.escenaGuion;
   if (entrada.escena) state.escenaGuion = entrada.escena;
   const traeImagen = entrada.imagenes?.[0] && !entrada.imagenes[0].quitar;
@@ -1162,6 +1188,7 @@ function publicar({ forzar = false } = {}) {
       videoEn: state.videoEn,
       apagada: state.apagada,
       ocupada: state.busy,
+      tocada: state.tocada || Boolean(navigator.userActivation?.hasBeenActive),
       oido: state.oido,
       ultimaRespuesta: recortarTexto(state.ultimaRespuesta, 220),
       evento: state.evento,
@@ -1246,11 +1273,12 @@ function recibirComando(mensaje) {
     case 'palabra': ponerPalabra(mensaje.on === false ? 'ninguna' : String(mensaje.texto || guion.entradas[mensaje.indice]?.palabra || '')); break;
     case 'letrero': ponerLetrero(mensaje.on === false ? 'ninguno' : String(mensaje.texto || guion.entradas[mensaje.indice]?.letrero || '')); break;
     case 'apagar': apagar(mensaje.on !== false); break;
-    case 'video': mensaje.on === false ? ocultarVideo() : reproducirVideo(guion.entradas[mensaje.indice]?.video || state.video); break;
+    case 'video': if (mensaje.on === false) ocultarVideo(); else { asegurarEscenario(); reproducirVideo(guion.entradas[mensaje.indice]?.video || state.video); } break;
     case 'pantalla': {
       // Lo que el guion pide para la pantalla en ese parlamento, sin decirlo.
       const entrada = guion.entradas[Number(mensaje.indice)];
       if (entrada) {
+        asegurarEscenario();
         aplicarPantalla(entrada);
         anotar(`Pantalla del parlamento ${entrada.indice + 1} aplicada desde el panel.`);
       }
@@ -1639,6 +1667,7 @@ function mediosDelGuion() {
 function ponerMedio({ que: tipo, valor, on }) {
   const medio = mediosDelGuion().find((m) => m.tipo === tipo && m.valor === valor);
   if (!medio) return anotar('Eso no está en el guion cargado: no se pone.');
+  asegurarEscenario();
   const sacar = on === false;
   if (tipo === 'fondo') ponerFondo(sacar ? 'ninguno' : { src: medio.valor, pie: medio.rotulo });
   else if (tipo === 'imagen') sacar ? ocultarImagen({ olvidar: true }) : mostrarImagen({ src: medio.valor, pie: medio.rotulo, segundos: 0, completa: medio.completa });

@@ -350,6 +350,8 @@ body[data-palabra="on"] .scene__body:has(.scene__text:empty) { visibility: hidde
   text-align: center;
 }
 .scene__video figcaption:empty { display: none; }
+/* El video va solo, a pantalla completa: su nombre es para el panel, no para la tele. */
+.scene__video figcaption { display: none; }
 .scene[data-video="on"] .scene__body,
 .scene[data-video="on"] .scene__orb,
 .scene[data-video="on"] .scene__foot,
