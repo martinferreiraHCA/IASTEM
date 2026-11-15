@@ -251,11 +251,11 @@ pie). Se pone sola al proyectar con el guion en el principio, y vuelve con
 **Las palabras de cada acto.** Cada acto abre con su palabra
 (`PALABRA: CREATIVIDAD`), flotando con NOVA: así se sabe de qué se va a
 hablar. Con el *Adelante* siguiente se va, y queda NOVA sola, como
-escuchando, mientras actúan los estudiantes. Mientras NOVA habla, sus palabras quedan flotando alrededor;
-los datos que importan (`DATO: 237 notificaciones por día`, antes del
-parlamento en el que se dicen) quedan flotando también, más grandes y en
-ámbar, y no se disuelven. Al cambiar de acto se van todos y empiezan los del
-acto nuevo.
+escuchando, mientras actúan los estudiantes. Mientras NOVA habla, sus
+palabras quedan flotando alrededor: palabras sueltas, no frases. Al cambiar
+de acto se van todas y empiezan las del acto nuevo. (Si alguna vez se quiere
+dejar flotando una cifra o una idea entera, existe `DATO: …` antes de un
+parlamento; el guion de la muestra no lo usa.)
 
 **Los videos.** Donde el guion dice que va un video, la línea es
 `VIDEO: 1`, `VIDEO: 2`…: el primero, el segundo de la carpeta de Drive de la
