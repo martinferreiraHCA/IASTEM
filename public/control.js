@@ -92,7 +92,11 @@ const enlace = new Enlace('panel', (mensaje) => {
     if (estado) { completarGuion(); pintar(); }
     return;
   }
-  if (mensaje.tipo !== 'estado') return;
+  if (mensaje.tipo !== 'estado' || !mensaje.estado) return;
+  // La nube no guarda listas vacías ni valores nulos: lo que falta se completa.
+  mensaje.estado.plantel ||= [];
+  mensaje.estado.guion ||= { activo: true, cursor: -1, total: 0, comodines: 0, version: '' };
+  mensaje.estado.sala ||= {};
   // Lo que la nube tenía guardado de antes se muestra, pero no cuenta como
   // señal: el escenario puede haberse ido. Se le pregunta si está.
   if (mensaje.deAntes) {

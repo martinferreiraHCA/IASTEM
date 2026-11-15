@@ -985,6 +985,7 @@ async function guardarNube(url) {
 }
 
 function abrirSala(codigo = codigoNuevo()) {
+  if (enlace.sala.codigo && enlace.sala.codigo !== codigo) enlace.cerrarSala({ olvidar: true }); // la sala vieja no deja nada en la nube
   localStorage.setItem(SALA_CLAVE, codigo);
   enlace.abrirSala(codigo);
   anotar(`Sala ${codigo} abierta para el celular.`);
@@ -993,7 +994,7 @@ function abrirSala(codigo = codigoNuevo()) {
 
 function cerrarSala() {
   localStorage.removeItem(SALA_CLAVE);
-  enlace.cerrarSala();
+  enlace.cerrarSala({ olvidar: true });
   anotar('Sala del celular cerrada.');
   pintarSala();
 }

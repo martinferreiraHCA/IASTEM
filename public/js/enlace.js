@@ -293,8 +293,11 @@ export class Enlace {
   /** El panel entra a la sala que abrió el escenario. */
   entrarSala(codigo) { return this.#sala(normalizarCodigo(codigo), 'panel'); }
 
-  /** Cierra la sala y deja de intentar. */
-  cerrarSala() {
+  /**
+   * Cierra la sala y deja de intentar. Con `olvidar` (el escenario cierra la
+   * sala a propósito), además se borra lo que la sala dejó en la nube.
+   */
+  cerrarSala({ olvidar = false } = {}) {
     clearTimeout(this.salaReintento);
     clearInterval(this.latidoTimer);
     clearInterval(this.ausenciaTimer);
@@ -318,7 +321,7 @@ export class Enlace {
     if (this.nube) {
       const nube = this.nube;
       this.nube = null;
-      nube.cerrar();
+      nube.cerrar({ olvidar: olvidar && this.rol === 'escenario' });
     }
     this.#setSala({ codigo: '', estado: 'cerrada', conectados: 0, detalle: '', via: '', nube: '' });
   }

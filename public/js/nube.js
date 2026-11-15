@@ -93,11 +93,13 @@ export class Nube {
     }, 15000);
   }
 
-  cerrar() {
+  /** Cierra la escucha. Con `olvidar`, además borra de la base todo lo de esta sala. */
+  cerrar({ olvidar = false } = {}) {
     this.cerrada = true;
     clearInterval(this.vigia);
     this.fuente?.close();
     this.fuente = null;
+    if (olvidar) fetch(`${this.base}.json`, { method: 'DELETE' }).catch(() => {});
     this.#setEstado('cerrada');
   }
 
@@ -206,7 +208,8 @@ export class Nube {
     try {
       const res = await fetch(`${this.base}/guion.json`, { cache: 'no-store' });
       const guion = res.ok ? await res.json() : null;
-      if (guion?.entradas) this.onMensaje?.(guion);
+      // La base no guarda listas vacías: un guion sin líneas llega sin `entradas`.
+      if (guion?.version) this.onMensaje?.({ ...guion, entradas: guion.entradas || [], medios: guion.medios || [] });
       else this.guionVisto = '';
     } catch {
       this.guionVisto = ''; // se pide de nuevo con el próximo aviso
