@@ -122,8 +122,15 @@ body[data-camara="on"] .scene__velo,
 body[data-fondo="on"] .scene__velo { display: block; }
 body[data-camara="on"] .scene,
 body[data-fondo="on"] .scene { background: none; }
-body[data-camara="on"] .cloud,
-body[data-fondo="on"] .cloud { opacity: 0; }
+body[data-camara="on"] .cloud { opacity: 0; }
+/* Con un fondo puesto, la nube flota por encima (si no, la imagen la tapa). */
+body[data-mode="stage"][data-fondo="on"] .cloud { z-index: 41; }
+/* Pero no sobre un fondo que se muestra limpio (una pregunta), ni sobre una
+   imagen o un video, ni con NOVA apagada. */
+body[data-fondo="on"]:has(.scene[data-limpia="on"]):not([data-palabra="on"]) .cloud,
+body:has(.scene[data-imagen="on"]) .cloud,
+body:has(.scene[data-video="on"]) .cloud,
+body[data-apagada="on"] .cloud { opacity: 0; }
 body[data-camara="on"] .scene__text,
 body[data-camara="on"] .scene__label,
 body[data-camara="on"] .scene__state,
@@ -191,7 +198,7 @@ body[data-apagada="on"] .scene { background: #000; animation: apagado 0.6s ease 
 }
 body[data-palabra="on"] .palabra { display: flex; padding-bottom: 22vh; }
 body[data-palabra="on"] .scene__orb { visibility: hidden; } /* la palabra va con su propio orbe */
-body[data-palabra="on"] .cloud { opacity: 0; }
+/* Con la palabra del acto, las palabras y los datos del acto flotan alrededor. */
 /* Si NOVA habla con la palabra puesta, lo que dice pasa abajo, en una franja. */
 body[data-palabra="on"] .scene__body {
   position: fixed;

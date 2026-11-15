@@ -184,6 +184,7 @@ const state = {
   videoEn: false,        // el video está en pantalla
   apagada: false,        // NOVA apagada: pantalla a negro (el final)
   escenaGuion: '',       // en qué escena del guion está la pantalla, para limpiarla al cambiar
+  videosCarpeta: [],     // los videos de la carpeta, en orden: "VIDEO: 2" es el segundo
   evento: null,          // lo último que pasó, para el panel
   abriendoMic: false,
   servidorVoz: false,    // el servidor tiene clave de OpenAI: la voz por API no necesita clave acá
@@ -289,6 +290,14 @@ async function init() {
     enlace.configurarNube(url);
     if (sala) enlace.abrirSala(sala);
   });
+
+  // Los videos de la carpeta, en orden: el guion los nombra por número.
+  fetch('videos/indice.json', { cache: 'no-cache' }).then((r) => (r.ok ? r.json() : [])).then((lista) => {
+    state.videosCarpeta = Array.isArray(lista) ? lista : [];
+    resolverVideos();
+    publicar();
+  }).catch(() => {});
+  guion.subscribe(() => resolverVideos());
 
   // Las grabaciones de los parlamentos: se busca qué hay y se precarga lo del guion.
   grabaciones.onCambio = () => { pintarGrabaciones(); publicar(); };
@@ -757,9 +766,26 @@ function ponerLetrero(texto) {
 
 /* ----------------------------------------------------------- el video */
 
+/**
+ * "VIDEO: 2" es el segundo video de la carpeta, en orden alfabético. Acá
+ * cada número del guion se cambia por su archivo; el que todavía no está
+ * queda sin dirección, y esa línea se pasa de largo.
+ */
+function resolverVideos() {
+  for (const entrada of guion.entradas) {
+    const video = entrada.video;
+    if (!video || video === 'ninguno' || !video.numero) continue;
+    const archivo = state.videosCarpeta[video.numero - 1];
+    video.src = archivo ? `videos/${archivo.archivo}` : '';
+    if (archivo && !video.pieDelGuion) video.pieDelGuion = video.pie || ' ';
+    video.pie = (video.pieDelGuion || '').trim() || archivo?.titulo || '';
+  }
+}
+
 /** Un video del guion: toma la pantalla, suena, y al terminar se va solo. */
 function reproducirVideo(video) {
   if (!video || video === 'ninguno') return ocultarVideo();
+  if (!video.src) return anotar(video.numero ? `El video ${video.numero} todavía no está en la carpeta: se pasa de largo.` : 'El video no tiene dirección.');
   state.video = { src: video.src, pie: video.pie || '' };
   state.videoEn = true;
   el.sceneVideo.classList.remove('se-va');
@@ -839,8 +865,9 @@ function avanzarPantalla(entrada) {
   const otraEscena = Boolean(entrada.escena) && entrada.escena !== state.escenaGuion;
   if (entrada.escena) state.escenaGuion = entrada.escena;
   const traeImagen = entrada.imagenes?.[0] && !entrada.imagenes[0].quitar;
-  const traeVideo = entrada.video && entrada.video !== 'ninguno';
+  const traeVideo = entrada.video && entrada.video !== 'ninguno' && Boolean(entrada.video.src);
   if (otraEscena) {
+    cloud.vaciar(); // las palabras y los datos de la escena anterior se van; empiezan los de esta
     if (state.videoEn && !traeVideo) ocultarVideo();
     if (state.imagenVisible && !traeImagen) ocultarImagen({ olvidar: true });
     if (state.fondo && !(entrada.fondo && entrada.fondo !== 'ninguno')) ponerFondo('ninguno');
@@ -865,6 +892,11 @@ function pasarMuda(entrada) {
   guion.marcar(entrada.indice);
   avanzarPantalla(entrada);
   anotar(`Línea ${entrada.indice + 1}: solo pantalla.`);
+  // Un video que todavía no está no frena nada: sigue lo que venía pegado.
+  if (entrada.video && entrada.video !== 'ninguno' && !entrada.video.src) {
+    const siguiente = guion.entradas[entrada.indice + 1];
+    if (seEncadena(siguiente)) setTimeout(() => { if (guion.cursor === entrada.indice && !state.busy) decirDelGuion(siguiente.indice); }, 60);
+  }
 }
 
 function aplicarPantalla(entrada) {
@@ -872,6 +904,7 @@ function aplicarPantalla(entrada) {
   if (entrada.palabra) ponerPalabra(entrada.palabra);
   if (entrada.letrero) ponerLetrero(entrada.letrero);
   if (entrada.video) reproducirVideo(entrada.video);
+  for (const dato of entrada.datos || []) cloud.dato(dato); // quedan flotando hasta que cambia la escena
   if (entrada.imagenes?.[0]?.quitar) ocultarImagen({ olvidar: true });
   else if (entrada.imagenes?.length) mostrarImagen(entrada.imagenes[0]);
   if (entrada.camara === 'encender') verCamara(true);
@@ -1528,8 +1561,9 @@ function abrirGuion() {
 function describirPantalla(entrada) {
   const partes = [];
   if (entrada.letrero) partes.push(entrada.letrero === 'ninguno' ? 'sin letrero' : `letrero ${entrada.letrero}`);
-  if (entrada.video) partes.push(entrada.video === 'ninguno' ? 'parar el video' : `video ${entrada.video.pie || entrada.video.src}`);
+  if (entrada.video) partes.push(entrada.video === 'ninguno' ? 'parar el video' : entrada.video.src ? `video ${entrada.video.pie || entrada.video.src}` : `video ${entrada.video.numero || ''} (todavía no está)`);
   if (entrada.velocidad) partes.push(`velocidad ${entrada.velocidad}`);
+  for (const dato of entrada.datos || []) partes.push(`dato «${dato}»`);
   if (entrada.fondo) partes.push(entrada.fondo === 'ninguno' ? 'sin fondo' : `fondo ${entrada.fondo.pie || entrada.fondo.src}`);
   if (entrada.imagenes?.length) partes.push(entrada.imagenes[0].quitar ? 'sin imagen' : `imagen ${entrada.imagenes[0].pie || entrada.imagenes[0].src}`);
   if (entrada.palabra) partes.push(entrada.palabra === 'ninguna' ? 'sin palabra' : `palabra ${entrada.palabra}`);
@@ -1611,6 +1645,7 @@ function limpiarPantalla() {
   ponerLetrero('ninguno');
   ponerPalabra('ninguna');
   if (state.camara) verCamara(false);
+  cloud.vaciar();
   sceneWriter.clear();
   el.scene.dataset.limpia = 'on';
   anotar('Pantalla limpia.');
@@ -1624,8 +1659,10 @@ function limpiarPantalla() {
 function seEncadena(entrada) {
   if (!entrada?.muda || entrada.pies.length) return false;
   const anterior = guion.entradas[entrada.indice - 1];
-  // Después de un parlamento, o de un video (que al terminar le da paso).
-  return Boolean(anterior && (!anterior.muda || (anterior.video && anterior.video !== 'ninguno')));
+  // Después de un parlamento, o de un video (que al terminar le da paso), y
+  // dentro del mismo acto: el acto siguiente lo abre quien conduce.
+  if (!anterior || (anterior.escena || '') !== (entrada.escena || '')) return false;
+  return !anterior.muda || Boolean(anterior.video && anterior.video !== 'ninguno');
 }
 
 function precargarGrabaciones() {
@@ -2613,8 +2650,20 @@ function zonaDelTexto() {
   };
   const texto = caja([el.sceneLabel, el.sceneText, el.sceneQuien, el.sceneHeard])
     || { cx: innerWidth / 2, cy: innerHeight / 2, hw: innerWidth * 0.12, hh: innerHeight * 0.08 };
+  // La palabra del acto, cuando está: la nube flota alrededor, no encima.
+  let palabra = null;
+  if (el.body.dataset.palabra === 'on') {
+    const r = el.palabraTexto.getBoundingClientRect();
+    const o = document.querySelector('.palabra__orbe')?.getBoundingClientRect();
+    if (r.width > 0) {
+      const top = Math.min(r.top, o?.top ?? r.top);
+      const left = Math.min(r.left, o?.left ?? r.left);
+      const right = Math.max(r.right, o?.right ?? r.right);
+      palabra = { cx: (left + right) / 2, cy: (top + r.bottom) / 2, hw: (right - left) / 2 + 24, hh: (r.bottom - top) / 2 + 18 };
+    }
+  }
   // También el orbe de arriba y la ayuda de abajo, que tienen que leerse.
-  return [texto, caja([el.sceneOrb, el.sceneState]), caja([el.sceneHint])];
+  return [palabra || texto, palabra ? texto : null, caja([el.sceneOrb, el.sceneState]), caja([el.sceneHint])];
 }
 
 /* ---------------------------------------------------------------- varios */

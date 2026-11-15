@@ -47,6 +47,7 @@ const ROTULO_PALABRA = new Set(['palabra', 'word']);
 const ROTULO_LETRERO = new Set(['letrero', 'titulo', 'título', 'cartel']);
 const ROTULO_VIDEO = new Set(['video', 'vídeo', 'clip']);
 const ROTULO_VELOCIDAD = new Set(['velocidad', 'ritmo', 'speed']);
+const ROTULO_DATO = new Set(['dato', 'datos', 'destacado']);
 
 /** Palabras chicas que pueden ir dentro de un nombre: "Ana de la Torre". */
 const PARTICULAS = new Set(['de', 'del', 'la', 'el', 'los', 'las', 'y']);
@@ -145,6 +146,7 @@ export function parsearGuion(texto) {
   let letrero = null; // texto o 'ninguno'
   let video = null;   // {src, pie} o 'ninguno'
   let velocidad = 0;  // para ese parlamento: 1 es la normal, 1.2 más rápido
+  let datos = [];     // lo que queda flotando al decir ese parlamento: una cifra, una idea
   let escenaActual = '';
 
   for (const { quien, texto: dicho, escena: titulo } of lineas) {
@@ -155,7 +157,7 @@ export function parsearGuion(texto) {
     const rotulo = normalizar(quien);
     // "NOVA:" sin texto, con indicaciones de pantalla antes: una línea muda,
     // que solo cambia la pantalla (un fondo, un letrero) sin que NOVA hable.
-    const muda = !dicho && ALIAS_NOVA.has(rotulo) && Boolean(imagenes.length || camara || fondo || palabra || letrero || video);
+    const muda = !dicho && ALIAS_NOVA.has(rotulo) && Boolean(imagenes.length || camara || fondo || palabra || letrero || video || datos.length);
     if (!dicho && !muda) continue;
     if (ROTULO_IMAGEN.has(rotulo)) {
       // IMAGEN: ninguna saca la que esté puesta.
@@ -171,12 +173,19 @@ export function parsearGuion(texto) {
       letrero = esQuitar(dicho) ? 'ninguno' : dicho.trim();
     } else if (ROTULO_VIDEO.has(rotulo)) {
       video = esQuitar(dicho) ? 'ninguno' : leerImagen(dicho);
+      // "VIDEO: 2": el segundo video de la carpeta, en orden alfabético.
+      if (video && video !== 'ninguno' && /^\d+$/.test(video.src)) {
+        video.numero = Number(video.src);
+        video.src = '';
+      }
+    } else if (ROTULO_DATO.has(rotulo)) {
+      if (dicho.trim()) datos.push(dicho.trim());
     } else if (ROTULO_VELOCIDAD.has(rotulo)) {
       velocidad = Math.min(2, Math.max(0.5, Number(String(dicho).replace(',', '.').replace(/[^\d.]/g, '')) || 0));
     } else if (esComodin(quien)) {
       comodines.push(dicho);
     } else if (ALIAS_NOVA.has(rotulo)) {
-      entradas.push({ indice: entradas.length, pies, parlamento: dicho, muda, imagenes, camara, fondo, palabra, letrero, video, velocidad: velocidad || 0, escena: escenaActual });
+      entradas.push({ indice: entradas.length, pies, parlamento: dicho, muda, imagenes, camara, fondo, palabra, letrero, video, datos, velocidad: velocidad || 0, escena: escenaActual });
       pies = [];
       imagenes = [];
       camara = null;
@@ -185,6 +194,7 @@ export function parsearGuion(texto) {
       letrero = null;
       video = null;
       velocidad = 0;
+      datos = [];
     } else {
       if (quien) personajes.add(quien);
       pies.push(dicho);
@@ -257,7 +267,7 @@ function esComodin(quien) {
 function esNombre(candidato, vistos) {
   if (!candidato || /^https?$/i.test(candidato)) return false;
   const limpio = normalizar(candidato);
-  if (vistos.has(limpio) || ALIAS_NOVA.has(limpio) || ROTULO_IMAGEN.has(limpio) || ROTULO_CAMARA.has(limpio) || ROTULO_FONDO.has(limpio) || ROTULO_PALABRA.has(limpio) || ROTULO_LETRERO.has(limpio) || ROTULO_VIDEO.has(limpio) || ROTULO_VELOCIDAD.has(limpio) || esComodin(candidato)) return true;
+  if (vistos.has(limpio) || ALIAS_NOVA.has(limpio) || ROTULO_IMAGEN.has(limpio) || ROTULO_CAMARA.has(limpio) || ROTULO_FONDO.has(limpio) || ROTULO_PALABRA.has(limpio) || ROTULO_LETRERO.has(limpio) || ROTULO_VIDEO.has(limpio) || ROTULO_VELOCIDAD.has(limpio) || ROTULO_DATO.has(limpio) || esComodin(candidato)) return true;
 
   const partes = candidato.split(/\s+/);
   if (partes.length > 3) return false;
@@ -411,10 +421,11 @@ export class Guion {
         fondo: e.fondo ? (e.fondo === 'ninguno' ? 'ninguno' : e.fondo.pie || e.fondo.src) : null,
         palabra: e.palabra || null,
         letrero: e.letrero || null,
-        video: e.video ? (e.video === 'ninguno' ? 'ninguno' : e.video.pie || e.video.src) : null,
+        video: e.video ? (e.video === 'ninguno' ? 'ninguno' : e.video.pie || e.video.src || `n.º ${e.video.numero}, todavía no está`) : null,
+        datos: e.datos?.length ? e.datos : null,
         velocidad: e.velocidad || 0,
         escena: e.escena || '',
-        pantalla: Boolean(e.imagenes?.length || e.camara || e.fondo || e.palabra || e.letrero || e.video),
+        pantalla: Boolean(e.imagenes?.length || e.camara || e.fondo || e.palabra || e.letrero || e.video || e.datos?.length),
       })),
     };
   }

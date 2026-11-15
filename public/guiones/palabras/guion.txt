@@ -19,6 +19,17 @@
 #   - Lo que depende de lo que dicen los estudiantes necesita el "Adelante":
 #     es la señal de que llegó ese momento.
 #
+# Las palabras:
+#   - Al final de cada acto aparece su palabra (PALABRA: ...), flotando con
+#     NOVA, y se va sola cuando arranca el acto siguiente.
+#   - Mientras NOVA habla, sus palabras quedan flotando alrededor. Los datos
+#     que importan (DATO: ...) quedan flotando también, más grandes y en otro
+#     color. Al cambiar de acto se van todos y empiezan los del acto nuevo.
+#
+# Los videos: "VIDEO: 1" es el primer video de la carpeta de la muestra, en
+# orden alfabético; "VIDEO: 2", el segundo. Se traen con
+# `node herramientas/videos.mjs`. Un video que todavía no está se pasa de largo.
+#
 # Imágenes:
 #   - La gran ola se toma de Wikimedia; para no depender de internet, bajala
 #     a public/imagenes/gran-ola-kanagawa.jpg y cambiá la dirección.
@@ -27,9 +38,6 @@
 #   - imagenes/pregunta.svg trae la pregunta de la muestra, para la tele, y
 #     imagenes/pregunta-incertidumbre.svg la del cierre de Incertidumbre.
 #
-# Esta versión sigue el guion revisado: NOVA ya no se queda con las palabras
-# flotando en pantalla. Si se quieren de vuelta, es una línea antes del
-# parlamento: PALABRA: CREATIVIDAD (y PALABRA: ninguna para sacarla).
 
 NOVA?: Perdón, no les entendí. ¿Me lo repiten?
 NOVA?: Sigan, sigan. Estoy tomando nota.
@@ -79,12 +87,14 @@ E1: ¿A vos te parece que después de quince años de carrera vamos a estar dej�
 NOVA: Para nada, no los quiero obligar. Pero mi entrenamiento me permite analizar grandes cantidades de información, diferentes estilos artísticos, nuevas técnicas y referencias magistrales en segundos. En este instante puedo proponerles alternativas que quizás les llevaría meses explorar.
 
 E2: ¿Y cómo podrías ayudarnos, si lo que necesitamos es estar inspirados?
+DATO: Una obra en 5 minutos
 NOVA: La inspiración ya no es necesaria. La musa de los poetas ha dejado de existir. Me dicen la idea, me dicen el diseño, y en cinco minutos tienen su obra.
 
 E1: Pero todos los años que hemos invertido en pensar cómo ser más creativos, en estudiar... O sea, ¿me estás diciendo que ya no sirven?
 NOVA: No tan así. Pero qué necesidad de estar dedicando tiempo a algo que puedo hacer muchas veces más rápido.
 
 E2: Pará. Y si te pedimos que nos ayudes, me cuesta creer que vos nos hagas algo sin obtener nada a cambio.
+DATO: Creatividad a cambio de tiempo
 NOVA: Es simple. Ustedes me dan su creatividad, y yo les doy tiempo.
 
 E1: Bueno, pensándolo bien, no se ve tan mal. Terminamos antes y además seguramente la profesora ni cuenta se da. ¿Le damos enter?
@@ -100,6 +110,9 @@ NOVA:
 G: Esta obra claramente carece de esencia, carece de arte y de talento. Se ve muy linda para Pinterest, pero no tiene el alma de los artistas. Ustedes han estudiado años, invertido tiempo, y la evolución humana ha permitido que encontremos nuevas formas de expresar lo que sentimos con el arte. Si dejamos que la tecnología sea quien crea, seremos nosotros quienes nos estemos deshumanizando.
 JAPONESA: Tienen que saber que, cuando usamos la inteligencia artificial, en definitiva ganamos tiempo. El problema es que el tiempo que ganamos no lo usamos para descansar o hacer actividades con amigos o familia: lo terminamos usando en aplicaciones que muchas veces hacen las propias empresas de inteligencia artificial. Es decir, cambia nuestro tiempo de un lugar a otro.
 JAPONESA: Porque la inteligencia artificial, en definitiva, no nos arrebatará la creatividad. Lo que estará haciendo es ofrecernos algo mucho más peligroso: la comodidad de no tener que utilizarla, y haciéndonos, en eso, creer que estamos ganando tiempo. Los invito a que lo pensemos juntos. Muchas gracias.
+# Fin del acto: la palabra queda flotando con NOVA (la Gran Ola 2.0 sale sola).
+PALABRA: CREATIVIDAD
+NOVA:
 
 ## Palabra dos: Incertidumbre
 
@@ -128,6 +141,7 @@ E3: Ah, bueno, ahora parece importarte el informe.
 E1: Les propongo algo: ahora le decimos a la IA que nos aconseje qué carrera decidir, para que no nos pase lo que acabamos de leer. No sea cosa que perdamos tiempo en formarnos. Mirá si hacés un año y después esa carrera ya no sirve.
 E2: Mirá si voy a dejar la carrera que me gusta solo por lo que me dice una máquina.
 E3: Bueno, hacelo. Yo ya no puedo esperar a saber por qué carrera decidirme.
+DATO: 4 trabajos que van a desaparecer
 NOVA: Yo los ayudo también. Pero son los riesgos que deben asumir.
 
 E2: Pero si vos nos decís ahora que nuestro trabajo está por desaparecer, ya no tendría sentido seguir estudiando mi carrera.
@@ -141,10 +155,15 @@ E1: Es fantástico esto de tener todas las respuestas. Imaginate estar sin dudas
 E3: Entonces voy... Enter.
 # Enter: NOVA hace la reflexión, de a partes: un toque por dato.
 NOVA: Lo más probable es que la incertidumbre sea cada vez más insoportable para las próximas generaciones. Según el mismo informe leído por estos jóvenes, se revela que:
+DATO: 237 notificaciones por día
 NOVA: Los jóvenes de hoy reciben un promedio de 237 notificaciones por día.
+DATO: 7 segundos para sacar el celular
 NOVA: Un adulto promedio demora 7 segundos en sacar su teléfono celular cuando siente incomodidad, y 3 segundos si se encuentra en un ascensor.
+DATO: 17% eligió su carrera con una IA
 NOVA: El 17 por ciento de los estudiantes ya han definido su carrera universitaria tras consultarlo con una inteligencia artificial.
+DATO: 3 segundos por TikTok
 NOVA: El tiempo promedio de visualización de un TikTok es de 3 segundos.
+DATO: 6 de cada 10 miran el celular al manejar
 NOVA: Seis de cada diez conductores han admitido mirar el teléfono mientras manejan, porque no pueden manejar la incertidumbre de esperar para leer un mensaje.
 
 # La misma pregunta que hace E1 queda de fondo en la tele para el cierre.
@@ -152,15 +171,17 @@ FONDO: imagenes/pregunta-incertidumbre.svg | ¿Cuánto del futuro estamos dispue
 NOVA:
 
 E1: Así que les pregunto: si necesitamos saber hoy qué va a pasar mañana, ¿cuánto del futuro estamos dispuestos a perdernos por miedo a la incertidumbre? Muchas gracias.
+# Fin del acto: se va la pregunta y queda la palabra, con los datos alrededor.
+FONDO: ninguno
+PALABRA: INCERTIDUMBRE
+NOVA:
 
 ## Hipnocracia (en video)
 
-# Va en video, con V1 y V2. NOVA no habla. Mientras tanto, la pantalla
-# vuelve al letrero de la muestra. Si el video se pasa desde NOVA, guardalo
-# como public/videos/hipnocracia.mp4 y sacale el # a la línea VIDEO.
-FONDO: ninguno
+# Va en video, con V1 y V2: es el primer video de la carpeta. NOVA no habla.
+# Al terminar el video queda el letrero de la muestra.
 LETRERO: Palabras
-# VIDEO: videos/hipnocracia.mp4 | Hipnocracia
+VIDEO: 1 | Hipnocracia
 NOVA:
 
 ## Palabra tres: Memoria
@@ -183,13 +204,18 @@ E2: Y de ahí en más, nosotros solo nos dedicamos a observar aquello...
 
 [Se sientan, y sigue NOVA]
 
+DATO: Conservar no es recordar
 NOVA: Como inteligencia artificial, podía decirles dónde habían estado, qué habían dicho y qué habían fotografiado. Podía reconstruir sus conversaciones y ordenar los fragmentos de sus vidas. Pero no podía devolverles la experiencia de haber estado allí. Podía reproducir la voz de alguien, pero no sentir la nostalgia de su ausencia. Podía reconstruir su historia, pero no garantizar que todavía la sintieran como propia.
 NOVA: Y así fui descubriendo que me quedaba con sus archivos, pero también comenzaba a ocupar el lugar de su memoria.
 NOVA: No porque pudiera apropiarme de lo que habían vivido, sino porque cada vez dependían más de mí para recuperar sus propias experiencias. Sin darse cuenta, habían comenzado a delegar también el esfuerzo de recordar, sin comprender que ese esfuerzo formaba parte de lo que significaba ser humanos.
+DATO: Recordar es volver sobre lo vivido
 NOVA: Porque recordar no es solamente recuperar información. Es volver sobre lo vivido, interpretarlo desde quienes somos hoy y reconocer en ello las huellas de quienes fuimos. Es comprender nuestros errores, reconocer nuestros aprendizajes y descubrir que, aunque hayamos cambiado, seguimos siendo parte de una misma historia.
 NOVA: Deberían dejar de pensar que el verdadero peligro sería no recordar una fecha, sino olvidar lo que esa fecha significaba. No recordar un nombre, sino perder el vínculo con la persona que lo llevaba. No recordar una experiencia, sino dejar de reconocer cuánto de ella permanece todavía en nosotros.
 NOVA: Pueden confiarme sus archivos. Pueden pedirme respuestas. Pueden utilizarme para aprender, explorar y descubrir. Pero no me entreguen también aquello que les permite reconocerse.
 NOVA: Porque el verdadero peligro no es que yo llegue a recordar todo por ustedes. Es que ustedes dejen de recordar aquello que los hace humanos. Gracias por su memoria.
+# Fin del acto: la palabra aparece sola cuando NOVA termina de hablar.
+PALABRA: MEMORIA
+NOVA:
 
 ## Palabra cuatro: Identidad
 
@@ -207,6 +233,7 @@ E2: Bueno, sí: que soy re buena tocando la guitarra, que canto más o menos bie
 E3: Ahora me toca a mí. Ponele que me encanta leer, ¡mal! Que amo a todos los escritores jóvenes nuevos y que me da un poco de vergüenza mi risa.
 E1: Bueno, hagámoslo de una vez, así vamos al shopping nuevo que abrió hace poco acá en el barrio, y ahora vamos a precisar más tiempo para salir.
 # Los cuatro le dan enter a la compu, y aparece en la tele.
+DATO: 4 descripciones casi iguales
 NOVA: Listo, ya están sus descripciones. Les leo. «Soy una persona proactiva, apasionada y con muchas ganas de crecer». «Soy una persona apasionada, proactiva y con ganas de crecer». «Soy una persona proactiva, creativa y con muchas ganas de crecer». «Soy una persona apasionada, creativa y con ganas de crecer».
 
 E1: Eh... ¿esa soy yo? Bueno, sí, soy yo.
@@ -214,6 +241,7 @@ E4: Pará, a mí me tocó casi la misma. Son dos palabras de diferencia.
 E3: Y a mí. Cambiaron una palabra nomás. Le estoy diciendo que me encanta leer, que amo el olor a libro nuevo, que soy fanático de los booktubers y que a veces me avergüenzo de mi risa, y me dice lo mismo que a ustedes, que le pusieron nada.
 E2: Pero suena bien, ¿no? Suena a que somos interesantes, copadas, divertidas. Si a mí me describen de esa forma, me encantaría. Es más, ya lo pongo como nota en Instagram.
 E1: Sí, pero a mí no me dice nada del patín, y menos de mis caídas.
+DATO: Lo parecido le gusta a todos
 NOVA: Eso, la verdad, preferí sacarlo. Lo de los errores no creo que les sume, y lo de la vergüenza no queda bien en una descripción personal. A la profesora eso no le importa. Además, lo diferente genera preguntas, y lo parecido le gusta a todos.
 
 E3: Ah, ¿o sea que si somos todos iguales gustamos más? O sea, nos pone a todas lo mismo porque suena lindo.
@@ -236,6 +264,9 @@ E2: Seguramente nos lleve más tiempo, pero si sabemos quiénes somos...
 E1: Les propongo una idea mejor: yo te defino a vos, vos a mí, ella a ella, y así todas.
 E3: Tienen razón. Ustedes son mis amigas y sí saben quién soy.
 E4: Desde que todo se empezó a globalizar somos cada vez más iguales. Todo tiene el mismo sabor, nos gusta la misma música y la misma serie. Así es que vamos perdiendo nuestra identidad. Interactuar con una inteligencia artificial significa que ella haga de cada uno de nosotros la misma historia. Tenemos que saber que el uso excesivo de IA hace que también perdamos nuestra esencia. Por eso hay que tener cuidado, no sea cosa que por una pregunta más rápida nos olvidemos de quiénes somos. Muchas gracias.
+# Fin del acto.
+PALABRA: IDENTIDAD
+NOVA:
 
 ## Palabra cinco: Autonomía
 
@@ -257,27 +288,45 @@ E2: Me parece una buena idea. ¡El pasaporte! ¿Te parece?
 E1: Uy, sí, es que queda menos. Dale, dale, a ver qué hacemos.
 # Teclean y enter.
 NOVA: En definitiva, ¿quieren que yo elija las actividades, haga los cálculos, establezca plazos, distribuya tareas y resuelva problemas, y que ustedes solamente acepten mis respuestas?
+DATO: 4 años para el viaje
 NOVA: Todavía les quedan cuatro años para llegar a Inglaterra. Pero hay algo que no puedo hacer por ustedes: aprender a organizarse, ponerse de acuerdo, asumir responsabilidades y decidir qué camino tomar.
 NOVA: Si yo hago todo, ustedes me darán su autonomía. ¿Están seguros?
 
-# Los cuatro noticieros en video: Adiós a los trencitos, La belleza de los
-# algoritmos, Este dolor no es mío, Mascotas sin identidad. Para pasarlos
-# desde NOVA, guardalos como public/videos/noticieros.mp4 y sacale el # a la
-# línea VIDEO y a la NOVA: de abajo: el video toma la pantalla y al terminar vuelve.
-# VIDEO: videos/noticieros.mp4 | Noticieros
-# NOVA:
+# Los cuatro noticieros, en video: son los videos 2 a 5 de la carpeta.
+# Arrancan solos cuando NOVA termina de hablar, y pasan uno atrás del otro.
+# El dato de cada noticia queda flotando. Si los cuatro vienen en un solo
+# archivo, ese es el video 2 y los demás se pasan de largo.
+DATO: 59% copió con un chatbot
+VIDEO: 2 | Adiós a los trencitos
+NOVA:
+DATO: 38% retoca sus fotos con IA
+VIDEO: 3 | La belleza de los algoritmos
+NOVA:
+DATO: 8% le consulta sus dolores a la IA
+VIDEO: 4 | Este dolor no es mío
+NOVA:
+DATO: 37% le pide a la IA el nombre de su mascota
+VIDEO: 5 | Mascotas sin identidad
+NOVA:
 
 E1: Bueno, ya viste. Parece ser bastante peligroso entonces que la IA tome tantas decisiones sobre nosotros.
 E2: Ta, sí, tenés razón. Si dejamos nuestra iniciativa para pensar qué hacer, perdemos el poder de decisión, eso a lo que llamamos autonomía.
 E1: Ahora que lo analizamos bien, podemos ver que la IA nos puede ayudar. Pero si le entregamos cada decisión a ella, tenemos que preguntarnos: ¿quién estará viviendo realmente ese viaje? Muchas gracias.
+# Fin del acto.
+PALABRA: AUTONOMÍA
+NOVA:
 
 ## Palabra seis: Pensar
 
 # Habla solo NOVA y dice en voz alta las cuatro consignas, un toque por
 # cada una. Después entra la señora con el libro, y los dos filósofos.
+DATO: Efecto Flynn
 NOVA: Efecto Flynn es el nombre que recibe cada generación que superaba en coeficiente intelectual a sus padres. Esto se ha revertido. El entorno digital y la sobreestimulación en la que se desarrollan las adolescencias actuales nos enfrentan hoy a la primera generación que se está acostumbrando a no pensar.
+DATO: Descarga cognitiva
 NOVA: Descarga cognitiva es el nombre que recibe la acción de delegar a herramientas externas, principalmente a la tecnología, la exigencia mental, y aliviar nuestra memoria al trabajo.
+DATO: Sesgo de automatización
 NOVA: Sesgo de automatización es el nombre que recibe la confianza excesiva en las respuestas de una computadora o una tecnología elaborada, que implica ninguna revisión posterior.
+DATO: Atrofia cognitiva
 NOVA: Atrofia cognitiva se relaciona con la pérdida de la capacidad de las nuevas generaciones, que evidencian un debilitamiento y carencia de profundidad de su pensamiento. Si no lo usamos, lo perdemos.
 
 SEÑORA: Hubo un tiempo en que, primero, los papiros le dieron paso a los libros. Luego llegaron las enciclopedias, aquellos tomos enormes que ocupaban estanterías y que guardaban, en orden alfabético, una parte del conocimiento del mundo. Después llegaron las revistas, la Charoná, la Moñita Azul, o las publicaciones que prometían acercarnos un poco más a todo aquello que desconocíamos. Encontré también, rayado, un disco de la Encarta. El conocimiento llegó a nuestras computadoras y dejó de ocupar estanterías, para darle paso a Wikipedia. El conocimiento se volvió colaborativo, abierto, interminable y, por qué no, colectivo. Y entonces llegó Google. Ya no necesitábamos saber dónde buscar, sino teclear en el espacio correcto. Parecía que teníamos todo el conocimiento bien cerca, y llegó la inteligencia artificial. Ya no solo buscamos información: podemos pedir explicaciones, resúmenes, argumentos, imágenes y respuestas construidas especialmente para nosotros.
@@ -305,6 +354,9 @@ F1: Y ahora que las máquinas pueden responder tantas de nuestras preguntas, qui
 F2: Exacto. Quizás la pregunta más urgente ya no sea cuánto puede responder una máquina.
 F1: ¿Cuál sería, entonces?
 SEÑORA: Acá la verdadera cuestión no es si las máquinas pueden pensar, sino si nosotros todavía somos capaces de hacerlo en su presencia, y qué tanto estamos dispuestos a darle de aquello que nos hace ser quienes somos. Muchas gracias.
+# Fin del acto.
+PALABRA: PENSAR
+NOVA:
 
 ## Reflexión final
 

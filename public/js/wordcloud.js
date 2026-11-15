@@ -17,11 +17,14 @@ mientras cuanto quiero quiere queres quieras contame decime dale claro bueno nad
 hola gracias favor sobre luego ahora despues después siempre nunca menos mucho mucha muchos muchas
 the of and or to in is are was were for with that this these those you your they them their it its an be
 i'm dont don't ok okay
+ustedes dicen tras ciento cinco seis siete ocho nueve diez cuatro tres promedio podia podía habian habían
+quiero puedo deben tener hacen estuve estar haran harán seran serán tienen dedicando
 `.trim().split(/\s+/));
 
 const PALETTE = {
   user: ['#7af5ff', '#5fd0ff', '#8fe3ff'],
   ai: ['#a37bff', '#ff6ec7', '#c9a6ff', '#7af5ff'],
+  dato: ['#ffc76b', '#ffd98f', '#ffb347'], // los datos del guion: en ámbar, para que se distingan
 };
 
 export class WordCloud {
@@ -138,6 +141,7 @@ export class WordCloud {
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     this.w = w;
     this.h = h;
+    for (const p of this.words || []) if (p.dato) p.targetSize = this.#tamanoDato(p.text);
   }
 
   /**
@@ -164,6 +168,47 @@ export class WordCloud {
       this.#spawn(word, key, weight, tone);
     }
     this.start();
+  }
+
+  /**
+   * Deja flotando un dato del guion (una cifra, una idea): más grande, en
+   * otro color, y sin disolverse. Se queda hasta que se vacía la nube.
+   * @param {string} texto
+   */
+  dato(texto) {
+    const limpio = String(texto || '').replace(/\s+/g, ' ').trim();
+    if (!limpio) return;
+    const key = `dato:${normalize(limpio.toLowerCase())}`;
+    const existente = this.words.find((p) => p.key === key);
+    if (existente) {
+      existente.pulse = 1;
+      return;
+    }
+    this.#spawn(limpio, key, 2, 'dato');
+    const p = this.words.find((w) => w.key === key);
+    if (p) {
+      p.dato = true;
+      p.decay = 0; // no se disuelve sola
+      p.targetSize = this.#tamanoDato(limpio);
+      p.rot = (Math.random() - 0.5) * 0.04;
+    }
+    this.start();
+  }
+
+  /** Un dato entra en un tercio del ancho como mucho, y nunca más chico que una palabra común. */
+  #tamanoDato(texto) {
+    const base = sizeFor(1, this.h, this.escenario);
+    const porAncho = (this.w * 0.34) / Math.max(6, texto.length * 0.58);
+    return Math.max(base * 0.9, Math.min(base * 1.45, porAncho));
+  }
+
+  /** Se van todas, de a poco: las palabras y los datos de lo que ya pasó. */
+  vaciar() {
+    this.weights.clear();
+    for (const p of this.words) {
+      p.dato = false;
+      p.decay = 1.1 + Math.random() * 0.6;
+    }
   }
 
   clear() {
@@ -239,7 +284,7 @@ export class WordCloud {
 
     // Si hay demasiadas, la más vieja se va antes.
     if (this.words.length > this.maxWords) {
-      this.words.sort((a, b) => a.life - b.life);
+      this.words.sort((a, b) => (a.dato ? 2 : a.life) - (b.dato ? 2 : b.life)); // los datos, al final: no se podan
       this.words.splice(0, this.words.length - this.maxWords);
     }
   }
@@ -279,12 +324,20 @@ export class WordCloud {
         }
       }
 
-      // Rebote blando contra los bordes para que nada se escape.
-      const margin = 40;
-      if (p.x < margin) p.vx += 14 * dt * 6;
-      if (p.x > this.w - margin) p.vx -= 14 * dt * 6;
-      if (p.y < margin) p.vy += 14 * dt * 6;
-      if (p.y > this.h - margin) p.vy -= 14 * dt * 6;
+      // Rebote blando contra los bordes para que nada se escape: cuenta el
+      // ancho de la palabra, no solo su centro.
+      const margin = 24;
+      if (p.x - ew < margin) p.vx += 14 * dt * 6;
+      if (p.x + ew > this.w - margin) p.vx -= 14 * dt * 6;
+      if (p.y - eh < margin) p.vy += 14 * dt * 6;
+      if (p.y + eh > this.h - margin) p.vy -= 14 * dt * 6;
+      if (p.dato) {
+        // Un dato tiene que leerse entero: nunca queda cortado por el borde.
+        const medio = p.text.length * p.targetSize * 0.29;
+        const alto = p.targetSize * 0.62;
+        if (medio * 2 < this.w - 32) p.x = Math.min(this.w - 16 - medio, Math.max(16 + medio, p.x));
+        p.y = Math.min(this.h - 16 - alto, Math.max(16 + alto, p.y));
+      }
     }
     this.#separate(dt);
     this.words = this.words.filter((p) => p.life > 0);
@@ -307,15 +360,19 @@ export class WordCloud {
         if (overlapX <= 0 || overlapY <= 0) continue;
 
         // Se separan por donde menos cuesta: el eje con menos superposición.
+        // Un dato casi no se mueve: es la palabra suelta la que le hace lugar.
         const force = 34 * dt;
-        if (overlapX < overlapY) {
+        const fa = a.dato ? 0.15 : b.dato ? 3 : 1;
+        const fb = b.dato ? 0.15 : a.dato ? 3 : 1;
+        if (overlapX < overlapY && !(a.dato || b.dato)) {
           const dir = dx >= 0 ? 1 : -1;
-          a.vx -= dir * force;
-          b.vx += dir * force;
+          a.vx -= dir * force * fa;
+          b.vx += dir * force * fb;
         } else {
+          // Junto a un dato, que es ancho, se sale hacia arriba o hacia abajo.
           const dir = dy >= 0 ? 1 : -1;
-          a.vy -= dir * force;
-          b.vy += dir * force;
+          a.vy -= dir * force * fa;
+          b.vy += dir * force * fb;
         }
       }
     }
@@ -339,8 +396,8 @@ export class WordCloud {
       ctx.globalAlpha = Math.min(1, alpha * (1 + this.energy * 0.45));
       ctx.fillStyle = p.color;
       const respira = 1 + p.pulse * 0.12 + this.energy * 0.07;
-      ctx.font = `${600 + Math.min(200, p.weight * 60)} ${p.size * respira}px "Inter", system-ui, sans-serif`;
-      ctx.shadowColor = p.color;
+      ctx.font = `${p.dato ? 700 : 600 + Math.min(200, p.weight * 60)} ${p.size * respira}px "Inter", system-ui, sans-serif`;
+      ctx.shadowColor = p.dato ? 'rgba(5, 6, 12, 0.9)' : p.color; // los datos, con sombra oscura: se leen sobre cualquier fondo
       // Con poco brillo las letras quedan nítidas; el halo crece con la voz.
       ctx.shadowBlur = (this.escenario ? 8 : 18) + p.weight * 4 + p.pulse * 18 + this.energy * 26;
       ctx.fillText(p.text, 0, 0);

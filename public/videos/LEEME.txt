@@ -1,2 +1,8 @@
-Acá van los videos del guion (mp4, H.264), nombrados como en las líneas VIDEO: del guion.
-Conviene comprimirlos a 720p para que pesen menos de 50 MB cada uno.
+Acá van los videos de la muestra, en mp4, y el indice.json que NOVA lee.
+
+No se copian a mano: se traen de la carpeta de Drive de la muestra con
+
+    node herramientas/videos.mjs
+
+que los toma en orden alfabético (VIDEO: 1 es el primero, VIDEO: 2 el segundo),
+los pasa a mp4 sea cual sea su formato, y los deja acá con su índice.

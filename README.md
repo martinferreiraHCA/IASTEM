@@ -242,6 +242,23 @@ Las reglas de la base:
 Lo que depende de lo que dicen los estudiantes necesita el *Adelante*: es la
 señal de que llegó ese momento.
 
+**Las palabras de cada acto.** Al final de cada acto aparece su palabra
+(`PALABRA: CREATIVIDAD`), flotando con NOVA, y se va sola cuando arranca el
+acto siguiente. Mientras NOVA habla, sus palabras quedan flotando alrededor;
+los datos que importan (`DATO: 237 notificaciones por día`, antes del
+parlamento en el que se dicen) quedan flotando también, más grandes y en
+ámbar, y no se disuelven. Al cambiar de acto se van todos y empiezan los del
+acto nuevo.
+
+**Los videos.** Donde el guion dice que va un video, la línea es
+`VIDEO: 1`, `VIDEO: 2`…: el primero, el segundo de la carpeta de Drive de la
+muestra, en orden alfabético. Se traen con `node herramientas/videos.mjs`,
+que los baja, los pasa a mp4 (sea cual sea su formato) y los deja en
+`public/videos/` con su índice. El video toma la pantalla, al terminar se va
+solo, y si lo que sigue viene pegado, pasa solo: varios videos seguidos
+corren uno atrás del otro. Un video que todavía no está en la carpeta se
+pasa de largo.
+
 **La pantalla desde el celular.**
 Además, el panel tiene un botón por cada cosa que el guion pone en pantalla
 (fondos, imágenes, videos, letreros, palabras): tocarlo la pone, tocar la
@@ -533,6 +550,7 @@ public/                  El sitio. Esto es lo que se publica en Pages.
     indice.json          Qué guiones hay, para el selector del escenario
 
 herramientas/grabar.mjs  Graba los parlamentos de un guion (Piper u OpenAI) en public/guiones/
+herramientas/videos.mjs  Trae los videos de la carpeta de Drive, en orden, y los pasa a mp4 en public/videos/
 docs/guion-palabras.txt        El guion de la muestra "Palabras", completo, con las líneas de NOVA grabadas
 docs/guion-german-martin.txt   Un guion de ejemplo
 index.html               Redirección a public/, para que Pages sirva la app
