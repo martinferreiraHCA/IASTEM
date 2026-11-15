@@ -1189,6 +1189,7 @@ function publicar({ forzar = false } = {}) {
       apagada: state.apagada,
       ocupada: state.busy,
       tocada: state.tocada || Boolean(navigator.userActivation?.hasBeenActive),
+      guionDeLaMuestra: guionDeLaMuestra(), // false: hay otro guion cargado (uno guardado a mano, o una versión vieja)
       oido: state.oido,
       ultimaRespuesta: recortarTexto(state.ultimaRespuesta, 220),
       evento: state.evento,
@@ -1246,6 +1247,7 @@ function recibirComando(mensaje) {
     case 'hola': publicar({ forzar: true }); break;
     case 'guion': publicarGuion(); break;
     case 'atras': retroceder(); break;
+    case 'cargar-muestra': cargarGuionPorDefecto({ forzar: true }); break;
     case 'poner': ponerMedio(mensaje); break;
     case 'limpiar': limpiarPantalla(); break;
     case 'decir': decirDelGuion(Number(mensaje.indice)); break;
@@ -1787,10 +1789,10 @@ function paquetePorDefecto() {
  * el diálogo o cargado desde el panel) se respeta: ahí solo se avisa, una
  * vez, que hay una versión nueva.
  */
-async function cargarGuionPorDefecto() {
+async function cargarGuionPorDefecto({ forzar = false } = {}) {
   const paquete = paquetePorDefecto();
   if (!paquete) return;
-  const origen = leerOrigen();
+  const origen = forzar ? null : leerOrigen(); // forzado: se carga aunque hubiera uno guardado a mano
   if (guion.tiene && origen?.manual) {
     if (origen.visto !== paquete.version) {
       anotarOrigen({ ...origen, visto: paquete.version });
@@ -1800,6 +1802,7 @@ async function cargarGuionPorDefecto() {
   }
   if (guion.tiene && origen?.nombre === paquete.nombre && origen.version === paquete.version) return;
   if (state.busy) return;
+  if (forzar) limpiarPantalla();
   try {
     const habia = guion.tiene;
     const cuantos = guion.cargar(await grabaciones.textoDelPaquete(paquete.nombre));
@@ -1809,7 +1812,16 @@ async function cargarGuionPorDefecto() {
     anotar(texto);
     toast(texto);
     ponerPortada();
+    publicar({ forzar: true });
   } catch { /* sin red: queda el guion que había */ }
+}
+
+/** ¿El guion cargado es el publicado de la muestra, en su última versión? */
+function guionDeLaMuestra() {
+  const paquete = paquetePorDefecto();
+  if (!paquete) return null; // no hay guion de la muestra publicado
+  const origen = leerOrigen();
+  return Boolean(guion.tiene && origen && !origen.manual && origen.nombre === paquete.nombre && origen.version === paquete.version);
 }
 
 /**

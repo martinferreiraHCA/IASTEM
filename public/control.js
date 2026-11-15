@@ -28,6 +28,8 @@ const el = {
   siguiente: $('siguiente'),
   atras: $('atras'),
   tocar: $('tocar'),
+  otroGuion: $('otroGuion'),
+  cargarMuestra: $('cargarMuestra'),
   limpiar: $('limpiar'),
   medios: $('medios'),
   entrega: $('entrega'),
@@ -183,7 +185,7 @@ function pedir() {
   enlace.enviar({ tipo: 'comando', accion: 'hola' });
 }
 
-const NOMBRES_ORDEN = { siguiente: 'Adelante', atras: 'Atrás', detener: 'Detener', decir: 'Decir línea', pantalla: 'Solo pantalla', apagar: 'Apagar', reiniciar: 'Al principio', poner: 'Pantalla', limpiar: 'Pantalla limpia' };
+const NOMBRES_ORDEN = { siguiente: 'Adelante', atras: 'Atrás', detener: 'Detener', decir: 'Decir línea', pantalla: 'Solo pantalla', apagar: 'Apagar', reiniciar: 'Al principio', 'cargar-muestra': 'Guion de la muestra', poner: 'Pantalla', limpiar: 'Pantalla limpia' };
 
 /** Manda una orden al escenario y espera su acuse; lo que pasa se ve abajo de los botones. */
 function mandar(accion, extra = {}) {
@@ -277,6 +279,7 @@ function wire() {
   el.detener.addEventListener('click', () => mandar('detener'));
   el.activo.addEventListener('click', () => mandar('activo', { on: !(estado?.guion.activo ?? true) }));
   el.reiniciar.addEventListener('click', () => mandar('reiniciar'));
+  el.cargarMuestra.addEventListener('click', () => mandar('cargar-muestra'));
 
   el.guionGuardar.addEventListener('click', () => {
     mandar('cargar', { texto: el.guionTexto.value });
@@ -387,6 +390,7 @@ function pintar() {
   el.dicho.textContent = estado.ultimaRespuesta ? `Dijo: «${recortar(estado.ultimaRespuesta, 140)}»` : '';
 
   el.tocar.hidden = estado.tocada !== false; // solo si el escenario dice que nadie lo tocó todavía
+  el.otroGuion.hidden = estado.guionDeLaMuestra !== false; // solo si el escenario dice que tiene otro guion
 
   // El siguiente parlamento, en el botón grande.
   const siguiente = guion.entradas[guion.cursor + 1] || null;
@@ -434,7 +438,7 @@ function pintar() {
         entrada.fondo ? `<span class="linea__marca">fondo: ${escapar(entrada.fondo)}</span>` : '',
         entrada.palabra ? `<span class="linea__marca">palabra: ${escapar(entrada.palabra)}</span>` : '',
         entrada.letrero ? `<span class="linea__marca">letrero: ${escapar(entrada.letrero)}</span>` : '',
-        entrada.video ? `<span class="linea__marca">video: ${escapar(entrada.video)}</span>` : '',
+        entrada.video ? `<span class="linea__marca linea__marca--video">▶ video: ${escapar(entrada.video)}</span>` : '',
         entrada.camara ? `<span class="linea__marca">cámara: ${entrada.camara}</span>` : '',
         entrada.grabada === false ? '<span class="linea__marca linea__marca--ojo">sin grabación</span>' : '',
       ].join('');
