@@ -1,0 +1,2 @@
+// Lo escribe herramientas/version.mjs: no editar a mano.
+export const VERSION = '20261116-0004';

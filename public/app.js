@@ -24,6 +24,7 @@ import { Show } from './js/show.js';
 import { Guion, parsearGuion, puntaje, GUION_EJEMPLO } from './js/guion.js';
 import { Enlace, codigoNuevo } from './js/enlace.js';
 import { Arbitro, PROVEEDORES } from './js/arbitro.js';
+import { VERSION, versionPublicada, actualizarSitio, yaSeIntento } from './js/actualizar.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -182,6 +183,7 @@ const state = {
   letrero: '',           // el letrero escrito a mano que se escribe y se borra en loop
   video: null,           // {src, pie} del video de este momento
   videoEn: false,        // el video está en pantalla
+  videoEstado: null,     // cómo va: cargando, corre, falló (para el panel)
   apagada: false,        // NOVA apagada: pantalla a negro (el final)
   escenaGuion: '',       // en qué escena del guion está la pantalla, para limpiarla al cambiar
   tocada: Boolean(navigator.userActivation?.hasBeenActive), // alguien tocó esta página: el navegador deja sonar
@@ -278,12 +280,9 @@ async function init() {
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') enlace.reanimar(); });
   arbitro.detectar().then(() => pintarAsistente());
   el.sceneVideoEl.addEventListener('ended', () => ocultarVideo({ terminado: true }));
-  el.sceneVideoEl.addEventListener('error', () => {
-    if (!state.videoEn) return;
-    toast('Video: no se pudo cargar. Fijate la dirección o el formato (mp4).');
-    anotar('El video no se pudo cargar.');
-    ocultarVideo();
-  });
+  el.sceneVideoEl.addEventListener('error', () => videoConError());
+  el.sceneVideoEl.addEventListener('playing', () => marcarVideo('corre'));
+  el.sceneVideoEl.addEventListener('waiting', () => marcarVideo('cargando'));
   // Si había una sala para el celular, se reabre sola con el mismo código.
   const sala = localStorage.getItem(SALA_CLAVE);
   // Primero se mira si hay nube configurada: es el camino firme de la sala.
@@ -307,6 +306,11 @@ async function init() {
   }).catch(() => {});
   mirarVideos();
   setInterval(mirarVideos, 120000);
+
+  // Si el sitio publicado tiene una versión más nueva que la de esta pestaña,
+  // se pone al día sola cuando no molesta; si no, el panel lo avisa.
+  setTimeout(() => ponerseAlDia(), 4000);
+  setInterval(() => ponerseAlDia(), 180000);
   guion.subscribe(() => resolverVideos());
 
   // Las grabaciones de los parlamentos: se busca qué hay y se precarga lo del guion.
@@ -321,7 +325,7 @@ async function init() {
       if (!state.tocada) { state.tocada = true; publicar({ forzar: true }); }
     }, { passive: true });
   }
-  grabaciones.cargarIndice().then(async () => { pintarPaquetes(); await cargarGuionPorDefecto(); precargarGrabaciones(); });
+  grabaciones.cargarIndice().then(async () => { pintarPaquetes(); await cargarGuionPorDefecto(); precargarGrabaciones(); volverAlEscenario(); });
   guion.subscribe(() => precargarGrabaciones());
 
   if (!listener) {
@@ -797,36 +801,220 @@ function resolverVideos() {
     video.src = archivo ? `videos/${archivo.archivo}` : '';
     if (archivo && !video.pieDelGuion) video.pieDelGuion = video.pie || ' ';
     video.pie = (video.pieDelGuion || '').trim() || archivo?.titulo || '';
+    video.origen = archivo?.origen || '';
   }
+  bajarVideos();
+}
+
+/*
+ * Los videos del guion se bajan enteros apenas se abre NOVA y quedan en la
+ * memoria de la página, igual que las grabaciones: a la hora de pasarlos ya
+ * no dependen de la red de la sala. El que todavía no terminó de bajar se
+ * pide a la red en el momento, como antes.
+ */
+const videosBajados = new Map(); // dirección → { origen, estado: 'bajando' | 'listo' | 'falló', url, intentos }
+
+function esDeEsteSitio(src) {
+  try { return new URL(src, location.href).origin === location.origin; } catch { return false; }
+}
+
+function videosDelGuion() {
+  const lista = new Map();
+  for (const entrada of guion.entradas) {
+    const video = entrada.video;
+    if (video && video !== 'ninguno' && video.src) lista.set(video.src, video.origen || '');
+  }
+  return lista;
+}
+
+function bajarVideos() {
+  for (const [src, origen] of videosDelGuion()) {
+    if (!esDeEsteSitio(src)) continue; // los de otro sitio se piden recién al pasarlos
+    const antes = videosBajados.get(src);
+    if (antes && antes.origen === origen && (antes.estado !== 'falló' || antes.intentos >= 4)) continue;
+    if (antes?.url && el.sceneVideoEl.dataset.de !== antes.url) URL.revokeObjectURL(antes.url);
+    const ficha = { origen, estado: 'bajando', url: '', intentos: antes && antes.origen === origen ? antes.intentos + 1 : 1 };
+    videosBajados.set(src, ficha);
+    fetch(src, { cache: 'no-cache' })
+      .then((r) => { if (!r.ok) throw new Error(String(r.status)); return r.blob(); })
+      .then((blob) => {
+        if (videosBajados.get(src) !== ficha) return;
+        ficha.url = URL.createObjectURL(blob);
+        ficha.estado = 'listo';
+        anotar(`Video listo para pasar: ${src.split('/').pop()} (${(blob.size / 1048576).toFixed(1)} MB).`);
+        // Si justo se lo estaba esperando en pantalla y la red no lo traía, sale de acá.
+        const v = el.sceneVideoEl;
+        if (state.videoEn && state.video?.src === src && v.currentTime < 0.05 && v.readyState < 3) {
+          ponerEnVideo(ficha.url, { forzar: true });
+          arrancarVideo(videoTurno);
+        }
+        publicar({ forzar: true });
+      })
+      .catch(() => {
+        if (videosBajados.get(src) !== ficha) return;
+        ficha.estado = 'falló';
+        publicar({ forzar: true });
+        if (ficha.intentos < 4) setTimeout(bajarVideos, 4000 * ficha.intentos);
+      });
+  }
+  publicar();
+}
+
+/** Cuántos videos del guion hay, y cuántos ya están en la memoria de la página. */
+function estadoDeVideos() {
+  const cuenta = { total: 0, listos: 0, bajando: 0, fallaron: 0, faltan: 0 };
+  const sinArchivo = new Set();
+  for (const entrada of guion.entradas) {
+    const video = entrada.video;
+    if (video && video !== 'ninguno' && !video.src && video.numero) sinArchivo.add(video.numero);
+  }
+  cuenta.faltan = sinArchivo.size; // el guion los nombra, pero no están en la carpeta
+  for (const src of videosDelGuion().keys()) {
+    cuenta.total += 1;
+    const ficha = videosBajados.get(src);
+    if (ficha?.estado === 'listo') cuenta.listos += 1;
+    else if (ficha?.estado === 'bajando') cuenta.bajando += 1;
+    else if (ficha?.estado === 'falló') cuenta.fallaron += 1;
+  }
+  return cuenta;
+}
+
+/** De dónde sale un video: de la memoria si ya bajó; si no, de la red. */
+function direccionParaPasar(src) {
+  const ficha = videosBajados.get(src);
+  return ficha?.estado === 'listo' ? ficha.url : src;
+}
+
+/** Carga una dirección en el reproductor. Si ya la tenía cargada, no la pide de nuevo. */
+function ponerEnVideo(url, { forzar = false } = {}) {
+  const v = el.sceneVideoEl;
+  if (!forzar && v.dataset.de === url && !v.error) {
+    if (v.currentTime > 0) { try { v.currentTime = 0; } catch { /* todavía sin datos */ } }
+    return;
+  }
+  v.dataset.de = url;
+  v.src = url;
+}
+
+let videoTurno = 0;      // cada pasada de video tiene su número: lo viejo no pisa lo nuevo
+let videoGuardian = null;
+
+function marcarVideo(fase, extra = {}) {
+  if (!state.videoEn && fase !== 'falló') return;
+  if (state.videoEstado?.fase === fase && !Object.keys(extra).length) return;
+  state.videoEstado = { ...(state.videoEstado || {}), fase, ...extra };
+  publicar({ forzar: true });
+}
+
+const MOTIVOS_DE_VIDEO = {
+  1: 'se interrumpió la carga',
+  2: 'se cortó la conexión mientras bajaba',
+  3: 'el archivo está dañado o el navegador no lo puede leer',
+  4: 'este navegador no puede con el formato (probá con Chrome o Edge)',
+};
+
+function videoNoSePudo(motivo) {
+  clearTimeout(videoGuardian);
+  ocultarVideo();
+  state.videoEstado = { fase: 'falló', motivo };
+  toast(`Video: ${motivo}.`);
+  anotar(`El video no se pudo pasar: ${motivo}.`);
+}
+
+/** El reproductor avisó un error: se prueba por el otro camino antes de rendirse. */
+function videoConError() {
+  if (!state.videoEn) return;
+  const v = el.sceneVideoEl;
+  const src = state.video?.src;
+  const codigo = v.error?.code || 0;
+  if (src && v.dataset.de !== src && !state.videoEstado?.reintento) {
+    // Venía de la memoria: se pide derecho a la red.
+    marcarVideo('cargando', { reintento: true });
+    ponerEnVideo(src, { forzar: true });
+    arrancarVideo(videoTurno);
+    return;
+  }
+  // El navegador da el mismo error si el archivo no llega que si no lo sabe
+  // leer: se mira si la computadora lo puede pedir, para decir cuál de los dos.
+  const turno = videoTurno;
+  const decir = (motivo) => { if (turno === videoTurno && state.videoEn) videoNoSePudo(motivo); };
+  if (!src || codigo === 3) return decir(MOTIVOS_DE_VIDEO[codigo] || 'no se pudo cargar');
+  fetch(src, { method: 'HEAD', cache: 'no-store' })
+    .then((r) => decir(r.ok ? MOTIVOS_DE_VIDEO[codigo] || 'no se pudo cargar' : `el archivo no está en el sitio (respuesta ${r.status})`))
+    .catch(() => decir('la computadora no lo pudo bajar: revisá su conexión a internet'));
+}
+
+/** Le da play. Si el navegador no deja sonar (nadie tocó la página), va sin sonido y se avisa. */
+function arrancarVideo(turno) {
+  const v = el.sceneVideoEl;
+  v.muted = false;
+  v.play().catch((err) => {
+    if (turno !== videoTurno || !state.videoEn) return;
+    if (err?.name === 'AbortError') return; // se cargó otra cosa encima: ese otro intento sigue
+    if (err?.name !== 'NotAllowedError') return videoConError();
+    v.muted = true;
+    v.play().then(() => {
+      if (turno !== videoTurno || !state.videoEn) return;
+      toast('El video va sin sonido: tocá esta pantalla una vez para habilitarlo.');
+      anotar('El video va SIN SONIDO: en la computadora, tocá la pantalla de NOVA una vez.');
+    }).catch((otro) => {
+      if (turno !== videoTurno || !state.videoEn || otro?.name === 'AbortError') return;
+      videoNoSePudo('el navegador no dejó reproducirlo: tocá la pantalla de NOVA una vez y volvé a pasarlo');
+    });
+  });
+}
+
+/**
+ * Vigila que el video arranque. A los 6 segundos sin señal de vida lo pide
+ * de nuevo por el otro camino; a los 25, si no llegó nada, lo da por perdido
+ * y lo dice (en vez de dejar la pantalla en negro sin explicación).
+ */
+function vigilarVideo(turno, paso = 1) {
+  clearTimeout(videoGuardian);
+  videoGuardian = setTimeout(() => {
+    if (turno !== videoTurno || !state.videoEn) return;
+    const v = el.sceneVideoEl;
+    if (!v.paused && v.currentTime > 0.05) return; // corre
+    const bajando = v.readyState >= 1; // ya llegó algo: es cuestión de esperar
+    if (paso === 1) {
+      if (!bajando) {
+        const src = state.video?.src || '';
+        const deMemoria = v.dataset.de !== src;
+        anotar('El video tarda en arrancar: se pide de nuevo.');
+        marcarVideo('cargando', { reintento: true });
+        ponerEnVideo(deMemoria || !esDeEsteSitio(src) ? src : `${src}${src.includes('?') ? '&' : '?'}r=${Date.now()}`, { forzar: true });
+      }
+      arrancarVideo(turno);
+      return vigilarVideo(turno, 2);
+    }
+    if (bajando) {
+      marcarVideo('cargando', { lento: true });
+      anotar('El video está bajando despacio: la conexión de la computadora está lenta.');
+      return;
+    }
+    videoNoSePudo('no llegó a la computadora en 25 segundos: revisá su conexión');
+  }, paso === 1 ? 6000 : 19000);
 }
 
 /** Un video del guion: toma la pantalla, suena, y al terminar se va solo. */
 function reproducirVideo(video) {
   if (!video || video === 'ninguno') return ocultarVideo();
   if (!video.src) return anotar(video.numero ? `El video ${video.numero} todavía no está en la carpeta: se pasa de largo.` : 'El video no tiene dirección.');
+  const turno = ++videoTurno;
+  const direccion = direccionParaPasar(video.src);
   state.video = { src: video.src, pie: video.pie || '' };
   state.videoEn = true;
+  state.videoEstado = { fase: 'cargando', desde: direccion === video.src ? 'red' : 'memoria' };
   el.sceneVideo.classList.remove('se-va');
   el.sceneVideoPie.textContent = video.pie || '';
-  el.sceneVideoEl.src = video.src;
+  ponerEnVideo(direccion);
   el.scene.dataset.video = 'on';
   listener?.pauseForPlayback();
-  const noSePudo = (motivo) => {
-    toast(`Video: ${motivo}.`);
-    anotar(`El video no se pudo reproducir (${motivo}).`);
-    ocultarVideo();
-  };
-  el.sceneVideoEl.muted = false;
-  el.sceneVideoEl.play().catch((err) => {
-    if (err?.name !== 'NotAllowedError') return noSePudo('no se pudo cargar');
-    // El navegador no deja sonar nada hasta que alguien toque la página.
-    // Antes que no mostrarlo, va sin sonido, y se avisa.
-    el.sceneVideoEl.muted = true;
-    el.sceneVideoEl.play().then(() => {
-      toast('El video va sin sonido: tocá esta pantalla una vez para habilitarlo.');
-      anotar('El video va SIN SONIDO: en la computadora, tocá la pantalla de NOVA una vez.');
-    }).catch(() => noSePudo('el navegador no dejó reproducirlo: tocá la pantalla de NOVA una vez y volvé a pasarlo'));
-  });
+  if (/\.mp4($|[?#])/i.test(video.src) && !el.sceneVideoEl.canPlayType('video/mp4; codecs="avc1.64001F"')) {
+    anotar('Ojo: este navegador dice que no reproduce mp4. Abrí NOVA con Chrome o Edge.');
+  }
+  arrancarVideo(turno);
+  vigilarVideo(turno);
   anotar(`Video en pantalla: ${video.pie || video.src}.`);
   publicar();
 }
@@ -834,6 +1022,8 @@ function reproducirVideo(video) {
 function ocultarVideo({ terminado = false } = {}) {
   if (!state.videoEn) return;
   state.videoEn = false;
+  state.videoEstado = null;
+  clearTimeout(videoGuardian);
   // Terminó solo (nadie lo paró): si lo que sigue en el guion es solo
   // pantalla y viene pegado, pasa solo.
   if (terminado && !state.busy) {
@@ -850,6 +1040,7 @@ function ocultarVideo({ terminado = false } = {}) {
       delete el.scene.dataset.video;
       el.sceneVideo.classList.remove('se-va');
       el.sceneVideoEl.removeAttribute('src');
+      delete el.sceneVideoEl.dataset.de;
       el.sceneVideoEl.load();
     }
   }, 500);
@@ -898,6 +1089,7 @@ function asegurarEscenario() {
 
 function avanzarPantalla(entrada) {
   asegurarEscenario();
+  if (state.videoEstado?.fase === 'falló') state.videoEstado = null; // el aviso del video anterior ya no va
   const otraEscena = Boolean(entrada.escena) && entrada.escena !== state.escenaGuion;
   if (entrada.escena) state.escenaGuion = entrada.escena;
   const traeImagen = entrada.imagenes?.[0] && !entrada.imagenes[0].quitar;
@@ -949,7 +1141,7 @@ function aplicarPantalla(entrada) {
   const proxima = guion.entradas[entrada.indice + 1]?.imagenes?.[0];
   if (proxima?.src) new Image().src = proxima.src;
   const proximoVideo = guion.entradas[entrada.indice + 1]?.video;
-  if (proximoVideo?.src && !state.videoEn) { el.sceneVideoEl.src = proximoVideo.src; el.sceneVideoEl.load(); } // se va bajando
+  if (proximoVideo?.src && !state.videoEn) ponerEnVideo(direccionParaPasar(proximoVideo.src)); // queda cargado, listo para arrancar
 }
 
 /* ---------------------------------------------------- panel de control */
@@ -1186,6 +1378,9 @@ function publicar({ forzar = false } = {}) {
       letrero: state.letrero,
       video: state.video,
       videoEn: state.videoEn,
+      videoEstado: estadoDelVideo(),
+      videos: estadoDeVideos(),
+      version: VERSION,
       apagada: state.apagada,
       ocupada: state.busy,
       tocada: state.tocada || Boolean(navigator.userActivation?.hasBeenActive),
@@ -1237,6 +1432,52 @@ function anotar(texto) {
   publicar();
 }
 
+/**
+ * La pestaña de NOVA puede quedar abierta horas, y el navegador guarda los
+ * archivos del sitio un rato: así se queda con una versión vieja sin que se
+ * note. Acá se compara con la publicada. Sola, se pone al día únicamente si
+ * no interrumpe nada (sin proyectar, sin nada dicho, sin ventanas abiertas);
+ * con la orden del panel, siempre.
+ */
+const VOLVER_AL_ESCENARIO = 'nova:volver-al-escenario';
+
+async function ponerseAlDia({ forzar = false } = {}) {
+  const publicada = await versionPublicada();
+  if (!forzar) {
+    if (!publicada || publicada.version === VERSION || yaSeIntento(publicada.version)) return;
+    const libre = !isStage() && !state.busy && !state.videoEn && guion.cursor < 0 && !document.querySelector('dialog[open]');
+    if (!libre) return;
+  }
+  anotar('NOVA se recarga para ponerse al día con el sitio.');
+  try { if (isStage()) sessionStorage.setItem(VOLVER_AL_ESCENARIO, '1'); } catch { /* sin almacenamiento */ }
+  await actualizarSitio(publicada);
+}
+
+/** Después de una recarga pedida desde el panel, NOVA vuelve sola a proyectar. */
+function volverAlEscenario() {
+  try {
+    if (!sessionStorage.getItem(VOLVER_AL_ESCENARIO)) return;
+    sessionStorage.removeItem(VOLVER_AL_ESCENARIO);
+  } catch { return; }
+  if (!isStage()) setStageMode(true);
+}
+
+/** Cómo va el video que está en pantalla (o por qué no se pudo pasar), para el panel. */
+function estadoDelVideo() {
+  const como = state.videoEstado;
+  if (!como) return null;
+  if (como.fase === 'falló') return { fase: 'falló', motivo: como.motivo || '' };
+  const v = el.sceneVideoEl;
+  return {
+    fase: como.fase === 'corre' && v.paused ? 'cargando' : como.fase, // lo dicen los avisos del reproductor
+    t: Math.round(v.currentTime || 0),
+    dura: Number.isFinite(v.duration) ? Math.round(v.duration) : 0,
+    mudo: v.muted,
+    desde: como.desde || '',
+    lento: Boolean(como.lento),
+  };
+}
+
 /** Lo que manda el panel. */
 function recibirComando(mensaje) {
   if (mensaje.tipo !== 'comando') return;
@@ -1248,6 +1489,7 @@ function recibirComando(mensaje) {
     case 'guion': publicarGuion(); break;
     case 'atras': retroceder(); break;
     case 'cargar-muestra': cargarGuionPorDefecto({ forzar: true }); break;
+    case 'recargar': ponerseAlDia({ forzar: true }); break;
     case 'poner': ponerMedio(mensaje); break;
     case 'limpiar': limpiarPantalla(); break;
     case 'decir': decirDelGuion(Number(mensaje.indice)); break;

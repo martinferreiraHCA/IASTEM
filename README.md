@@ -271,6 +271,15 @@ solo, y si lo que sigue viene pegado, pasa solo: varios videos seguidos
 corren uno atrás del otro. Un video que todavía no está en la carpeta se
 pasa de largo.
 
+Para que el video no dependa de la red de la sala, **NOVA baja los videos
+enteros apenas se abre la página** y los guarda en memoria, igual que las
+grabaciones. Si uno todavía no terminó de bajar, se pide a la red en el
+momento. Un video que no arranca se vuelve a pedir solo, y si no hay caso se
+dice por qué (sin conexión, formato que el navegador no lee) en vez de dejar
+la pantalla en negro. **El panel lo cuenta todo**, debajo de los botones:
+cuántos videos están listos en la computadora, cuántos nombra el guion que
+todavía no están en la carpeta, y mientras hay uno en pantalla, por dónde va.
+
 **La pantalla desde el celular.**
 Además, el panel tiene un botón por cada cosa que el guion pone en pantalla
 (fondos, imágenes, videos, letreros, palabras): tocarlo la pone, tocar la
@@ -528,6 +537,15 @@ Pages sirve la raíz del repositorio, y la página vive en `public/`. Por eso ha
 un `index.html` en la raíz que lleva ahí. El panel queda en
 `https://TU-USUARIO.github.io/IASTEM/public/control.html`.
 
+**La versión del sitio.** El navegador guarda los archivos unos minutos y una
+pestaña puede quedar abierta horas, así que NOVA puede quedar con una versión
+vieja sin que se note. Por eso el sitio lleva una versión
+(`public/version.json` y `public/js/version.js`): antes de publicar un cambio
+en el programa se corre `node herramientas/version.mjs`. Con eso el panel se
+pone al día solo; NOVA también, si no está proyectando ni en medio del guion;
+y si NOVA quedó atrás, el panel lo avisa y la actualiza con un toque
+(**Actualizar NOVA**).
+
 GitHub Pages sirve archivos estáticos, así que ahí no corre el servidor: el
 panel se abre en otra ventana de la misma computadora, o desde el celular
 creando una sala (botón Panel). La otra manera para el celular, sin internet,
@@ -563,6 +581,7 @@ public/                  El sitio. Esto es lo que se publica en Pages.
 
 herramientas/grabar.mjs  Graba los parlamentos de un guion (Piper u OpenAI) en public/guiones/
 herramientas/videos.mjs  Trae los videos de la carpeta de Drive, en orden, y los pasa a mp4 en public/videos/
+herramientas/version.mjs Marca una versión nueva del sitio (correrlo antes de publicar cambios en el programa)
 docs/guion-palabras.txt        El guion de la muestra "Palabras", completo, con las líneas de NOVA grabadas
 docs/guion-german-martin.txt   Un guion de ejemplo
 index.html               Redirección a public/, para que Pages sirva la app

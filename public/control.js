@@ -8,6 +8,7 @@
 
 import { Enlace, normalizarCodigo } from './js/enlace.js';
 import { urlDeNube, guardarUrlDeNube } from './js/nube.js';
+import { VERSION, versionPublicada, actualizarSitio, yaSeIntento } from './js/actualizar.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -29,6 +30,9 @@ const el = {
   atras: $('atras'),
   tocar: $('tocar'),
   otroGuion: $('otroGuion'),
+  videoAhora: $('videoAhora'),
+  versionVieja: $('versionVieja'),
+  actualizarNova: $('actualizarNova'),
   cargarMuestra: $('cargarMuestra'),
   limpiar: $('limpiar'),
   medios: $('medios'),
@@ -79,6 +83,8 @@ const ESCENAS = { portada: 'Portada', charla: 'Charla', muro: 'Muro' };
 
 let estado = null;
 let ultimaSenal = 0;
+let versionDelSitio = '';  // la publicada, cuando se pudo mirar
+let videoReloj = null;     // { t, en }: por dónde iba el video cuando llegó el último estado
 const eventos = []; // los últimos, por orden de llegada
 
 // El guion entero llega aparte del estado, y solo cuando cambia: acá se guarda.
@@ -109,6 +115,8 @@ const enlace = new Enlace('panel', (mensaje) => {
   } else {
     estado = mensaje.estado;
     ultimaSenal = Date.now();
+    const video = estado.videoEstado;
+    videoReloj = video?.fase === 'corre' ? { t: video.t || 0, en: Date.now() } : null;
   }
   completarGuion();
   pintar();
@@ -180,6 +188,13 @@ setInterval(() => {
 const revivir = () => { enlace.reanimar(); pedir(); };
 for (const evento of ['online', 'pageshow', 'focus']) window.addEventListener(evento, revivir);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') revivir(); });
+
+// El reloj del video corre en el celular entre un estado y el siguiente.
+setInterval(() => { if (videoReloj) pintarVideoAhora(); }, 1000);
+// La versión del sitio: al abrir, cada tanto y al volver a la pestaña.
+setTimeout(() => mirarVersion(), 2500);
+setInterval(() => mirarVersion(), 180000);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') mirarVersion(); });
 
 function pedir() {
   enlace.enviar({ tipo: 'comando', accion: 'hola' });
@@ -304,6 +319,10 @@ function wire() {
   el.palabra.addEventListener('click', () => mandar('palabra', { on: false }));
   el.letrero.addEventListener('click', () => mandar('letrero', { on: false }));
   el.video.addEventListener('click', () => mandar('video', { on: !estado?.videoEn }));
+  el.actualizarNova.addEventListener('click', () => {
+    if (!confirm('NOVA se va a recargar en la computadora: el guion vuelve al principio y sale de pantalla completa. ¿Seguimos?')) return;
+    mandar('recargar');
+  });
   el.apagar.addEventListener('click', () => mandar('apagar', { on: !estado?.apagada }));
 
   el.turnoSiguiente.addEventListener('click', () => mandar('turno-siguiente'));
@@ -377,6 +396,58 @@ function pintarEnlace() {
   if (conSenal) mantenerDespierto();
 }
 
+/** minutos:segundos */
+function reloj(segundos) {
+  const s = Math.max(0, Math.round(segundos));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
+/**
+ * Qué pasa con el video, dicho en el celular: si está en pantalla y por dónde
+ * va, si todavía está cargando, o por qué no se pudo pasar. Así no hace falta
+ * mirar la tele para saberlo.
+ */
+function pintarVideoAhora() {
+  if (!estado) return;
+  const video = estado.videoEstado;
+  const videos = estado.videos;
+  let fase = '';
+  let texto = '';
+  if (video?.fase === 'falló') {
+    fase = 'falló';
+    texto = `⚠ El video no se pudo pasar: ${video.motivo || 'no se pudo cargar'}.`;
+  } else if (video?.fase === 'corre') {
+    fase = 'corre';
+    const va = videoReloj ? Math.min(video.dura || Infinity, videoReloj.t + (Date.now() - videoReloj.en) / 1000) : video.t || 0;
+    texto = `▶ Video en pantalla · ${reloj(va)}${video.dura ? ` de ${reloj(video.dura)}` : ''}${video.mudo ? ' · SIN SONIDO (tocá la pantalla de NOVA)' : ''}`;
+  } else if (video) {
+    fase = 'cargando';
+    texto = video.lento ? '⏳ El video está bajando despacio: la conexión de la computadora está lenta.' : '⏳ El video está cargando en la computadora…';
+  } else if (videos?.bajando) {
+    fase = 'bajando';
+    texto = `Videos: NOVA los está bajando (${videos.listos} de ${videos.total} listos). Se pueden pasar igual.`;
+  } else if (videos?.fallaron) {
+    fase = 'bajando';
+    texto = `Videos: ${videos.fallaron} no se pudo bajar por adelantado. Se va a pedir en el momento de pasarlo.`;
+  } else if (videos?.total || videos?.faltan) {
+    texto = `Videos listos en la computadora: ${videos.listos || 0} de ${videos.total || 0}.`;
+    if (videos.faltan) texto += ` El guion nombra ${videos.faltan} más que todavía no ${videos.faltan === 1 ? 'está' : 'están'} en la carpeta.`;
+  }
+  el.videoAhora.hidden = !texto;
+  el.videoAhora.dataset.fase = fase;
+  if (el.videoAhora.textContent !== texto) el.videoAhora.textContent = texto;
+}
+
+/** El panel se pone al día solo: no tiene nada que perder al recargarse. */
+async function mirarVersion() {
+  const publicada = await versionPublicada();
+  if (!publicada) return;
+  versionDelSitio = publicada.version;
+  const escribiendo = ['TEXTAREA', 'INPUT'].includes(document.activeElement?.tagName);
+  if (publicada.version !== VERSION && !yaSeIntento(publicada.version) && !escribiendo) return actualizarSitio(publicada);
+  pintar();
+}
+
 function pintar() {
   if (!estado) return;
   const { guion } = estado;
@@ -390,6 +461,9 @@ function pintar() {
   el.dicho.textContent = estado.ultimaRespuesta ? `Dijo: «${recortar(estado.ultimaRespuesta, 140)}»` : '';
 
   el.tocar.hidden = estado.tocada !== false; // solo si el escenario dice que nadie lo tocó todavía
+  pintarVideoAhora();
+  // NOVA con una versión que no es la publicada: se avisa, y se puede corregir desde acá.
+  el.versionVieja.hidden = !versionDelSitio || estado.version === versionDelSitio || Date.now() - ultimaSenal > 20000;
   el.otroGuion.hidden = estado.guionDeLaMuestra !== false; // solo si el escenario dice que tiene otro guion
 
   // El siguiente parlamento, en el botón grande.

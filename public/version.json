@@ -1,0 +1,30 @@
+{
+  "version": "20261116-0004",
+  "archivos": [
+    "app.js",
+    "control.css",
+    "control.html",
+    "control.js",
+    "index.html",
+    "js/actualizar.js",
+    "js/arbitro.js",
+    "js/audio.js",
+    "js/enlace.js",
+    "js/goteo.js",
+    "js/grabaciones.js",
+    "js/guion.js",
+    "js/huella.js",
+    "js/materialize.js",
+    "js/nube.js",
+    "js/relevo.js",
+    "js/show.js",
+    "js/version.js",
+    "js/voice.js",
+    "js/wordcloud.js",
+    "prueba-api.html",
+    "prueba-mic.html",
+    "prueba-sala.html",
+    "stage.css",
+    "styles.css"
+  ]
+}
