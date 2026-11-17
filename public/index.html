@@ -326,6 +326,18 @@
         <p class="sheet__note" id="guionGrabaciones" hidden></p>
       </div>
 
+      <details class="cadencia" id="cadencia" hidden>
+        <summary>Cadencia de la voz: escuchar cada línea y ajustarla</summary>
+        <div class="cadencia__general">
+          <label for="cadenciaGeneral">Toda la obra: <strong id="cadenciaGeneralValor">1.00</strong></label>
+          <input type="range" id="cadenciaGeneral" min="0.7" max="1.5" step="0.05" value="1" />
+          <button class="chip" id="cadenciaNormal" type="button">Todo como se grabó</button>
+          <button class="chip" id="cadenciaCopiar" type="button">Copiar los ajustes</button>
+        </div>
+        <p class="sheet__note">Menos de 1 es más lento. El tono de la voz no cambia. Cada línea puede llevar además su propio ajuste, con − y +. Queda guardado en esta computadora y vale para la función.</p>
+        <ol class="cadencia__lista" id="cadenciaLista"></ol>
+      </details>
+
       <div class="sheet__foot">
         <label class="ghost guion__archivo">
           Abrir archivo…
@@ -463,7 +475,7 @@
         </div>
         <div class="sheet__field">
           <label for="vozVelocidad">Velocidad: <span id="vozVelocidadValor">1.0</span></label>
-          <input type="range" id="vozVelocidad" min="0.8" max="1.5" step="0.05" value="1" />
+          <input type="range" id="vozVelocidad" min="0.7" max="1.5" step="0.05" value="1" />
         </div>
         <div class="sheet__foot">
           <button class="ghost" id="vozProbar" type="button">Escuchar una frase</button>

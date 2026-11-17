@@ -312,6 +312,10 @@ function wire() {
   }
   el.mic.addEventListener('click', () => mandar('mic', { on: estado?.mic !== 'escuchando' }));
   el.voz.addEventListener('click', () => mandar('voz', { on: !estado?.voz }));
+  // La cadencia: cada toque la mueve un paso; vale desde la próxima línea.
+  const cadencia = (paso) => mandar('velocidad', { valor: Math.min(1.5, Math.max(0.7, (Number(estado?.vozVelocidad) || 1) + paso)) });
+  $('vozLenta').addEventListener('click', () => cadencia(-0.05));
+  $('vozRapida').addEventListener('click', () => cadencia(0.05));
   el.escenario.addEventListener('click', () => mandar('escenario', { on: !estado?.escenario }));
   el.camara.addEventListener('click', () => mandar('camara', { on: !estado?.camara }));
   el.imagen.addEventListener('click', () => mandar('imagen', { on: !estado?.imagenVisible }));
@@ -575,6 +579,10 @@ function pintar() {
     : estado.micDiag ? `Micrófono: ${estado.micDiag}.` : '';
   el.voz.setAttribute('aria-pressed', String(estado.voz));
   el.voz.textContent = estado.voz ? 'Voz de NOVA: encendida' : 'Voz de NOVA: apagada';
+  const velocidad = Number(estado.vozVelocidad) || 1;
+  $('vozVelocidad').textContent = `Velocidad ${velocidad.toFixed(2)}${velocidad === 1 ? ' (normal)' : ''}`;
+  $('vozLenta').disabled = velocidad <= 0.7;
+  $('vozRapida').disabled = velocidad >= 1.5;
   el.escenario.setAttribute('aria-pressed', String(estado.escenario));
   el.escenario.textContent = estado.escenario ? 'Escenario: proyectando' : 'Escenario: consola';
   el.camara.setAttribute('aria-pressed', String(estado.camara));

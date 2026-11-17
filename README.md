@@ -428,6 +428,20 @@ Motores para grabar: **Piper** (por defecto; local y gratis, con una voz
 --ayuda` cuenta el resto. Para la función conviene dejar el asistente sin
 clave y el micrófono apagado si todo se maneja desde el panel.
 
+**La cadencia.** Las grabaciones de la muestra están hechas un poco más
+lentas que la voz normal (`--velocidad 0.85` al grabar, que también alarga las
+pausas entre frases). Encima de eso se ajusta a oído, sin volver a grabar:
+
+- En NOVA, botón **Guion → Cadencia de la voz**: una velocidad para toda la
+  obra, y cada línea con su botón **Escuchar** y su propio ajuste (− y +).
+  Menos de 1 es más lento; el tono no cambia. Queda guardado en esa
+  computadora y vale para la función. *Copiar los ajustes* los deja en texto,
+  por si conviene dejarlos fijos en la grabación.
+- En el panel del celular, **− Más lenta / Más rápida +** mueve la velocidad
+  de toda la obra; vale desde la línea siguiente.
+- En el guion, `VELOCIDAD: 0.9` antes de una línea de NOVA la fija para esa
+  línea.
+
 ### Si el micrófono no transcribe
 
 El reconocimiento de voz lo hace el navegador, y **solo Google Chrome y Edge

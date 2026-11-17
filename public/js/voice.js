@@ -288,7 +288,7 @@ export const INSTRUCCIONES_VOZ =
  * Los ajustes de la voz, guardados en este navegador.
  *   motor         navegador u openai
  *   nombre        la voz del navegador elegida a mano (vacío: la mejor que haya)
- *   velocidad     0.8 a 1.5
+ *   velocidad     0.7 a 1.5
  *   claveOpenAI   clave para la voz por API (si está vacía se usa la del asistente)
  *   vozOpenAI     nova, coral, sage...
  *   instrucciones cómo tiene que sonar
@@ -301,7 +301,7 @@ export function leerAjustesVoz() {
   return {
     motor: guardado.motor === 'openai' ? 'openai' : 'navegador',
     nombre: typeof guardado.nombre === 'string' ? guardado.nombre : '',
-    velocidad: Math.min(1.5, Math.max(0.8, Number(guardado.velocidad) || 1)),
+    velocidad: Math.min(1.5, Math.max(0.7, Number(guardado.velocidad) || 1)),
     claveOpenAI: typeof guardado.claveOpenAI === 'string' ? guardado.claveOpenAI : '',
     vozOpenAI: VOCES_OPENAI.some(([v]) => v === guardado.vozOpenAI) ? guardado.vozOpenAI : 'nova',
     instrucciones: typeof guardado.instrucciones === 'string' && guardado.instrucciones.trim() ? guardado.instrucciones : INSTRUCCIONES_VOZ,

@@ -103,6 +103,12 @@ const el = {
   guionPaquetes: $('guionPaquetes'),
   guionPaquete: $('guionPaquete'),
   guionGrabaciones: $('guionGrabaciones'),
+  cadencia: $('cadencia'),
+  cadenciaGeneral: $('cadenciaGeneral'),
+  cadenciaGeneralValor: $('cadenciaGeneralValor'),
+  cadenciaNormal: $('cadenciaNormal'),
+  cadenciaCopiar: $('cadenciaCopiar'),
+  cadenciaLista: $('cadenciaLista'),
   guionQuitar: $('guionQuitar'),
   guionGuardar: $('guionGuardar'),
   guionActivo: $('guionActivo'),
@@ -458,6 +464,7 @@ function wireEvents() {
   el.showBtn.addEventListener('click', () => el.show.showModal());
   el.showClose.addEventListener('click', () => el.show.close());
   wireGuion();
+  wireCadencia();
   wirePanel();
   el.muroBtn.addEventListener('click', () => verEscena(state.escena === 'muro' ? 'charla' : 'muro'));
   el.pinBtn.addEventListener('click', () => fijarAcuerdo());
@@ -1370,6 +1377,7 @@ function publicar({ forzar = false } = {}) {
       micQuerido: state.micQuerido,
       voz: speaker.enabled,
       vozMotor: speaker.motorActual,
+      vozVelocidad: speaker.ajustes.velocidad,
       camara: state.camara,
       imagen: state.imagen,
       imagenVisible: state.imagenVisible,
@@ -1512,6 +1520,15 @@ function recibirComando(mensaje) {
       break;
     }
     case 'voz': setVoice(Boolean(mensaje.on)); break;
+    case 'velocidad': {
+      // La cadencia de la voz, desde el celular: vale desde la próxima línea.
+      const valor = Math.min(1.5, Math.max(0.7, Math.round((Number(mensaje.valor) || 1) * 20) / 20));
+      speaker.configurar({ velocidad: valor });
+      pintarVoz({ formulario: true });
+      pintarCadencia();
+      anotar(`Velocidad de la voz: ${valor.toFixed(2)}.`);
+      break;
+    }
     case 'camara': verCamara(Boolean(mensaje.on)); break;
     case 'fondo': ponerFondo(mensaje.on === false ? 'ninguno' : guion.entradas[mensaje.indice]?.fondo); break;
     case 'palabra': ponerPalabra(mensaje.on === false ? 'ninguna' : String(mensaje.texto || guion.entradas[mensaje.indice]?.palabra || '')); break;
@@ -1983,6 +2000,7 @@ function pintarPaquetes() {
 function pintarGrabaciones() {
   if (!grabaciones.porHuella.size || !guion.tiene) {
     el.guionGrabaciones.hidden = true;
+    el.cadencia.hidden = true;
     return;
   }
   const e = grabaciones.estado(textosDelGuion());
@@ -1994,6 +2012,126 @@ function pintarGrabaciones() {
   else texto = `Grabaciones listas: las ${e.total} líneas de NOVA tienen audio. Van con eso, sin IA ni sintetizador.`;
   el.guionGrabaciones.textContent = texto;
   el.guionGrabaciones.hidden = false;
+  pintarCadencia();
+}
+
+/* ------------------------------------------- la cadencia, a oído */
+
+/*
+ * Además de la velocidad general, cada línea puede llevar su propio ajuste.
+ * Se guarda en esta computadora, por la huella del texto: no toca el guion.
+ * La velocidad con que suena una línea es: general × la del guion
+ * (VELOCIDAD:) × el ajuste de la línea.
+ */
+const CADENCIAS_CLAVE = 'nova:cadencias';
+let cadencias = (() => {
+  try { return JSON.parse(localStorage.getItem(CADENCIAS_CLAVE) || '{}') || {}; } catch { return {}; }
+})();
+let cadenciaSonando = ''; // huella de la línea que se está probando
+
+function cadenciaDe(texto) {
+  return Number(cadencias[huella(texto)]) || 1;
+}
+
+function guardarCadencias() {
+  try { localStorage.setItem(CADENCIAS_CLAVE, JSON.stringify(cadencias)); } catch { /* sin lugar */ }
+}
+
+/** Las líneas que tienen voz: los parlamentos y los comodines. */
+function lineasConVoz() {
+  return [
+    ...guion.entradas.filter((e) => !e.muda).map((e) => ({ numero: String(e.indice + 1), texto: e.parlamento, delGuion: e.velocidad || 1 })),
+    ...guion.comodines.map((texto, i) => ({ numero: `c${i + 1}`, texto, delGuion: 1 })),
+  ];
+}
+
+function pintarCadencia() {
+  const lineas = lineasConVoz().filter((l) => speaker.tieneGrabacion(l.texto));
+  el.cadencia.hidden = !lineas.length;
+  if (!lineas.length) return;
+  const general = speaker.ajustes.velocidad;
+  el.cadenciaGeneral.value = String(general);
+  el.cadenciaGeneralValor.textContent = general.toFixed(2);
+  el.cadenciaLista.innerHTML = '';
+  for (const linea of lineas) {
+    const h = huella(linea.texto);
+    const propia = cadenciaDe(linea.texto);
+    const efectiva = general * linea.delGuion * propia;
+    const fila = document.createElement('li');
+    fila.className = 'cadencia__linea';
+    fila.dataset.huella = h;
+    if (propia !== 1) fila.dataset.propia = 'on';
+    if (cadenciaSonando === h) fila.dataset.suena = 'on';
+    fila.innerHTML = `
+      <span class="cadencia__num">${escapar(linea.numero)}</span>
+      <button class="cadencia__oir" type="button" data-cadencia="oir">${cadenciaSonando === h ? '■ Parar' : '▶ Escuchar'}</button>
+      <span class="cadencia__texto" title="${escapar(linea.texto)}">${escapar(linea.texto)}</span>
+      <span class="cadencia__ajuste">
+        <button type="button" data-cadencia="menos" aria-label="Más lenta" ${propia <= 0.7 ? 'disabled' : ''}>−</button>
+        <output title="Velocidad con la que suena esta línea">${efectiva.toFixed(2)}</output>
+        <button type="button" data-cadencia="mas" aria-label="Más rápida" ${propia >= 1.4 ? 'disabled' : ''}>+</button>
+      </span>`;
+    el.cadenciaLista.appendChild(fila);
+  }
+}
+
+/** Escuchar una línea sola, con la velocidad que le toca. No mueve el guion ni la pantalla. */
+function probarLinea(h) {
+  const linea = lineasConVoz().find((l) => huella(l.texto) === h);
+  if (!linea) return;
+  if (state.busy) return toast('NOVA está diciendo una línea: esperá a que termine, o Detener.');
+  if (cadenciaSonando) {
+    const era = cadenciaSonando;
+    cadenciaSonando = '';
+    grabaciones.parar();
+    if (era === h) return pintarCadencia();
+  }
+  speaker.cancel();
+  const toque = grabaciones.tocar(linea.texto, speaker.ajustes.velocidad * linea.delGuion * cadenciaDe(linea.texto));
+  if (!toque) return toast('Esa línea todavía no tiene la grabación lista.');
+  cadenciaSonando = h;
+  pintarCadencia();
+  toque.fin.then(() => {
+    if (cadenciaSonando !== h) return;
+    cadenciaSonando = '';
+    pintarCadencia();
+  });
+}
+
+function wireCadencia() {
+  el.cadenciaLista.addEventListener('click', (event) => {
+    const boton = event.target.closest('[data-cadencia]');
+    const h = boton?.closest('.cadencia__linea')?.dataset.huella;
+    if (!h) return;
+    if (boton.dataset.cadencia === 'oir') return probarLinea(h);
+    const paso = boton.dataset.cadencia === 'menos' ? -0.05 : 0.05;
+    const nueva = Math.min(1.4, Math.max(0.7, Math.round(((Number(cadencias[h]) || 1) + paso) * 20) / 20));
+    if (nueva === 1) delete cadencias[h]; else cadencias[h] = nueva;
+    guardarCadencias();
+    // Si justo se la estaba escuchando, vuelve a sonar con el ajuste nuevo.
+    if (cadenciaSonando === h) { cadenciaSonando = ''; grabaciones.parar(); probarLinea(h); } else pintarCadencia();
+  });
+  el.cadenciaGeneral.addEventListener('input', () => {
+    speaker.configurar({ velocidad: Number(el.cadenciaGeneral.value) || 1 });
+    pintarVoz({ formulario: true });
+    pintarCadencia();
+    publicar();
+  });
+  el.cadenciaNormal.addEventListener('click', () => {
+    cadencias = {};
+    guardarCadencias();
+    speaker.configurar({ velocidad: 1 });
+    pintarVoz({ formulario: true });
+    pintarCadencia();
+    publicar();
+    toast('Cadencia: todo como se grabó.');
+  });
+  el.cadenciaCopiar.addEventListener('click', async () => {
+    const propias = lineasConVoz().filter((l) => cadenciaDe(l.texto) !== 1).map((l) => `línea ${l.numero}: ${cadenciaDe(l.texto).toFixed(2)}`);
+    const texto = `Cadencia general: ${speaker.ajustes.velocidad.toFixed(2)}. ${propias.length ? `Ajustes por línea: ${propias.join('; ')}.` : 'Sin ajustes por línea.'}`;
+    try { await navigator.clipboard.writeText(texto); toast('Ajustes copiados.'); } catch { toast(texto); }
+  });
+  el.guion.addEventListener('close', () => { if (cadenciaSonando) { cadenciaSonando = ''; grabaciones.parar(); } });
 }
 
 function guardarGuion() {
@@ -2606,7 +2744,7 @@ async function send(text, { fromVoice = false } = {}) {
     guion.marcar(hallado.entrada.indice);
     avanzarPantalla(hallado.entrada);
     anotar(`${hallado.porAsistente ? 'El asistente ubicó' : 'Reconoció'} el pie ${hallado.entrada.indice + 1}: «${text}».`);
-    await responder(hallado.entrada.parlamento, { origen: 'guion' });
+    await responder(hallado.entrada.parlamento, { origen: 'guion', velocidad: hallado.entrada.velocidad || 1 });
     return;
   }
 
@@ -2699,7 +2837,7 @@ async function responder(fuente, { origen, velocidad = 1 }) {
   // de una vez: así arranca ya y suena de corrido mientras en la pantalla
   // se va formando. Lo que llega de a pedazos (la IA) se le va dando por frases.
   const textoConocido = typeof fuente === 'string';
-  const duracion = textoConocido ? speaker.decir(fuente, { velocidad }) : 0; // con grabación, cuánto dura: la pantalla la acompaña
+  const duracion = textoConocido ? speaker.decir(fuente, { velocidad: velocidad * cadenciaDe(fuente) }) : 0; // con grabación, cuánto dura: la pantalla la acompaña
   if (!textoConocido) speaker.abrir();
 
   try {

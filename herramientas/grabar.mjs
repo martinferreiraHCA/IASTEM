@@ -78,16 +78,16 @@ let grabados = 0;
 for (const p of parlamentos) {
   const h = huella(p.texto);
   const previo = yaGrabados.get(h);
-  if (previo && (previo.entrada || 0) === entrada && fs.existsSync(path.join(carpeta, previo.archivo))) {
+  if (previo && (previo.entrada || 0) === entrada && (previo.velocidad || 1) === opciones.velocidad && fs.existsSync(path.join(carpeta, previo.archivo))) {
     resultado.push({ ...previo, indice: p.indice, tipo: p.tipo });
     continue;
   }
-  // El nombre lleva la entrada: si cambia, es otro archivo y nadie se queda con el viejo en caché.
-  const base = `${String(p.tipo === 'comodin' ? 'c' : '')}${String(p.indice + 1).padStart(2, '0')}-${h.slice(0, 8)}${entrada ? `-e${Math.round(entrada * 100)}` : ''}`;
+  // El nombre lleva la entrada y la velocidad: si cambian, es otro archivo y nadie se queda con el viejo en caché.
+  const base = `${String(p.tipo === 'comodin' ? 'c' : '')}${String(p.indice + 1).padStart(2, '0')}-${h.slice(0, 8)}${entrada ? `-e${Math.round(entrada * 100)}` : ''}${opciones.velocidad !== 1 ? `-v${Math.round(opciones.velocidad * 100)}` : ''}`;
   process.stdout.write(`  ${p.tipo === 'comodin' ? 'comodín' : 'parlamento'} ${p.indice + 1}: «${p.texto.slice(0, 60)}${p.texto.length > 60 ? '…' : ''}» `);
   const { archivo, duracion } = grabar(textoParaHuella(p.texto), base);
   console.log(`→ ${archivo} (${duracion.toFixed(1)} s)`);
-  resultado.push({ indice: p.indice, tipo: p.tipo, huella: h, texto: p.texto, archivo, duracion: Number(duracion.toFixed(2)), entrada });
+  resultado.push({ indice: p.indice, tipo: p.tipo, huella: h, texto: p.texto, archivo, duracion: Number(duracion.toFixed(2)), entrada, ...(opciones.velocidad !== 1 ? { velocidad: opciones.velocidad } : {}) });
   grabados += 1;
 }
 
@@ -102,6 +102,7 @@ const manifiesto = {
   motor,
   voz: motor === 'piper' ? path.basename(opciones.voz) : opciones.voz,
   entrada,
+  velocidad: opciones.velocidad,
   version: huella(texto),
   fecha: new Date().toISOString(),
   parlamentos: resultado,
@@ -138,7 +139,7 @@ function grabar(texto, base) {
 
 function grabarPiper(texto, wav) {
   if (!opciones.voz) { console.error('Falta --voz ruta/al/modelo.onnx (una voz de Piper).'); process.exit(1); }
-  const args = ['-m', opciones.voz, '-f', wav, '--sentence-silence', '0.3', '--length-scale', String(1 / opciones.velocidad)];
+  const args = ['-m', opciones.voz, '-f', wav, '--sentence-silence', (0.3 / opciones.velocidad).toFixed(2), '--length-scale', String(1 / opciones.velocidad)]; // más lento: también las pausas
   const r = spawnSync(opciones.piper, args, { input: texto, encoding: 'utf8' });
   if (r.error || r.status !== 0) {
     console.error(`\nPiper falló: ${r.error?.message || r.stderr}`);
