@@ -1,0 +1,42 @@
+[
+  {
+    "numero": 1,
+    "archivo": "01-video-1-1.mp4",
+    "titulo": "Video 1.1",
+    "origen": "drive:1WtNuyUYzAn0nGGXAEeYPt89bUoUVUXXc:213187642:2026-11-23T14:29:18.000Z",
+    "segundos": 174.4,
+    "mb": 28.7
+  },
+  {
+    "numero": 2,
+    "archivo": "02-video-1-2.mp4",
+    "titulo": "Video 1.2",
+    "origen": "drive:1R1_nsaifogNdFNeXaDSLumghiJt9GlYg:55752120:2026-11-23T14:29:51.000Z",
+    "segundos": 45.5,
+    "mb": 6.6
+  },
+  {
+    "numero": 3,
+    "archivo": "03-video-1-3.mp4",
+    "titulo": "Video 1.3",
+    "origen": "drive:1fKT3r8q-4vRMZbITANlTK7eno6oq0h23:48872925:2026-11-23T14:28:25.000Z",
+    "segundos": 39.8,
+    "mb": 5.8
+  },
+  {
+    "numero": 4,
+    "archivo": "04-video-1-4.mp4",
+    "titulo": "Video 1.4",
+    "origen": "drive:1OTzqFXxPk46SMkOeoKuwWrLGvwsNV76w:55805444:2026-11-23T14:30:06.000Z",
+    "segundos": 45.6,
+    "mb": 6.7
+  },
+  {
+    "numero": 5,
+    "archivo": "05-video-1-5.mp4",
+    "titulo": "Video 1.5",
+    "origen": "drive:1JrXxta9DnmGS8XP63ApxgDbgx8F1NG7H:69074165:2026-11-23T14:29:36.000Z",
+    "segundos": 56.4,
+    "mb": 9
+  }
+]

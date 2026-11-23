@@ -106,6 +106,8 @@ const enlace = new Enlace('panel', (mensaje) => {
   mensaje.estado.plantel ||= [];
   mensaje.estado.guion ||= { activo: true, cursor: -1, total: 0, comodines: 0, version: '' };
   mensaje.estado.sala ||= {};
+  mensaje.estado.muestras ||= [];
+  mensaje.estado.videosLista ||= [];
   // Lo que la nube tenía guardado de antes se muestra, pero no cuenta como
   // señal: el escenario puede haberse ido. Se le pregunta si está.
   if (mensaje.deAntes) {
@@ -323,6 +325,15 @@ function wire() {
   el.palabra.addEventListener('click', () => mandar('palabra', { on: false }));
   el.letrero.addEventListener('click', () => mandar('letrero', { on: false }));
   el.video.addEventListener('click', () => mandar('video', { on: !estado?.videoEn }));
+  $('muestraGrupos').addEventListener('click', (event) => {
+    const id = event.target.closest('[data-muestra]')?.dataset.muestra;
+    if (!id || id === estado?.muestra) return;
+    const nombre = estado.muestras.find((m) => m.id === id)?.nombre || id;
+    // Con la obra empezada, cambiar de muestra cambia los videos que faltan pasar: se pregunta.
+    if (estado.guion.cursor > 0 && !confirm(`La obra ya empezó. ¿Cambiar a la muestra de ${nombre}? Cambian los videos.`)) return;
+    mandar('muestra', { cual: id }); // "id" es el número de la orden: no se puede usar
+  });
+  $('muestraMirar').addEventListener('click', () => mandar('mirar-videos'));
   el.actualizarNova.addEventListener('click', () => {
     if (!confirm('NOVA se va a recargar en la computadora: el guion vuelve al principio y sale de pantalla completa. ¿Seguimos?')) return;
     mandar('recargar');
@@ -400,6 +411,53 @@ function pintarEnlace() {
   if (conSenal) mantenerDespierto();
 }
 
+/**
+ * Qué muestra se hace (7°1 y 7°2, o 7°3 y 7°4) y con qué videos: los de su
+ * carpeta de Drive, en orden. Se elige acá antes de empezar.
+ */
+let muestraPintada = '';
+function pintarMuestra() {
+  const muestras = estado.muestras;
+  $('muestra').hidden = !muestras.length;
+  if (!muestras.length) return;
+  const actual = muestras.find((m) => m.id === estado.muestra);
+  const lista = estado.videosLista;
+  const firma = JSON.stringify([muestras, estado.muestra, lista]);
+  if (firma === muestraPintada) return;
+  muestraPintada = firma;
+  $('muestraCual').textContent = actual ? actual.nombre : 'sin elegir';
+  const grupos = $('muestraGrupos');
+  grupos.innerHTML = '';
+  for (const m of muestras) {
+    const boton = document.createElement('button');
+    boton.type = 'button';
+    boton.className = 'boton';
+    boton.dataset.muestra = m.id;
+    boton.setAttribute('aria-pressed', String(m.id === estado.muestra));
+    boton.textContent = m.nombre;
+    grupos.appendChild(boton);
+  }
+  const enGuion = lista.filter((v) => v.linea);
+  const listos = enGuion.filter((v) => v.estado === 'listo').length;
+  const faltan = enGuion.filter((v) => v.estado === 'falta').length;
+  $('muestraResumen').textContent = !lista.length
+    ? `Videos de ${actual?.nombre || 'esta muestra'}: todavía no hay ninguno en su carpeta`
+    : `Videos de ${actual?.nombre || 'esta muestra'}: ${listos} de ${enGuion.length} listos${faltan ? ` · faltan ${faltan} en la carpeta` : ''}`;
+  const ESTADOS = { listo: 'listo', bajando: 'bajando…', 'falló': 'no bajó', falta: 'falta en la carpeta', 'sin uso': 'el guion no lo usa' };
+  const ol = $('muestraLista');
+  ol.innerHTML = '';
+  for (const v of lista) {
+    const li = document.createElement('li');
+    li.className = 'muestra__video';
+    li.dataset.estado = v.estado;
+    li.innerHTML = `<b>${v.numero}</b><span>${escapar(v.titulo || '—')}<small>${v.linea ? `línea ${v.linea} del guion` : 'no está en el guion'}${v.segundos ? ` · ${reloj(v.segundos)}` : ''}</small></span><span class="muestra__estado">${ESTADOS[v.estado] || v.estado}</span>`;
+    ol.appendChild(li);
+  }
+  const carpeta = $('muestraCarpeta');
+  carpeta.hidden = !actual?.carpeta;
+  if (actual?.carpeta) carpeta.href = `https://drive.google.com/drive/folders/${encodeURIComponent(actual.carpeta)}`;
+}
+
 /** minutos:segundos */
 function reloj(segundos) {
   const s = Math.max(0, Math.round(segundos));
@@ -465,6 +523,7 @@ function pintar() {
   el.dicho.textContent = estado.ultimaRespuesta ? `Dijo: «${recortar(estado.ultimaRespuesta, 140)}»` : '';
 
   el.tocar.hidden = estado.tocada !== false; // solo si el escenario dice que nadie lo tocó todavía
+  pintarMuestra();
   pintarVideoAhora();
   // NOVA con una versión que no es la publicada: se avisa, y se puede corregir desde acá.
   el.versionVieja.hidden = !versionDelSitio || estado.version === versionDelSitio || Date.now() - ultimaSenal > 20000;

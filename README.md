@@ -257,15 +257,25 @@ de acto se van todas y empiezan las del acto nuevo. (Si alguna vez se quiere
 dejar flotando una cifra o una idea entera, existe `DATO: …` antes de un
 parlamento; el guion de la muestra no lo usa.)
 
-**Los videos.** Donde el guion dice que va un video, la línea es
-`VIDEO: 1`, `VIDEO: 2`…: el primero, el segundo de la carpeta de Drive de la
-muestra, en orden alfabético. **El sistema los trae solo:** una tarea del
-repositorio (`.github/workflows/videos.yml`) mira la carpeta cada diez
+**Las muestras y sus videos.** La obra se hace con dos grupos (7°1 y 7°2, y
+7°3 y 7°4), y cada uno tiene sus propios videos. **En el panel, arriba de
+todo, se elige qué muestra se hace**: con eso NOVA usa los videos de ese
+grupo. Ahí mismo, en *Videos de esta muestra*, se ve cada video con su
+número, la línea del guion donde va y si ya está listo en la computadora, el
+enlace a su carpeta de Drive y un botón para volver a mirar. La elección
+queda guardada en la computadora de NOVA.
+
+Donde el guion dice que va un video, la línea es `VIDEO: 1`, `VIDEO: 2`…: el
+primero, el segundo de la carpeta de Drive de esa muestra, en orden
+alfabético. Las muestras y sus carpetas están en
+`public/videos/muestras.json` (para cambiar una carpeta o sumar una muestra
+se edita ese archivo). **El sistema los trae solo:** una tarea del
+repositorio (`.github/workflows/videos.yml`) mira las carpetas cada diez
 minutos y, si hay algo nuevo, lo baja, lo pasa a mp4 (sea cual sea su
-formato) y lo publica en `public/videos/` con su índice. Subir el video a la
-carpeta alcanza; en un rato aparece, y NOVA lo toma sin recargar. También se
-puede correr a mano (`node herramientas/videos.mjs`, o *Actions → Videos de
-la carpeta → Run workflow* en GitHub). Un archivo de la carpeta que no va en
+formato) y lo publica en `public/videos/<muestra>/` con su índice. Subir el
+video a la carpeta alcanza; en un rato aparece, y NOVA lo toma sin recargar.
+También se puede correr a mano (`node herramientas/videos.mjs`, o *Actions →
+Videos de la carpeta → Run workflow* en GitHub). Un archivo de la carpeta que no va en
 la obra se anota en `public/videos/excluir.json` y queda afuera. El video toma la pantalla, al terminar se va
 solo, y si lo que sigue viene pegado, pasa solo: varios videos seguidos
 corren uno atrás del otro. Un video que todavía no está en la carpeta se

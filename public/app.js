@@ -193,6 +193,8 @@ const state = {
   apagada: false,        // NOVA apagada: pantalla a negro (el final)
   escenaGuion: '',       // en qué escena del guion está la pantalla, para limpiarla al cambiar
   tocada: Boolean(navigator.userActivation?.hasBeenActive), // alguien tocó esta página: el navegador deja sonar
+  muestras: [],          // las muestras que hay: [{ id, nombre, carpeta }]
+  muestra: leerMuestra(), // cuál se está haciendo: de ahí salen los videos
   videosCarpeta: [],     // los videos de la carpeta, en orden: "VIDEO: 2" es el segundo
   evento: null,          // lo último que pasó, para el panel
   abriendoMic: false,
@@ -208,6 +210,12 @@ const ANTICIPO_MS = 5000; // una frase anticipada tapa su versión final por est
 // Declarados acá arriba porque init() corre antes de que termine de
 // evaluarse el archivo, y los usa.
 const MIC_CLAVE = 'nova:microfono'; // 'on' solo si alguien prendió el micrófono a propósito
+// Lo de los videos se declara acá arriba: el arranque ya lo usa.
+const MUESTRA_CLAVE = 'nova:muestra';
+let videosVistos = ''; // lo último que se leyó: la muestra y su índice
+const videosBajados = new Map(); // dirección → { origen, estado: 'bajando' | 'listo' | 'falló', url, intentos }
+let videoTurno = 0;      // cada pasada de video tiene su número: lo viejo no pisa lo nuevo
+let videoGuardian = null;
 let publicarTimer = null;
 const PUBLICAR_CADA_MS = 220; // como mucho un estado al panel cada tanto
 let ultimoEstado = 0;         // cuándo salió el último
@@ -297,19 +305,9 @@ async function init() {
     if (sala) enlace.abrirSala(sala);
   });
 
-  // Los videos de la carpeta, en orden: el guion los nombra por número.
-  // Se vuelve a mirar cada tanto: un video recién subido a la carpeta aparece
-  // sin recargar la página.
-  const mirarVideos = () => fetch('videos/indice.json', { cache: 'no-cache' }).then((r) => (r.ok ? r.json() : [])).then((lista) => {
-    const nueva = Array.isArray(lista) ? lista : [];
-    if (JSON.stringify(nueva) === JSON.stringify(state.videosCarpeta)) return;
-    const antes = state.videosCarpeta.filter(Boolean).length;
-    state.videosCarpeta = nueva;
-    resolverVideos();
-    const ahora = nueva.filter(Boolean).length;
-    if (ahora !== antes) anotar(`Videos de la carpeta: ${ahora}.`);
-    publicar({ forzar: true });
-  }).catch(() => {});
+  // Los videos de la muestra elegida, en orden: el guion los nombra por
+  // número. Se vuelve a mirar cada tanto: un video recién subido a la carpeta
+  // aparece sin recargar la página.
   mirarVideos();
   setInterval(mirarVideos, 120000);
 
@@ -800,12 +798,72 @@ function ponerLetrero(texto) {
  * cada número del guion se cambia por su archivo; el que todavía no está
  * queda sin dirección, y esa línea se pasa de largo.
  */
+
+function leerMuestra() {
+  try { return localStorage.getItem('nova:muestra') || ''; } catch { return ''; }
+}
+
+/**
+ * Qué muestras hay (public/videos/muestras.json) y qué videos tiene la
+ * elegida (public/videos/<id>/indice.json). Cada muestra tiene su carpeta de
+ * Drive; una tarea del repositorio las trae al sitio.
+ */
+async function mirarVideos() {
+  try {
+    const r = await fetch('videos/muestras.json', { cache: 'no-cache' });
+    const lista = r.ok ? await r.json() : null;
+    if (Array.isArray(lista)) state.muestras = lista.filter((m) => m?.id);
+  } catch { /* sin red: queda lo que había */ }
+  if (!state.muestras.length) return;
+  // Si no se eligió ninguna (o la elegida ya no existe), vale la primera.
+  if (!state.muestras.some((m) => m.id === state.muestra)) state.muestra = state.muestras[0].id;
+  const id = state.muestra;
+  let nueva;
+  try {
+    const r = await fetch(`videos/${encodeURIComponent(id)}/indice.json`, { cache: 'no-cache' });
+    nueva = r.ok ? await r.json() : r.status === 404 ? [] : null;
+  } catch { nueva = null; }
+  if (!Array.isArray(nueva) || id !== state.muestra) return publicar();
+  const vistos = `${id}|${JSON.stringify(nueva)}`;
+  if (vistos === videosVistos) return publicar();
+  const antes = videosVistos ? state.videosCarpeta.filter(Boolean).length : -1;
+  videosVistos = vistos;
+  state.videosCarpeta = nueva;
+  resolverVideos();
+  const ahora = nueva.filter(Boolean).length;
+  if (ahora !== antes) anotar(`Videos de ${nombreDeMuestra()}: ${ahora}.`);
+  publicar({ forzar: true });
+}
+
+function nombreDeMuestra(id = state.muestra) {
+  return state.muestras.find((m) => m.id === id)?.nombre || id || 'la muestra';
+}
+
+/** Se elige qué muestra se hace: cambian los videos, que salen de su carpeta. */
+async function cambiarMuestra(id) {
+  if (!state.muestras.some((m) => m.id === id)) return anotar('Esa muestra no está en la lista.');
+  if (id === state.muestra && videosVistos) {
+    try { localStorage.setItem(MUESTRA_CLAVE, id); } catch { /* sin almacenamiento */ }
+    return publicar({ forzar: true });
+  }
+  if (state.videoEn) ocultarVideo();
+  state.muestra = id;
+  try { localStorage.setItem(MUESTRA_CLAVE, id); } catch { /* sin almacenamiento */ }
+  state.videosCarpeta = [];
+  videosVistos = '';
+  resolverVideos();
+  anotar(`Muestra: ${nombreDeMuestra()}.`);
+  toast(`Muestra: ${nombreDeMuestra()}.`);
+  publicar({ forzar: true });
+  await mirarVideos();
+}
+
 function resolverVideos() {
   for (const entrada of guion.entradas) {
     const video = entrada.video;
     if (!video || video === 'ninguno' || !video.numero) continue;
     const archivo = state.videosCarpeta[video.numero - 1];
-    video.src = archivo ? `videos/${archivo.archivo}` : '';
+    video.src = archivo ? `videos/${state.muestra}/${archivo.archivo}` : '';
     if (archivo && !video.pieDelGuion) video.pieDelGuion = video.pie || ' ';
     video.pie = (video.pieDelGuion || '').trim() || archivo?.titulo || '';
     video.origen = archivo?.origen || '';
@@ -819,7 +877,6 @@ function resolverVideos() {
  * no dependen de la red de la sala. El que todavía no terminó de bajar se
  * pide a la red en el momento, como antes.
  */
-const videosBajados = new Map(); // dirección → { origen, estado: 'bajando' | 'listo' | 'falló', url, intentos }
 
 function esDeEsteSitio(src) {
   try { return new URL(src, location.href).origin === location.origin; } catch { return false; }
@@ -835,7 +892,14 @@ function videosDelGuion() {
 }
 
 function bajarVideos() {
-  for (const [src, origen] of videosDelGuion()) {
+  const pedidos = videosDelGuion();
+  // Lo que el guion ya no usa (los videos de la otra muestra) se suelta de la memoria.
+  for (const [src, ficha] of videosBajados) {
+    if (pedidos.has(src)) continue;
+    if (ficha.url && el.sceneVideoEl.dataset.de !== ficha.url) URL.revokeObjectURL(ficha.url);
+    videosBajados.delete(src);
+  }
+  for (const [src, origen] of pedidos) {
     if (!esDeEsteSitio(src)) continue; // los de otro sitio se piden recién al pasarlos
     const antes = videosBajados.get(src);
     if (antes && antes.origen === origen && (antes.estado !== 'falló' || antes.intentos >= 4)) continue;
@@ -886,6 +950,29 @@ function estadoDeVideos() {
   return cuenta;
 }
 
+/** Los videos de la muestra, uno por uno, para el panel: cuál es, en qué línea va y si ya está listo. */
+function listaDeVideos() {
+  const usados = new Map(); // número → la primera línea del guion que lo pasa
+  for (const entrada of guion.entradas) {
+    const video = entrada.video;
+    if (video && video !== 'ninguno' && video.numero && !usados.has(video.numero)) usados.set(video.numero, entrada.indice + 1);
+  }
+  const total = Math.max(state.videosCarpeta.length, 0, ...usados.keys());
+  const lista = [];
+  for (let numero = 1; numero <= total; numero += 1) {
+    const archivo = state.videosCarpeta[numero - 1];
+    const ficha = archivo ? videosBajados.get(`videos/${state.muestra}/${archivo.archivo}`) : null;
+    lista.push({
+      numero,
+      titulo: archivo?.titulo || '',
+      segundos: Math.round(archivo?.segundos || 0),
+      linea: usados.get(numero) || 0,
+      estado: !archivo ? 'falta' : !usados.has(numero) ? 'sin uso' : ficha?.estado || 'bajando',
+    });
+  }
+  return lista;
+}
+
 /** De dónde sale un video: de la memoria si ya bajó; si no, de la red. */
 function direccionParaPasar(src) {
   const ficha = videosBajados.get(src);
@@ -903,8 +990,6 @@ function ponerEnVideo(url, { forzar = false } = {}) {
   v.src = url;
 }
 
-let videoTurno = 0;      // cada pasada de video tiene su número: lo viejo no pisa lo nuevo
-let videoGuardian = null;
 
 function marcarVideo(fase, extra = {}) {
   if (!state.videoEn && fase !== 'falló') return;
@@ -1388,6 +1473,9 @@ function publicar({ forzar = false } = {}) {
       videoEn: state.videoEn,
       videoEstado: estadoDelVideo(),
       videos: estadoDeVideos(),
+      videosLista: listaDeVideos(),
+      muestra: state.muestra,
+      muestras: state.muestras.map((m) => ({ id: m.id, nombre: m.nombre || m.id, carpeta: m.carpeta || '' })),
       version: VERSION,
       apagada: state.apagada,
       ocupada: state.busy,
@@ -1497,6 +1585,8 @@ function recibirComando(mensaje) {
     case 'guion': publicarGuion(); break;
     case 'atras': retroceder(); break;
     case 'cargar-muestra': cargarGuionPorDefecto({ forzar: true }); break;
+    case 'muestra': cambiarMuestra(String(mensaje.cual || '')); break;
+    case 'mirar-videos': videosVistos = ''; mirarVideos(); break;
     case 'recargar': ponerseAlDia({ forzar: true }); break;
     case 'poner': ponerMedio(mensaje); break;
     case 'limpiar': limpiarPantalla(); break;

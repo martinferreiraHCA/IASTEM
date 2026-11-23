@@ -40,6 +40,23 @@
       </div>
     </section>
 
+    <!-- Qué muestra se hace: de ahí salen los videos. Se elige antes de empezar. -->
+    <section class="bloque muestra" id="muestra" hidden>
+      <header class="bloque__cabeza">
+        <h2>Muestra <span class="bloque__cuenta" id="muestraCual"></span></h2>
+      </header>
+      <div class="grilla grilla--dos" id="muestraGrupos"></div>
+      <details class="desplegable" id="muestraVideos">
+        <summary id="muestraResumen">Videos de esta muestra</summary>
+        <ol class="muestra__lista" id="muestraLista"></ol>
+        <div class="fila">
+          <a class="chip" id="muestraCarpeta" target="_blank" rel="noopener">Abrir su carpeta de Drive</a>
+          <button class="chip" id="muestraMirar" type="button">Volver a mirar</button>
+        </div>
+        <p class="nota">Los videos de cada muestra salen de su carpeta de Drive, en orden alfabético: el primero es el video 1 del guion, el segundo el 2. Lo que se sube o se cambia en la carpeta llega solo al sitio en unos minutos (hasta media hora), ya convertido.</p>
+      </details>
+    </section>
+
     <!-- Lo que pasa ahora mismo en el escenario. -->
     <section class="ahora" id="ahora" data-modo="idle">
       <div class="ahora__cabeza">

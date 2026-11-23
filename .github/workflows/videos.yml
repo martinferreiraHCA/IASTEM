@@ -1,6 +1,7 @@
-# Trae sola, cada pocos minutos, lo que haya de nuevo en la carpeta de Drive
-# de la muestra: baja los videos, los pasa a mp4 y los deja publicados en el
-# sitio, en orden alfabético. Así, subir un video a la carpeta alcanza.
+# Trae sola, cada pocos minutos, lo que haya de nuevo en las carpetas de Drive
+# de las muestras (public/videos/muestras.json): baja los videos, los pasa a
+# mp4 y los deja publicados en el sitio, en orden alfabético, una carpeta por
+# muestra. Así, subir un video a la carpeta alcanza.
 #
 # También se puede correr a mano: pestaña Actions → "Videos de la carpeta" →
 # Run workflow.

@@ -1,8 +1,17 @@
-Acá van los videos de la muestra, en mp4, y el indice.json que NOVA lee.
+Acá van los videos de la muestra, en mp4, una carpeta por muestra:
 
-No se copian a mano: se traen de la carpeta de Drive de la muestra con
+    muestras.json   qué muestras hay y de qué carpeta de Drive sale cada una
+    7-1y2/          los videos de 7°1 y 7°2, con su indice.json
+    7-3y4/          los de 7°3 y 7°4, con su indice.json
+    excluir.json    archivos de las carpetas que no van en la obra
+
+No se copian a mano: se traen de las carpetas de Drive con
 
     node herramientas/videos.mjs
 
 que los toma en orden alfabético (VIDEO: 1 es el primero, VIDEO: 2 el segundo),
-los pasa a mp4 sea cual sea su formato, y los deja acá con su índice.
+los pasa a mp4 sea cual sea su formato, y los deja acá con su índice. Una
+tarea del repositorio lo corre sola cada diez minutos.
+
+Para cambiar de qué carpeta sale una muestra, o sumar otra muestra, se edita
+muestras.json: "carpeta" es lo que viene después de /folders/ en el enlace.
