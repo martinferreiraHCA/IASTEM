@@ -273,9 +273,11 @@ se edita ese archivo). **El sistema los trae solo:** una tarea del
 repositorio (`.github/workflows/videos.yml`) mira las carpetas cada diez
 minutos y, si hay algo nuevo, lo baja, lo pasa a mp4 (sea cual sea su
 formato) y lo publica en `public/videos/<muestra>/` con su índice. Subir el
-video a la carpeta alcanza; en un rato aparece, y NOVA lo toma sin recargar.
-También se puede correr a mano (`node herramientas/videos.mjs`, o *Actions →
-Videos de la carpeta → Run workflow* en GitHub). Un archivo de la carpeta que no va en
+video a la carpeta alcanza, y NOVA lo toma sin recargar. Ojo con los
+tiempos: aunque la tarea está programada cada diez minutos, GitHub la corre
+cuando puede, y en la práctica pasa cada varias horas. Para tenerlo ya, se
+corre a mano: `node herramientas/videos.mjs`, o *Actions → Videos de la
+carpeta → Run workflow* en GitHub. Un archivo de la carpeta que no va en
 la obra se anota en `public/videos/excluir.json` y queda afuera. El video toma la pantalla, al terminar se va
 solo, y si lo que sigue viene pegado, pasa solo: varios videos seguidos
 corren uno atrás del otro. Un video que todavía no está en la carpeta se
