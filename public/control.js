@@ -538,7 +538,7 @@ function pintar() {
     : guion.esperando && !guion.entradas.length
       ? `${Math.min(guion.cursor + 2, guion.total)}/${guion.total} · bajando el guion…`
     : siguiente
-      ? `${siguiente.indice + 1}/${guion.total} · ${siguiente.muda ? `Pantalla: ${recortar(siguiente.pantallaTexto || 'cambia', 80)}${siguiente.sola ? ' (va sola)' : ''}` : recortar(siguiente.parlamento, 90)}`
+      ? `${estado.videoEn ? 'HAY UN VIDEO EN PANTALLA: Adelante lo corta. Sigue ' : ''}${siguiente.indice + 1}/${guion.total} · ${siguiente.muda ? `Pantalla: ${recortar(siguiente.pantallaTexto || 'cambia', 80)}${siguiente.sola ? ' (va sola)' : ''}` : recortar(siguiente.parlamento, 90)}`
       : 'Fin del guion';
 
   // Guion.

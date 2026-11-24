@@ -189,6 +189,7 @@ const state = {
   letrero: '',           // el letrero escrito a mano que se escribe y se borra en loop
   video: null,           // {src, pie} del video de este momento
   videoEn: false,        // el video está en pantalla
+  videoDesde: 0,         // cuándo arrancó
   videoEstado: null,     // cómo va: cargando, corre, falló (para el panel)
   apagada: false,        // NOVA apagada: pantalla a negro (el final)
   escenaGuion: '',       // en qué escena del guion está la pantalla, para limpiarla al cambiar
@@ -211,6 +212,7 @@ const ANTICIPO_MS = 5000; // una frase anticipada tapa su versión final por est
 // evaluarse el archivo, y los usa.
 const MIC_CLAVE = 'nova:microfono'; // 'on' solo si alguien prendió el micrófono a propósito
 // Lo de los videos se declara acá arriba: el arranque ya lo usa.
+const VIDEO_PROTEGIDO_MS = 5000; // un video recién arrancado no se saltea con Adelante
 const MUESTRA_CLAVE = 'nova:muestra';
 let videosVistos = ''; // lo último que se leyó: la muestra y su índice
 const videosBajados = new Map(); // dirección → { origen, estado: 'bajando' | 'listo' | 'falló', url, intentos }
@@ -1096,6 +1098,7 @@ function reproducirVideo(video) {
   const direccion = direccionParaPasar(video.src);
   state.video = { src: video.src, pie: video.pie || '' };
   state.videoEn = true;
+  state.videoDesde = performance.now();
   state.videoEstado = { fase: 'cargando', desde: direccion === video.src ? 'red' : 'memoria' };
   el.sceneVideo.classList.remove('se-va');
   el.sceneVideoPie.textContent = video.pie || '';
@@ -2428,6 +2431,13 @@ function decirSiguiente() {
   const siguiente = guion.siguiente;
   if (!siguiente) return toast('El guion ya terminó. En el panel podés volver al principio.');
   if (state.busy) return anotar('Todavía está diciendo la línea anterior: Detener la corta.');
+  // Un video que recién arranca no se corta con Adelante. Los videos pegados
+  // arrancan solos, y es fácil tocar Adelante justo ahí para "darle play": ese
+  // toque se lo salteaba y pasaba al siguiente.
+  if (state.videoEn && performance.now() - (state.videoDesde || 0) < VIDEO_PROTEGIDO_MS) {
+    toast('El video ya arrancó. Para cortarlo, Adelante de nuevo en unos segundos.');
+    return anotar('Adelante no hizo nada: el video recién arranca (ya está en pantalla). Para cortarlo, tocá de nuevo en unos segundos.');
+  }
   decirDelGuion(siguiente.indice);
 }
 
